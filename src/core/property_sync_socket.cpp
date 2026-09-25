@@ -10,11 +10,20 @@ using sync_detail::canonicalUuid;
 
 namespace {
 constexpr int MaxPeers = 8;
+constexpr qsizetype BasePartBytes = 48 * 1024;
 
 QJsonObject leaveFrame(const QString &actorId)
 {
     return {{QStringLiteral("type"), QStringLiteral("presenceLeave")},
             {QStringLiteral("actor"), actorId}};
+}
+
+QJsonObject presenceFrame(const QString &actorId, const QVariantMap &presence)
+{
+    if (presence.isEmpty()) return leaveFrame(actorId);
+    return {{QStringLiteral("type"), QStringLiteral("presence")},
+            {QStringLiteral("actor"), actorId},
+            {QStringLiteral("data"), QJsonObject::fromVariantMap(presence)}};
 }
 }
 
@@ -53,15 +62,37 @@ PropertySyncSocketServer::~PropertySyncSocketServer()
 void PropertySyncSocketServer::setService(LocalPropertySyncService *service)
 {
     if (isListening()) return;
-    QObject::disconnect(m_serviceConnection);
+    for (const auto &connection : std::as_const(m_serviceConnections))
+        QObject::disconnect(connection);
+    m_serviceConnections.clear();
     m_service = service;
     if (!service) return;
-    m_serviceConnection = connect(service, &LocalPropertySyncService::changed, this, [this] {
+    // This service holds the document's shared log: it compacts (D-204).
+    service->setAuthoritative(true);
+    m_serviceConnections.append(connect(service, &LocalPropertySyncService::changed, this, [this] {
         const auto devices = m_peers.keys();
         for (auto *device : devices)
             if (m_peers.contains(device) && !m_peers[device].actorId.isEmpty())
                 sendBacklog(device);
-    });
+    }));
+    // A compaction replaces the log: every live peer gets the new base, the
+    // retained tail and a rebased marker, then continues from the tail.
+    m_serviceConnections.append(connect(service, &LocalPropertySyncService::compacted, this, [this] {
+        const auto devices = m_peers.keys();
+        for (auto *device : devices) {
+            if (!m_peers.contains(device) || m_peers[device].actorId.isEmpty()) continue;
+            m_peers[device].sentCount = 0;
+            if (!sendBase(device)) continue;
+            sendBacklog(device);
+            if (m_peers.contains(device))
+                send(device, {{QStringLiteral("type"), QStringLiteral("rebased")}});
+        }
+    }));
+    // Presence of replicas attached in this process reaches every peer.
+    m_serviceConnections.append(connect(service, &LocalPropertySyncService::presencePublished,
+        this, [this](const QString &actorId, const QVariantMap &presence) {
+            broadcastPresence(nullptr, presenceFrame(actorId, presence));
+        }));
 }
 
 void PropertySyncSocketServer::setSocketName(const QString &name)
@@ -194,7 +225,9 @@ void PropertySyncSocketServer::forgetPeer(QIODevice *device)
     const QString actor = it->actorId;
     const bool present = !it->presence.isEmpty();
     m_peers.remove(device);
-    if (!actor.isEmpty() && present) broadcastPresence(device, leaveFrame(actor));
+    if (actor.isEmpty() || !present) return;
+    broadcastPresence(device, leaveFrame(actor));
+    if (m_service) m_service->relayPresence(actor, {});
 }
 
 void PropertySyncSocketServer::closePeer(QIODevice *device, bool graceful)
@@ -254,11 +287,15 @@ void PropertySyncSocketServer::readPeer(QIODevice *device)
 }
 
 void PropertySyncSocketServer::sendError(QIODevice *device, const QString &message,
-                                         const QString &operationId)
+                                         const QString &operationId, bool permanent)
 {
+    // AGENT-CONTRACT (docs/collaboration.md "Permissions"; the bridge in
+    // property_sync_socket_client.cpp): a permanent reject means this
+    // operation will never be accepted, and the replica discards it (D-205).
     const QJsonObject body{{QStringLiteral("type"), QStringLiteral("reject")},
                            {QStringLiteral("id"), operationId},
-                           {QStringLiteral("reason"), message}};
+                           {QStringLiteral("reason"), message},
+                           {QStringLiteral("permanent"), permanent}};
     if (m_peers.contains(device) && m_peers[device].channel.isOpen()) send(device, body);
     else writeSyncFrame(device, body);
 }
@@ -297,19 +334,33 @@ void PropertySyncSocketServer::authenticate(QIODevice *device, const QJsonObject
     if (!send(device, {{QStringLiteral("type"), QStringLiteral("ready")},
                        {QStringLiteral("mayEdit"), grant->mayEdit}}))
         return;
+    if (!sendBase(device)) return;
     sendBacklog(device);
     if (!m_peers.contains(device)
         || !send(device, {{QStringLiteral("type"), QStringLiteral("replayEnd")}}))
         return;
-    for (auto it = m_peers.cbegin(); it != m_peers.cend(); ++it) {
-        if (it.key() == device || it.value().actorId.isEmpty() || it.value().presence.isEmpty())
-            continue;
-        if (!send(device, {{QStringLiteral("type"), QStringLiteral("presence")},
-                           {QStringLiteral("actor"), it.value().actorId},
-                           {QStringLiteral("data"),
-                            QJsonObject::fromVariantMap(it.value().presence)}}))
-            return;
-    }
+    QHash<QString, QVariantMap> present = m_service->attachedPresence();
+    for (auto it = m_peers.cbegin(); it != m_peers.cend(); ++it)
+        if (it.key() != device && !it.value().actorId.isEmpty() && !it.value().presence.isEmpty())
+            present.insert(it.value().actorId, it.value().presence);
+    for (auto it = present.cbegin(); it != present.cend(); ++it)
+        if (it.key() != actor && !send(device, presenceFrame(it.key(), it.value()))) return;
+}
+
+bool PropertySyncSocketServer::sendBase(QIODevice *device)
+{
+    if (!m_service || m_service->baseId().isEmpty()) return m_peers.contains(device);
+    const QByteArray &base = m_service->base();
+    const qsizetype parts = (base.size() + BasePartBytes - 1) / BasePartBytes;
+    for (qsizetype part = 0; part < parts; ++part)
+        if (!send(device, {{QStringLiteral("type"), QStringLiteral("base")},
+                           {QStringLiteral("id"), m_service->baseId()},
+                           {QStringLiteral("part"), int(part)},
+                           {QStringLiteral("parts"), int(parts)},
+                           {QStringLiteral("data"), QString::fromLatin1(
+                                base.mid(part * BasePartBytes, BasePartBytes).toBase64())}}))
+            return false;
+    return true;
 }
 
 bool PropertySyncSocketServer::send(QIODevice *device, const QJsonObject &body)
@@ -343,11 +394,10 @@ void PropertySyncSocketServer::handleFrame(QIODevice *device, const QJsonObject 
         }
         if (presence == peer.presence) return;
         peer.presence = presence;
-        broadcastPresence(device, presence.isEmpty()
-            ? leaveFrame(peer.actorId)
-            : QJsonObject{{QStringLiteral("type"), QStringLiteral("presence")},
-                          {QStringLiteral("actor"), peer.actorId},
-                          {QStringLiteral("data"), QJsonObject::fromVariantMap(presence)}});
+        const QString actor = peer.actorId;
+        broadcastPresence(device, presenceFrame(actor, presence));
+        // Replicas attached to the hub's own service see peers too.
+        m_service->relayPresence(actor, presence);
         return;
     }
     if (type != QStringLiteral("operation") || !frame.value(QStringLiteral("data")).isObject()) {
@@ -359,18 +409,20 @@ void PropertySyncSocketServer::handleFrame(QIODevice *device, const QJsonObject 
     const QString operationId = operation ? operation->operationId : QString{};
     if (!operation || operation->actorId != peer.actorId
         || operation->documentId != m_service->documentId()) {
-        sendError(device, QStringLiteral("Operation actor or document mismatch"), operationId);
+        sendError(device, QStringLiteral("Operation actor or document mismatch"), operationId,
+                  true);
         return;
     }
     // AGENT-GUARD: permission is read per operation, never cached per
     // session, so a live grant change applies to the very next edit.
     const auto grant = m_grants.constFind(peer.actorId);
     if (grant == m_grants.cend() || !grant->mayEdit) {
-        sendError(device, QStringLiteral("Actor has read-only permission"), operationId);
+        sendError(device, QStringLiteral("Actor has read-only permission"), operationId, true);
         return;
     }
     if (!m_service->submit(*operation)) {
-        sendError(device, m_service->lastError(), operationId);
+        sendError(device, m_service->lastError(), operationId,
+                  m_service->lastErrorPermanent());
         return;
     }
     if (m_peers.contains(device))

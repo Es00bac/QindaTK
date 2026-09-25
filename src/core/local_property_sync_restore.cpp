@@ -9,31 +9,76 @@
 namespace QindaTK {
 using namespace sync_detail;
 
+namespace {
+// Splits a version into Restore snapshots of at most MaxSnapshotBytes, whole
+// objects each, with text properties left at their defaults (text is
+// restored by text operations). Empty on an object that alone is too large.
+QVector<QByteArray> restoreParts(const QByteArray &snapshot, const QStringList &textProperties)
+{
+    const auto decoded = ReferenceDocumentCodec::decode(snapshot);
+    if (!decoded) return {};
+    QVector<QPair<EntityId, QVariantMap>> entities;
+    for (const auto &change : decoded->document->committedValues()) {
+        if (entities.isEmpty() || !(entities.last().first == change.target))
+            entities.append({change.target, {}});
+        if (!textProperties.contains(change.propertyId))
+            entities.last().second.insert(change.propertyId, change.after);
+    }
+    const auto capture = [&](const QVector<QPair<EntityId, QVariantMap>> &group) {
+        auto part = ReferenceDocumentCodec::decode(snapshot);
+        if (!part || !part->document->resetModel(group)) return QByteArray();
+        const auto payload = ReferenceDocumentCodec::capture(*part->document);
+        return payload ? payload->payload : QByteArray();
+    };
+    const QByteArray whole = capture(entities);
+    if (!whole.isEmpty() && whole.size() <= MaxSnapshotBytes) return {whole};
+    QVector<QByteArray> parts;
+    QVector<QPair<EntityId, QVariantMap>> group;
+    QByteArray fitted;
+    for (const auto &entity : std::as_const(entities)) {
+        group.append(entity);
+        const QByteArray bytes = capture(group);
+        if (!bytes.isEmpty() && bytes.size() <= MaxSnapshotBytes) { fitted = bytes; continue; }
+        if (group.size() == 1) return {};
+        parts.append(fitted);
+        group = {entity};
+        fitted = capture(group);
+        if (fitted.isEmpty() || fitted.size() > MaxSnapshotBytes) return {};
+    }
+    if (!fitted.isEmpty()) parts.append(fitted);
+    return parts;
+}
+}
+
 bool LocalPropertySyncClient::restoreVersion(const QByteArray &snapshot)
 {
     if (!readyToEdit()) return false;
-    if (snapshot.size() > MaxSnapshotBytes)
+    if (snapshot.size() > MaxStateBytes)
         return fail(QStringLiteral("Restore client or snapshot is invalid"));
     const auto decoded = ReferenceDocumentCodec::decode(snapshot);
     if (!decoded || decoded->document->documentIdString() != m_document->documentIdString())
         return fail(QStringLiteral("Restore snapshot has wrong identity or format"));
     const QString documentId = m_document->documentIdString();
-    // AGENT-NOTE: one Restore operation carries every non-text value (and
-    // revives entities the version contains). Entities created after the
-    // version and text properties follow as ordinary Delete/Text operations
-    // from the same actor, so each keeps its own merge rule (D-166, D-167).
+    // AGENT-NOTE: Restore operations carry every non-text value (and revive
+    // entities the version contains), split by object when the version is
+    // larger than one packet. Entities created after the version and text
+    // properties follow as ordinary Delete/Text operations from the same
+    // actor, so each keeps its own merge rule (D-166, D-167).
     QSet<QString> versionEntities;
     QHash<QString, QString> versionText;
     for (const auto &change : decoded->document->committedValues()) {
         const QString entity = change.target.toString();
         versionEntities.insert(entity);
-        if (!isTextProperty(change.propertyId)) continue;
-        if (change.after.toString().size() > MaxTextInsert)
-            return fail(QStringLiteral("Version text is too long to restore in one step"));
-        versionText.insert(keyOf(entity, change.propertyId), change.after.toString());
+        if (isTextProperty(change.propertyId))
+            versionText.insert(keyOf(entity, change.propertyId), change.after.toString());
     }
-    if (!submitLocal(makeOperation(Kind::Restore, documentId, restoreProperty(), snapshot)))
-        return false;
+    const QVector<QByteArray> parts = restoreParts(snapshot, m_textProperties);
+    if (parts.isEmpty())
+        return fail(QStringLiteral("A single object in this version is too large to restore"));
+    if (!readyToEdit(int(parts.size()))) return false;
+    for (const QByteArray &part : parts)
+        if (!submitLocal(makeOperation(Kind::Restore, documentId, restoreProperty(), part)))
+            return false;
     QStringList extra;
     for (const auto &change : m_document->committedValues()) {
         const QString entity = change.target.toString();
@@ -50,11 +95,25 @@ bool LocalPropertySyncClient::restoreVersion(const QByteArray &snapshot)
         if (!m_document->contains(EntityId::parse(entity))) continue;
         TextSequence *text = sequence(entity, property);
         if (!text) return false;
-        if (visibleText(*text) == versionText.value(key)) continue;
+        const QString current = visibleText(*text);
+        const QString wanted = versionText.value(key);
+        if (current == wanted) continue;
+        // Only the differing middle is replaced: unchanged text keeps its
+        // element IDs (anchors, concurrent edits) and adds no tombstones.
+        qsizetype prefix = 0;
+        while (prefix < current.size() && prefix < wanted.size()
+               && current.at(prefix) == wanted.at(prefix))
+            ++prefix;
+        qsizetype suffix = 0;
+        while (suffix < current.size() - prefix && suffix < wanted.size() - prefix
+               && current.at(current.size() - 1 - suffix) == wanted.at(wanted.size() - 1 - suffix))
+            ++suffix;
         QStringList visible;
         for (const auto &element : text->elements)
             if (!element.deleted) visible.append(element.id);
-        if (!textEdit(entity, property, visible, versionText.value(key), {}, false))
+        const QString anchor = prefix > 0 ? visible.at(prefix - 1) : QString();
+        if (!textEdit(entity, property, visible.mid(prefix, current.size() - prefix - suffix),
+                      wanted.mid(prefix, wanted.size() - prefix - suffix), anchor, false))
             return false;
     }
     return true;
@@ -120,8 +179,7 @@ QString LocalPropertySyncClient::shareCheckpoint(const QString &name, const QByt
         {trimmed, QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)});
     const auto operation = makeOperation(Kind::Checkpoint, m_document->documentIdString(),
                                          checkpointProperty(), snapshot, meta);
-    submitLocal(operation);
-    return m_seen.contains(operation.operationId) ? operation.operationId : QString();
+    return submitLocal(operation) ? operation.operationId : QString();
 }
 
 } // namespace QindaTK

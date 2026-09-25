@@ -68,6 +68,11 @@ QString LocalPropertySyncClient::visibleText(const TextSequence &sequence) const
 bool LocalPropertySyncClient::integrateInsert(TextSequence &sequence,
                                               const PropertySyncOperation &operation)
 {
+    // Redelivery after compaction (the log no longer names every operation
+    // a replica has seen) must not insert the same elements twice.
+    if (indexOf(sequence, elementId(operation.operationId, 0)) >= 0) return true;
+    for (const auto &waiting : std::as_const(sequence.waiting))
+        if (waiting.operationId == operation.operationId) return true;
     int position = -1;
     if (!operation.meta.isEmpty()) {
         position = indexOf(sequence, operation.meta);
@@ -172,7 +177,7 @@ bool LocalPropertySyncClient::replaceText(const QString &entityId, const QString
     for (int i = 0; i < current->elements.size(); ++i)
         if (!current->elements.at(i).deleted) visible.append(i);
     if (start < 0 || removeCount < 0 || start > visible.size()
-        || removeCount > visible.size() - start || text.size() > MaxTextInsert)
+        || removeCount > visible.size() - start || text.size() > MaxTextElements)
         return fail(QStringLiteral("Text range is invalid"));
     if (removeCount == 0 && text.isEmpty()) return true;
     QStringList ids;
@@ -206,27 +211,80 @@ bool LocalPropertySyncClient::textEdit(const QString &entityId, const QString &p
             ranges.append({parsed->first, parsed->second, 1});
     }
     if (ranges.size() > MaxTextRanges) return fail(QStringLiteral("Text delete is too fragmented"));
+    // AGENT-GUARD: everything that could refuse a later part is checked
+    // before the first part applies (tombstones stay, so a delete never makes
+    // room for the insert). A replica must not show a delete it never sends.
+    const int inserts = (int(insertText.size()) + MaxTextInsert - 1) / MaxTextInsert;
+    const int parts = (ranges.isEmpty() ? 0 : 1) + inserts;
+    if (parts == 0) return true;
+    if (current->elements.size() + insertText.size() > MaxTextElements)
+        return fail(QStringLiteral("Synchronized text is too long"));
+    if (!readyToEdit(parts)) return false;
+    if (m_seen.size() + parts > MaxOperations * 2)
+        return fail(QStringLiteral("Client operation limit reached"));
     QVector<PropertySyncOperation> operations;
     if (!ranges.isEmpty())
         operations.append(makeOperation(Kind::TextDelete, entityId, propertyId,
                                         encodeTextRanges(ranges)));
+    // Long text (a restored version) goes out as chained inserts, each at
+    // most MaxTextInsert units and anchored on the previous chunk's end.
     QStringList inserted;
-    if (!insertText.isEmpty()) {
-        operations.append(makeOperation(Kind::TextInsert, entityId, propertyId,
-                                        insertText, anchor));
-        for (int k = 0; k < insertText.size(); ++k)
+    QString chunkAnchor = anchor;
+    for (int offset = 0; offset < insertText.size(); offset += MaxTextInsert) {
+        const QString chunk = insertText.mid(offset, MaxTextInsert);
+        operations.append(makeOperation(Kind::TextInsert, entityId, propertyId, chunk,
+                                        chunkAnchor));
+        for (int k = 0; k < chunk.size(); ++k)
             inserted.append(elementId(operations.last().operationId, k));
+        chunkAnchor = inserted.last();
     }
-    if (operations.isEmpty()) return true;
-    // Receive every part before queueing, so a failure queues nothing.
-    for (const auto &operation : operations)
-        if (!receive(operation)) return false;
+    QVector<PropertySyncOperation> applied;
+    for (const auto &operation : std::as_const(operations)) {
+        if (!receive(operation)) break;
+        applied.append(operation);
+    }
+    if (applied.isEmpty()) return false;
+    const QString error = m_lastError;
+    // Whatever applied is queued, so every replica converges on it.
+    if (!queue(applied)) return false;
+    if (applied.size() != operations.size()) return fail(error);
     if (recordHistory)
-        record(HistoryEntry{Kind::TextInsert, operations.last().operationId, entityId,
-                            propertyId, {}, inserted, deleteIds, removedText});
-    m_pending.append(operations);
-    emit changed();
-    return !m_connected || flush();
+        record(HistoryEntry{Kind::TextInsert, operations.last().operationId,
+                            operations.last().logicalTime, entityId, propertyId, {}, inserted,
+                            deleteIds, removedText});
+    return true;
+}
+
+QString LocalPropertySyncClient::textAnchor(const QString &entityId, const QString &propertyId,
+                                            int position)
+{
+    if (!m_document || !canonicalUuid(entityId) || !isTextProperty(propertyId)) return {};
+    const TextSequence *text = sequence(entityId, propertyId);
+    if (!text || position <= 0) return {};
+    QString last;
+    int visible = 0;
+    for (const auto &element : text->elements) {
+        if (element.deleted) continue;
+        last = element.id;
+        if (++visible == position) return last;
+    }
+    return last;   // past the end: after the last character
+}
+
+int LocalPropertySyncClient::textPosition(const QString &entityId, const QString &propertyId,
+                                          const QString &anchor)
+{
+    if (!m_document || !canonicalUuid(entityId) || !isTextProperty(propertyId)) return -1;
+    if (anchor.isEmpty()) return 0;
+    const TextSequence *text = sequence(entityId, propertyId);
+    if (!text) return -1;
+    int visible = 0;
+    for (const auto &element : text->elements) {
+        if (!element.deleted) ++visible;
+        // A deleted anchor collapses to the gap its element left.
+        if (element.id == anchor) return visible;
+    }
+    return -1;
 }
 
 } // namespace QindaTK
