@@ -158,7 +158,14 @@ JSON object: `format`, `version`, `documentId`, `revision`,
 and `extensions`. `DocumentManager.createDocument("qindatk.notebook.v1")`,
 `openDocument`, save, autosave, `restoreRecovered` and close work unchanged.
 `toJson`/`loadJson`/`saveToFile`/`loadFromFile` serve standalone use;
-`loadJson` replaces the content as one undoable step.
+`loadJson` replaces the content as one undoable step, and `resetFromJson`
+replaces it outside history (a template: no undo steps, a new reset
+generation, same document ID, unsaved in a session).
+
+`examples/notebook-authoring` is the live reference: a session-owned notebook
+from a field template with both views bound, clipboard, script runtime and
+resolver attached, and undo, redo, save, dirty state and backlinks in its
+app bar.
 
 <a id="views"></a>
 ## Views

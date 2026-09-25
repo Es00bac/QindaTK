@@ -174,6 +174,10 @@ public:
     Q_INVOKABLE QString toJson() const;
     // Replaces the content as one undoable step (the document ID is kept).
     Q_INVOKABLE bool loadJson(const QString &json);
+    // Replaces the content outside history, as a template or fixture load:
+    // recorded steps are dropped, the reset generation advances and the
+    // document ID is kept. A session sees an unsaved document.
+    Q_INVOKABLE bool resetFromJson(const QString &json);
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);
 

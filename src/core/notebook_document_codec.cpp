@@ -162,6 +162,29 @@ bool NotebookDocument::loadJson(const QString &json)
     return true;
 }
 
+bool NotebookDocument::resetFromJson(const QString &json)
+{
+    State incoming;
+    QSet<QString> collapsed;
+    QString problem;
+    if (!decodeNative(json.toUtf8(), &incoming, nullptr, nullptr, &collapsed, &problem)) return fail(problem);
+    m_state = std::move(incoming);
+    m_collapsed = collapsed;
+    ++m_resetGeneration;
+    ++m_revision;
+    m_stamp = m_nextStamp++;
+    m_indexValid = false;
+    // AGENT-GUARD: the recorded steps name the old state's stamps and reset
+    // generation; dropping them keeps undo from reaching across the reset.
+    invalidateHistory();
+    invalidateCleanState();
+    clearError();
+    emit committedChanged();
+    emit changed();
+    emit historyChanged();
+    return true;
+}
+
 bool NotebookDocument::saveToFile(const QString &path)
 {
     QSaveFile file(path);

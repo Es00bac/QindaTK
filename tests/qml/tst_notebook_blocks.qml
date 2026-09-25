@@ -192,4 +192,41 @@ TestCase {
         verify(doc.undo())
         compare(doc.pages.length, 3)
     }
+
+    // The live example (examples/notebook-authoring) stands in for a demo
+    // app: it must run on the persistent model with real undo, search and save.
+    function test_example_runs_on_the_persistent_notebook() {
+        const component = Qt.createComponent(Qt.resolvedUrl("../../examples/notebook-authoring/Main.qml"))
+        compare(component.status, Component.Ready, component.errorString())
+        const example = createTemporaryObject(component, this)
+        verify(example !== null)
+        const doc = example.notebook
+        verify(doc !== null)
+        compare(doc.pages.length, 6)
+        compare(doc.sections.length, 3)
+        verify(!doc.canUndo)
+        compare(example.currentPageId, "page-lab-log")
+        compare(doc.chartSeries("lab-chart").valid, true)
+        compare(doc.block("lab-todo").parentId, "lab-detail")
+        compare(example.backlinkCount, 1)
+        const editor = findChild(example, "notebookBlockEditor")
+        tryVerify(function() { return editor.presentedIds.length === 8 })
+
+        const view = findChild(example, "fieldNotebook")
+        view.query = "salinity"
+        view.submitSearch()
+        compare(view.searchState, "complete")
+        compare(view.visiblePages.length, 2)
+        view.query = ""
+
+        verify(doc.setBlockText("lab-intro", "Changed in the test"))
+        verify(doc.canUndo)
+        findChild(example, "notebookUndo").clicked()
+        compare(doc.block("lab-intro").data.text.indexOf("The upper bank"), 0)
+
+        verify(example.session.dirty)
+        findChild(example, "notebookSave").clicked()
+        tryVerify(function() { return !example.session.dirty && !example.session.saving }, 10000)
+        compare(example.session.uri.length > 0, true)
+    }
 }

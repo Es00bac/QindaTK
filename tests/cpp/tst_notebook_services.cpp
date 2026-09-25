@@ -200,6 +200,29 @@ private slots:
         QCOMPARE(again.block("future-1"), target.block("future-1"));
     }
 
+    void templateResetDropsHistoryAndKeepsIdentity()
+    {
+        NotebookDocument source;
+        const QString page = source.addPage(source.addSection("S"), {}, "Template");
+        const QString a = source.insertBlock(page, {}, "text", {{"text", "From the template"}});
+        NotebookDocument doc;
+        const QString documentId = doc.documentId();
+        doc.addSection("Scratch");
+        QVERIFY(doc.canUndo());
+        const QString generation = QString::number(doc.modelHeader().resetGeneration);
+        QVERIFY(doc.resetFromJson(source.toJson()));
+        QVERIFY(!doc.canUndo());
+        QVERIFY(!doc.canRedo());
+        QCOMPARE(doc.documentId(), documentId);
+        QVERIFY(QString::number(doc.modelHeader().resetGeneration) != generation);
+        QCOMPARE(textOf(doc, a), QStringLiteral("From the template"));
+        QVERIFY(doc.setBlockText(a, "Edited"));
+        QVERIFY(doc.undo());
+        QCOMPARE(textOf(doc, a), QStringLiteral("From the template"));
+        QVERIFY(!doc.resetFromJson("{}"));
+        QCOMPARE(textOf(doc, a), QStringLiteral("From the template"));
+    }
+
     void missingAssetsArePreservedAndReported()
     {
         QTemporaryDir dir;
