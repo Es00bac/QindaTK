@@ -138,6 +138,9 @@ qt_add_qml_module(qindatk
         core/audio_source_edit.cpp core/audio_source_edit.h
         core/audio_source_edit_model.cpp core/audio_source_edit_model.h
         core/audio_analysis_source.cpp core/audio_spectrogram_source.cpp core/audio_analysis_source.h
+        core/audio_pitch.cpp core/audio_pitch_correct.cpp core/audio_pitch.h core/audio_pitch_p.h
+        core/audio_pitch_edit.cpp core/audio_pitch_edit.h
+        core/audio_pitch_source.cpp core/audio_pitch_source_edit.cpp core/audio_pitch_source.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h

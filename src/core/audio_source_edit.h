@@ -3,6 +3,7 @@
 
 #include "application_contracts.h"
 #include "audio_media.h"
+#include "audio_pitch.h"
 
 #include <QString>
 #include <QVariantList>
@@ -16,8 +17,10 @@ namespace QindaTK {
 // before this edit*, at the source's own rate. `channel` −1 is every
 // channel. Gain, fades, silence and spectral gain replace samples in place;
 // delete and crop change the length and always apply to every channel.
+// Pitch (D-197) replaces samples in place too; its parameters live in `pitch`
+// and audio_pitch_edit.cpp handles them.
 struct AudioSourceEdit {
-    enum class Kind { Gain, FadeIn, FadeOut, Silence, Delete, Crop, SpectralGain };
+    enum class Kind { Gain, FadeIn, FadeOut, Silence, Delete, Crop, SpectralGain, Pitch };
     Kind kind = Kind::Gain;
     int channel = -1;
     qint64 start = 0;
@@ -27,6 +30,7 @@ struct AudioSourceEdit {
     double lowHz = 0.0;                  // SpectralGain band, inclusive
     double highHz = 0.0;
     int fftSize = 2048;                  // SpectralGain analysis size; hop fftSize / 4
+    AudioPitch::Correction pitch;        // Pitch: target, amount, formant, retiming (start/end unused)
 
     // Prepared result for in-place kinds: planar replacement samples for the
     // affected channels over [patchStart, patchStart + patch->frames).
@@ -39,7 +43,8 @@ struct AudioSourceEdit {
     QString label() const;
     QVariantMap toMap() const;
     // Accepts {operation, channel, startSample, endSample, gainDb, shape,
-    // lowHz, highHz, fftSize}; sample positions are decimal strings or numbers.
+    // lowHz, highHz, fftSize} and the pitch keys (AudioPitchEditing::readMap);
+    // sample positions are decimal strings or numbers.
     static std::optional<AudioSourceEdit> fromMap(const QVariantMap &map, QString *error);
 };
 

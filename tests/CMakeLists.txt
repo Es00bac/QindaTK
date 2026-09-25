@@ -152,6 +152,9 @@ qindatk_add_test(tst_audio_mixer_dsp)
 qindatk_add_test(tst_audio_mixer_engine)
 qindatk_add_test(tst_audio_dsp)
 qindatk_add_test(tst_audio_source_edit)
+# WP-068 pitch: YIN/TD-PSOLA on known signals; session analysis, edits, previews, render.
+qindatk_add_test(tst_audio_pitch)
+qindatk_add_test(tst_audio_pitch_session)
 # WP-064 MIDI: model/interchange, graph scheduling, live engine (silent built-in devices).
 qindatk_add_test(tst_midi_model)
 qindatk_add_test(tst_midi_schedule)

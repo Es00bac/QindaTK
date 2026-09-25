@@ -71,6 +71,7 @@ least-recently-used tile cache and computes missing tiles on the thread pool.
 | `delete` | every channel | removes the range; later samples move earlier |
 | `crop` | every channel | keeps only the range |
 | `spectralGain` | `lowHz`, `highHz`, `gainDb` (default −150: removal), `fftSize` (default 2048) | see below |
+| `pitch` | `targetPitchCents`, `correctionAmount`, `formantRatio`, `anchorSample`/`targetSample`, analysis settings | TD-PSOLA in place ([audio-pitch.md](audio-pitch.md)) |
 
 `apply(resourceId, edit)` validates, computes and records one undo step
 synchronously; `undo()`/`redo()` step through the model's own history
@@ -154,6 +155,7 @@ a reader never takes the previous result for the answer.
 ## Not covered here
 
 Performance measurement of large files, other platforms and screen-reader
-runs are WP-088…WP-094. Time stretch, pitch shift, spectral paint/lasso
-masks and repair tools beyond band gain are not part of the reference
-engine.
+runs are WP-088…WP-094. Pitch, formant and note-timing correction is the
+`pitch` operation ([audio-pitch.md](audio-pitch.md), WP-068). Whole-source
+time stretch, spectral paint/lasso masks and repair tools beyond band gain
+are not part of the reference engine.

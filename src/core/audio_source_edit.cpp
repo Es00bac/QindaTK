@@ -2,6 +2,7 @@
 #include "audio_source_edit.h"
 
 #include "audio_dsp.h"
+#include "audio_pitch_edit.h"
 
 #include <QCoreApplication>
 #include <algorithm>
@@ -24,7 +25,7 @@ constexpr KindName kKinds[] = {
     {AudioSourceEdit::Kind::Gain, "gain"},       {AudioSourceEdit::Kind::FadeIn, "fadeIn"},
     {AudioSourceEdit::Kind::FadeOut, "fadeOut"}, {AudioSourceEdit::Kind::Silence, "silence"},
     {AudioSourceEdit::Kind::Delete, "delete"},   {AudioSourceEdit::Kind::Crop, "crop"},
-    {AudioSourceEdit::Kind::SpectralGain, "spectralGain"},
+    {AudioSourceEdit::Kind::SpectralGain, "spectralGain"}, {AudioSourceEdit::Kind::Pitch, "pitch"},
 };
 constexpr double kMaxGainDb = 48.0;
 
@@ -78,6 +79,7 @@ QString AudioSourceEdit::label() const
         return gainDb <= AudioDsp::kSilenceDb ? tr("Remove %1–%2 Hz").arg(qRound(lowHz)).arg(qRound(highHz))
                                               : tr("Spectral gain %1 dB, %2–%3 Hz")
                                                     .arg(gainDb, 0, 'f', 1).arg(qRound(lowHz)).arg(qRound(highHz));
+    case Kind::Pitch: return AudioPitchEditing::label(*this);
     }
     return {};
 }
@@ -95,6 +97,7 @@ QVariantMap AudioSourceEdit::toMap() const
         map.insert(QStringLiteral("highHz"), highHz);
         map.insert(QStringLiteral("fftSize"), fftSize);
     }
+    if (kind == Kind::Pitch) AudioPitchEditing::writeMap(*this, map);
     return map;
 }
 
@@ -129,6 +132,7 @@ std::optional<AudioSourceEdit> AudioSourceEdit::fromMap(const QVariantMap &map, 
     edit.lowHz = map.value(QStringLiteral("lowHz")).toDouble();
     edit.highHz = map.value(QStringLiteral("highHz")).toDouble();
     edit.fftSize = map.value(QStringLiteral("fftSize"), 2048).toInt();
+    if (edit.kind == Kind::Pitch && !AudioPitchEditing::readMap(map, edit, error)) return std::nullopt;
     return edit;
 }
 
@@ -150,6 +154,7 @@ QVariantList AudioSourceEditing::capabilities(const AudioBuffer &buffer)
         if (entry.kind == AudioSourceEdit::Kind::SpectralGain)
             parameters << QStringLiteral("gainDb") << QStringLiteral("lowHz") << QStringLiteral("highHz")
                        << QStringLiteral("fftSize");
+        if (entry.kind == AudioSourceEdit::Kind::Pitch) parameters << AudioPitchEditing::parameters();
         list.push_back(QVariantMap{{QStringLiteral("operation"), QString::fromLatin1(entry.name)},
                                    {QStringLiteral("perChannel"), !length && buffer.channels > 1},
                                    {QStringLiteral("changesLength"), length},
@@ -168,6 +173,7 @@ QString AudioSourceEditing::validate(const AudioBuffer &buffer, const AudioSourc
     if (edit.kind == AudioSourceEdit::Kind::Delete && edit.end - edit.start >= buffer.frames)
         return tr("Deleting every sample would leave an empty source");
     if (!std::isfinite(edit.gainDb) || edit.gainDb > kMaxGainDb) return tr("The gain must be at most +48 dB");
+    if (edit.kind == AudioSourceEdit::Kind::Pitch) return AudioPitchEditing::validate(buffer, edit);
     if ((edit.kind == AudioSourceEdit::Kind::FadeIn || edit.kind == AudioSourceEdit::Kind::FadeOut)
         && edit.shape != QLatin1String("linear") && edit.shape != QLatin1String("equalPower"))
         return tr("A fade shape is \"linear\" or \"equalPower\"");
@@ -191,6 +197,7 @@ bool AudioSourceEditing::prepare(const AudioBuffer &buffer, AudioSourceEdit &edi
         return false;
     }
     if (!inPlace(edit.kind)) return true;
+    if (edit.kind == AudioSourceEdit::Kind::Pitch) return AudioPitchEditing::prepare(buffer, edit, cancel, error);
     const int first = edit.channel < 0 ? 0 : edit.channel;
     const int count = edit.channel < 0 ? buffer.channels : 1;
     auto patch = std::make_shared<AudioBuffer>();
