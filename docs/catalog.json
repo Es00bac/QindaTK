@@ -36581,6 +36581,14 @@
           "required": false
         },
         {
+          "name": "sampleRate",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "keyboardTakeIndex",
           "type": "int",
           "default": "0",
@@ -36753,6 +36761,10 @@
           "parameters": "delta"
         },
         {
+          "name": "offsetText",
+          "parameters": "sample"
+        },
+        {
           "name": "fractionForSample",
           "parameters": "sample"
         },
@@ -36779,7 +36791,9 @@
         "proposalAccept",
         "proposalReject",
         "takeCompView",
+        "takeLabel_",
         "takeLane_",
+        "takeOffset_",
         "takeSwipeSurface_"
       ]
     },
@@ -45715,6 +45729,16 @@
           "name": "importMidi",
           "returns": "QVariantMap",
           "parameters": "const QString &file"
+        },
+        {
+          "name": "placeTake",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &take"
+        },
+        {
+          "name": "generateTestTake",
+          "returns": "QString",
+          "parameters": "const QString &file, const QVariantMap &options"
         },
         {
           "name": "compForClip",
@@ -58029,6 +58053,10 @@
         {
           "name": "presenceLeft",
           "parameters": "const QString &actorId"
+        },
+        {
+          "name": "rebuilt",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -58061,6 +58089,16 @@
           "name": "replaceText",
           "returns": "bool",
           "parameters": "const QString &entityId, const QString &propertyId, int start, int removeCount, const QString &text"
+        },
+        {
+          "name": "textAnchor",
+          "returns": "QString",
+          "parameters": "const QString &entityId, const QString &propertyId, int position"
+        },
+        {
+          "name": "textPosition",
+          "returns": "int",
+          "parameters": "const QString &entityId, const QString &propertyId, const QString &anchor"
         },
         {
           "name": "undo",
@@ -58097,7 +58135,7 @@
       "name": "LocalPropertySyncService",
       "kind": "cpp",
       "base": "QObject",
-      "description": "GUI-thread, process-local transport with an optional QSaveFile operation store. Clients hold distinct PropertyDocument instances with the same base snapshot. The service never owns or mutates their documents.",
+      "description": "GUI-thread, process-local transport with an optional QSaveFile operation store. Clients hold distinct PropertyDocument instances with the same base snapshot. The service never owns or mutates their documents.  An authoritative service holds the document's shared log (the hub; the socket server marks its service). It compacts: once compactAt operations are retained, an attached in-sync replica folds them into a state snapshot (the base) and the log keeps only newer operations and the shared checkpoint window. A non-authoritative service is a replica's durable queue: operations its own clients submit stay in the outbox until the upstream hub acknowledges them, and it adopts the hub's base instead of compacting. See docs/collaboration.md \"Compaction\" and D-204.",
       "singleton": false,
       "attached": null,
       "file": "src/core/local_property_sync.h",
@@ -58117,6 +58155,20 @@
           "constant": false
         },
         {
+          "name": "authoritative",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "compactAt",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "lastError",
           "type": "QString",
           "default": "",
@@ -58129,17 +58181,44 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "outboxCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "baseId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
         {
           "name": "changed",
           "parameters": ""
+        },
+        {
+          "name": "compacted",
+          "parameters": ""
+        },
+        {
+          "name": "presencePublished",
+          "parameters": "const QString &actorId, const QVariantMap &presence"
         }
       ],
       "methods": [
         {
           "name": "open",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "compact",
           "returns": "bool",
           "parameters": ""
         }
@@ -63282,7 +63361,7 @@
       "name": "PropertyVersionHistory",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Checkpoint list for one synchronized PropertyDocument. Local mode keeps immutable QSaveFile snapshots owned by this replica. Shared mode sends each checkpoint as a Checkpoint operation, so every replica lists the same versions in the same order from its operation log (D-169). Restore emits a new collaboration operation and first saves the current state.",
+      "description": "Checkpoint list for one synchronized PropertyDocument. Both modes keep the newest 64 versions: a new checkpoint (including restore's safety version) evicts the oldest instead of failing. Local mode keeps immutable QSaveFile snapshots owned by this replica. Shared mode sends each checkpoint as a Checkpoint operation, so every replica lists the same versions in the same order from its operation log (D-169). Restore emits a new collaboration operation and first saves the current state.",
       "singleton": false,
       "attached": null,
       "file": "src/core/property_version_history.h",
@@ -63364,6 +63443,11 @@
         },
         {
           "name": "restore",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "remove",
           "returns": "bool",
           "parameters": "const QString &id"
         }
