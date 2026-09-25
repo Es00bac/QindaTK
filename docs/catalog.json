@@ -744,6 +744,22 @@
           "required": false
         },
         {
+          "name": "selectedReferences",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "relinkCandidates",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedDependents",
           "type": "var",
           "default": "{",
@@ -780,6 +796,10 @@
         {
           "name": "rebuildRequested",
           "parameters": "string assetId"
+        },
+        {
+          "name": "relinkChosen",
+          "parameters": "string assetId, string replacementId, var plan"
         }
       ],
       "methods": [],
@@ -795,6 +815,9 @@
         "assetDependencyRow_",
         "assetDependencyView",
         "dependencyAssetList",
+        "dependencyCancelScan",
+        "dependencyCandidate_",
+        "dependencyCounts",
         "dependencyDetailScroll",
         "dependencyDiagnostic",
         "dependencyImpact",
@@ -37314,6 +37337,30 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "selectedAncestors",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedChildren",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "totalMicros",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -37337,10 +37384,15 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "traceCancel",
+        "traceCounts",
+        "traceError",
         "traceExport",
         "traceInspector",
+        "traceInspectorDetail",
         "tracePan",
         "traceRecord_",
+        "traceRuler",
         "traceSearch",
         "traceThreadFilter",
         "traceTimeline",
@@ -39526,7 +39578,7 @@
       "name": "VersionBrowser",
       "kind": "qml",
       "base": "Item",
-      "description": "Local immutable checkpoints. Restore saves a safety checkpoint and submits a new collaboration operation through PropertyVersionHistory.",
+      "description": "Immutable checkpoints, local to this replica or shared with every replica (PropertyVersionHistory.shared). Restore saves a safety checkpoint and submits a new collaboration operation through PropertyVersionHistory.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/VersionBrowser.qml",
@@ -41086,7 +41138,7 @@
       "name": "AssetDependencyIndex",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Stable-ID asset graph. Sources own their outgoing edges; a rescan replaces only that source's edges. Analysis tokens stop older workers overwriting a newer result. The host owns rebuilds and URI relinks.",
+      "description": "Stable-ID asset graph. Sources own their outgoing edges; a rescan replaces only that source's edges. Analysis tokens stop older workers overwriting a newer result. The host owns rebuilds and URI relinks.  AGENT-CONTRACT (WP-087): an edge records where it was written (`kind`, `line`, `reference`). relinkPlan() turns that into the text edits a host applies; the index never rewrites source files. Both sides: asset_dependency_scan.cpp (plan) and the host's document transaction.",
       "singleton": false,
       "attached": null,
       "file": "src/core/asset_dependency_index.h",
@@ -41132,6 +41184,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "scanning",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -41142,6 +41201,14 @@
         {
           "name": "scanRejected",
           "parameters": "const QString &sourceId, const QString &reason"
+        },
+        {
+          "name": "projectScanFinished",
+          "parameters": "const QString &requestId, int sourceCount, int skippedCount"
+        },
+        {
+          "name": "projectScanDiscarded",
+          "parameters": "const QString &requestId"
         }
       ],
       "methods": [
@@ -41166,9 +41233,24 @@
           "parameters": "const QString &sourceId, const QString &token, const QStringList &dependencies"
         },
         {
+          "name": "commitScanEdges",
+          "returns": "bool",
+          "parameters": "const QString &sourceId, const QString &token, const QVariantList &edges"
+        },
+        {
           "name": "scanQmlFile",
           "returns": "bool",
           "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "scanProjectAsync",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "cancelProjectScan",
+          "returns": "void",
+          "parameters": ""
         },
         {
           "name": "asset",
@@ -41181,6 +41263,11 @@
           "parameters": "const QString &id"
         },
         {
+          "name": "references",
+          "returns": "QVariantList",
+          "parameters": "const QString &id"
+        },
+        {
           "name": "dependents",
           "returns": "QStringList",
           "parameters": "const QString &id"
@@ -41189,6 +41276,16 @@
           "name": "affectedBy",
           "returns": "QStringList",
           "parameters": "const QString &id"
+        },
+        {
+          "name": "relinkCandidates",
+          "returns": "QStringList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "relinkPlan",
+          "returns": "QVariantList",
+          "parameters": "const QString &missingId, const QString &replacementId"
         }
       ],
       "enums": {},
@@ -54575,6 +54672,20 @@
           "constant": false
         },
         {
+          "name": "textProperties",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "connected",
           "type": "bool",
           "default": "",
@@ -54584,6 +54695,20 @@
         {
           "name": "pendingCount",
           "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
           "default": "",
           "readonly": true,
           "constant": false
@@ -54604,6 +54729,14 @@
         {
           "name": "operationLost",
           "parameters": "const QString &operationId, const QString &winningOperationId"
+        },
+        {
+          "name": "undoConflict",
+          "parameters": "const QString &operationId, const QString &reason"
+        },
+        {
+          "name": "checkpointShared",
+          "parameters": "const QString &operationId"
         },
         {
           "name": "ownPresenceChanged",
@@ -54633,6 +54766,31 @@
           "name": "setValue",
           "returns": "bool",
           "parameters": "const QString &entityId, const QString &propertyId, const QVariant &value"
+        },
+        {
+          "name": "createEntity",
+          "returns": "QString",
+          "parameters": "const QVariantMap &values = {}"
+        },
+        {
+          "name": "deleteEntity",
+          "returns": "bool",
+          "parameters": "const QString &entityId"
+        },
+        {
+          "name": "replaceText",
+          "returns": "bool",
+          "parameters": "const QString &entityId, const QString &propertyId, int start, int removeCount, const QString &text"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
         },
         {
           "name": "restoreVersion",
@@ -59276,7 +59434,7 @@
       "name": "PropertyVersionHistory",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Bounded local checkpoint store for one synchronized PropertyDocument. Checkpoints are immutable QSaveFile snapshots; restore emits one new typed collaboration operation and first saves the current state as a checkpoint.",
+      "description": "Checkpoint list for one synchronized PropertyDocument. Local mode keeps immutable QSaveFile snapshots owned by this replica. Shared mode sends each checkpoint as a Checkpoint operation, so every replica lists the same versions in the same order from its operation log (D-169). Restore emits a new collaboration operation and first saves the current state.",
       "singleton": false,
       "attached": null,
       "file": "src/core/property_version_history.h",
@@ -59291,6 +59449,13 @@
         {
           "name": "storagePath",
           "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "shared",
+          "type": "bool",
           "default": "",
           "readonly": false,
           "constant": false
@@ -68726,7 +68891,7 @@
       "name": "TraceIndex",
       "kind": "cpp",
       "base": "QObject",
-      "description": "A bounded trace snapshot. Raw records carry exact decimal tick strings and explicit clock domains; conversion, validation and sorting run off-thread.",
+      "description": "A bounded trace snapshot. Raw records carry exact decimal tick strings and explicit clock domains; conversion, validation and sorting run off-thread. Files (this index's export format or Chrome Trace Event JSON) are read and parsed off-thread too; see trace_import.cpp.",
       "singleton": false,
       "attached": null,
       "file": "src/core/trace_index.h",
@@ -68812,6 +68977,21 @@
           "name": "ingestAsync",
           "returns": "QString",
           "parameters": "const QVariantList &records"
+        },
+        {
+          "name": "ingestJsonAsync",
+          "returns": "QString",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "ingestFileAsync",
+          "returns": "QString",
+          "parameters": "const QString &pathOrUrl"
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
         },
         {
           "name": "clear",
