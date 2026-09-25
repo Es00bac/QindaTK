@@ -64,9 +64,9 @@ Rectangle {
                 endFrame: "2"
                 currentFrame: "2"
                 onTrackSelected: function(id) { root.trackId = id }
-                onStartRequested: function(id, first, last) {
+                onStartRequested: function(id, first, last, occlusion) {
                     root.maskPreview = ({})
-                    model.startAnalysis(id, Number(first), Number(last))
+                    model.startAnalysis(id, Number(first), Number(last), occlusion)
                 }
                 onCancelRequested: model.cancelAnalysis()
                 onAcceptRequested: function(id) {

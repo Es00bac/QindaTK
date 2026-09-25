@@ -16,20 +16,25 @@ T.Control {
     property string startFrame: "0"
     property string endFrame: "0"
     property string currentFrame: "0"
+    // Consecutive lost frames the host tracker searches through before stopping.
+    property int occlusionFrames: 0
     readonly property var track: tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})
     readonly property var features: (track.previewPoints || []).length
                                     ? track.previewPoints : (track.points || [])
+    readonly property int lostCount: features.filter(function(item) { return item.state === "lost" }).length
     property string tooltip: qsTr("Inspect tracking results and correct feature positions")
 
     signal trackSelected(string trackId)
-    signal startRequested(string trackId, string startFrame, string endFrame)
+    signal startRequested(string trackId, string startFrame, string endFrame, int occlusionFrames)
     signal cancelRequested(string trackId)
     signal acceptRequested(string trackId)
     signal correctionRequested(string trackId, string frame, real x, real y)
 
     function rerun() {
         if (!track.trackId || track.state === "running") return false
-        startRequested(String(track.trackId), String(startFrame), String(endFrame)); return true
+        startRequested(String(track.trackId), String(startFrame), String(endFrame),
+                       Math.max(0, occlusionFrames))
+        return true
     }
     function cancel() {
         if (!track.trackId || track.state !== "running") return false
@@ -80,7 +85,8 @@ T.Control {
                 onActivated: function(index) { control.trackSelected(String(control.tracks[index].trackId)) }
             }
             Tk.Badge { text: String(control.track.state || qsTr("idle")).toUpperCase()
-                       variant: control.track.state === "lost" ? "danger" : "info" }
+                       variant: control.track.state === "lost" ? "danger"
+                              : control.lostCount > 0 ? "warning" : "info" }
             Tk.Spacer { Tk.Flex.grow: 1 }
             Tk.Button {
                 objectName: "trackingRun"
@@ -167,6 +173,8 @@ T.Control {
             text: control.track.state === "lost"
                   ? qsTr("Tracking lost. Correct on the viewer or rerun analysis; no result was applied.")
                   : control.track.state === "running" ? qsTr("Analyzing tracking range…")
+                  : control.lostCount > 0
+                    ? qsTr("Lost on %1 frames and reacquired; lost frames hold the last trusted position.").arg(control.lostCount)
                   : (control.track.previewPoints || []).length
                     ? qsTr("Results remain unapplied until accepted.")
                   : (control.track.points || []).length

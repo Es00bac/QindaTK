@@ -58,7 +58,7 @@ pages below are the reference.
 | [media-playback.md](media-playback.md) | Media decode with exact frame identity and rate policy, audio sync, source/timeline programs, playback engine and frame transfer, program finishing (grade and captions), virtual media bins with proxies and relink, frame feeds, verified export and the test signal |
 | [video-scopes.md](video-scopes.md) | Waveform, RGB parade, histogram and vectorscope snapshots of decoded frames under stated matrix, range and space conventions, graticule targets, demand-driven analysis bound to the player's presented frame |
 | [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
-| [tracking-roto.md](tracking-roto.md) | Accepted feature tracks, loss confidence, cancellable analysis, keyframed normalized masks and composition pixel application |
+| [tracking-roto.md](tracking-roto.md) | Feature tracks on a cancellable worker (subpixel, occlusion, decoded footage), loss confidence, keyframed normalized masks and layer-time composition masking |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [sequence-edits.md](sequence-edits.md) | NLE sequence edits: roll, ripple, slip and slide with linked sound, frame-exact bounds, transitions and their evaluation, multicam angles and switching, and the SequenceEditor/MulticamModel backends of the trim, transition and multicam views |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |

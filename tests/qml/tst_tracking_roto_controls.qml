@@ -26,7 +26,7 @@ TestCase {
         endFrame: "40"
         tracks: [{trackId: "trk-1", label: "Camera", referenceFrame: "10", state: "lost",
             points: [{frame: "22", x: 0.4, y: 0.5, confidence: 0.1, state: "lost", source: "flow"}]}]
-        onStartRequested: function(trackId, first, last) { root.start = [trackId, first, last] }
+        onStartRequested: function(trackId, first, last, occlusion) { root.start = [trackId, first, last, occlusion] }
         onCorrectionRequested: function(trackId, frame, x, y) { root.correction = [trackId, frame, x, y] }
         onAcceptRequested: function(trackId) { root.accepted = trackId }
     }
@@ -55,8 +55,9 @@ TestCase {
     function test_host_snapshots_and_stable_edit_identity() {
         verify(tracking.track.state === "lost")
         compare(tracking.features[0].frame, "22")
+        tracking.occlusionFrames = 3
         verify(tracking.rerun())
-        compare(start, ["trk-1", "10", "40"])
+        compare(start, ["trk-1", "10", "40", 3])
         verify(tracking.correctPoint("22", 103.75, 42.5))
         compare(correction[0], "trk-1")
         compare(correction[1], "22")

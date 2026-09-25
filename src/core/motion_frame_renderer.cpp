@@ -13,6 +13,7 @@
 #include <QSaveFile>
 #include <QTransform>
 #include <algorithm>
+#include <limits>
 
 namespace QindaTK {
 namespace {
@@ -141,7 +142,26 @@ QImage MotionFrameRenderer::frame() const
     return m_frame;
 }
 
-bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &image)
+void MotionFrameRenderer::setMaskTicksPerFrame(const QString &ticks)
+{
+    const auto parsed = TimelineTime::parseDecimal(ticks);
+    if (!parsed || *parsed < 1) {
+        setError(QStringLiteral("maskTicksPerFrame must be a positive exact tick count."));
+        return;
+    }
+    if (m_maskTicksPerFrame == *parsed) return;
+    m_maskTicksPerFrame = *parsed;
+    invalidate();
+    emit maskTimingChanged();
+}
+
+QString MotionFrameRenderer::sourceFrame(const QString &sourceId) const
+{
+    const auto it = m_sourceFrames.constFind(sourceId);
+    return it == m_sourceFrames.cend() ? QString() : QString::number(it.value());
+}
+
+bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &image, qint64 sourceFrame)
 {
     if (sourceId.isEmpty() || image.isNull() || qint64(image.width()) * image.height() > kMaxPixels) {
         setError(QStringLiteral("Source needs a stable ID and at most 16 megapixels."));
@@ -155,6 +175,8 @@ bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &
     }
     m_sourceBytes += srgb.sizeInBytes() - oldBytes;
     m_sources.insert(sourceId, srgb);
+    if (sourceFrame >= 0) m_sourceFrames.insert(sourceId, sourceFrame);
+    else m_sourceFrames.remove(sourceId);
     invalidate();
     setError({});
     return true;
@@ -197,6 +219,7 @@ void MotionFrameRenderer::removeSource(const QString &sourceId)
     if (it == m_sources.end()) return;
     m_sourceBytes -= it->sizeInBytes();
     m_sources.erase(it);
+    m_sourceFrames.remove(sourceId);
     invalidate();
 }
 
@@ -282,14 +305,20 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         QImage layerImage = encodedSrgb(effected.image);
         const QString maskId = layer.value(QStringLiteral("maskId")).toString();
         if (!maskId.isEmpty()) {
-            bool frameOk = false;
-            const int maskFrame = timeTicks.toInt(&frameOk);
-            if (!m_rotoModel || !frameOk || maskFrame < 0) {
+            // AGENT-NOTE (D-142): a mask cuts the pixels it was drawn on, so it
+            // samples the decoded source frame when the feed reported one and
+            // the layer-local time otherwise, never the composition time.
+            qint64 maskFrame = m_sourceFrames.value(sourceId, -1);
+            if (maskFrame < 0) {
+                const auto local = TimelineTime::parseDecimal(layer.value(QStringLiteral("localTicks")).toString());
+                if (local && *local >= 0) maskFrame = *local / m_maskTicksPerFrame;
+            }
+            if (!m_rotoModel || maskFrame < 0 || maskFrame > std::numeric_limits<int>::max()) {
                 painter.end();
-                setError(QStringLiteral("Masked layer needs a roto model and integer frame time."));
+                setError(QStringLiteral("Masked layer needs a roto model and a nonnegative layer frame."));
                 return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
             }
-            layerImage = m_rotoModel->applyMask(maskId, maskFrame, layerImage);
+            layerImage = m_rotoModel->applyMask(maskId, int(maskFrame), layerImage);
             if (layerImage.isNull()) {
                 painter.end();
                 setError(QStringLiteral("Layer %1: %2").arg(layer.value(QStringLiteral("layerId")).toString(),

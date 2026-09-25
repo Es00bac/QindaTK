@@ -1273,3 +1273,42 @@ provisional: the session plays and analyses it until it is committed (one
 undo step) or cancelled (the committed samples return). **Consequences.**
 A user hears a spectral change before accepting it, a cancelled preview
 never lands, and undo restores the exact original samples.
+
+## D-142 — Roto masks sample the frame their layer's pixels came from
+
+**Context.** WP-073 left `MotionFrameRenderer` sampling a layer's mask at the
+composition time parsed as a frame index, so an offset, remapped or
+tick-timebase layer cut its pixels with the wrong frame's shape. Masks and
+tracks are keyed by source frame indices, the indices the media decoder
+presents. **Decision.** A masked layer samples its mask at the source frame
+index supplied with its pixels (`setSourceImage(sourceId, image,
+sourceFrame)`; `MediaFrameFeed` passes the frame it decoded for that layer),
+else at `floor(localTicks / maskTicksPerFrame)` of the evaluated layer time
+(default 1 tick per frame). Composition time is never used. A negative layer
+time fails the frame. **Consequences.** Tracking, mask keys and rendered
+masks share one coordinate, so a mask stays on the decoded pixels through
+offsets, remaps, holds at media ends and proxies (masks are normalized). A
+host that supplies still images at a tick timebase sets `maskTicksPerFrame`
+to its frame duration. Two layers sharing one `sourceId` at different times
+remain unsupported, as for pixels.
+
+## D-143 — Tracking runs on a worker, holds lost frames and refines to subpixel
+
+**Context.** VID-15 needs cancellable analysis, explicit failure instead of
+extrapolated certainty, occlusion handling and measured accuracy; the WP-075
+first slice stepped a whole-pixel search on the GUI thread and stopped at the
+first lost frame. **Decision.** `TrackingEngine` runs a job on a Qt Concurrent
+worker over implicitly shared proxy copies and posts samples back; a job ID
+makes cancellation immediate and discards late samples, and replacing a frame
+cancels the job. Each frame takes the lowest mean-absolute-error integer
+match, then a parabola through the squared-error neighbours for the subpixel
+offset (skipped for a zero-error match). A lost frame keeps the last trusted
+position with its measured confidence; with `occlusionFrames` the search
+continues around that position with a radius growing per lost frame and
+resumes `tracked` on a match. Mask propagation (`applyTrackToMask`) keys only
+accepted, nonlost frames and reports skipped ones. **Consequences.** Known
+integer shifts track exactly and smooth subpixel shifts within 0.2 px;
+lost frames are visible in data and UI and never move a mask. Translation is
+the motion model: rotation, scale and perspective need rebasing
+(`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
+remain later adapters.
