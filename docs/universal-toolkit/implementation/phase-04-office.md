@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-052"></a>
 ## WP-052 — Add equations, references and document review
 
-**Implementation lead:** Sol. **Status:** active (equation AST, layout and visual editing, reference fields with notes, tracked review with navigation implemented; audit gaps closed on `work/wp052-cf`, awaiting acceptance review; see [evidence](evidence/WP-052.md)). **Depends on:** [WP-025](phase-02-controls-data.md#wp-025), [WP-051](phase-04-office.md#wp-051)
+**Implementation lead:** Sol. **Status:** accepted (equations with a visual editor, references with footnotes and endnotes, tracked review). **Depends on:** [WP-025](phase-02-controls-data.md#wp-025), [WP-051](phase-04-office.md#wp-051)
 
 **Proposal scope:** [OFF-09 EquationEditor](../proposed/05-documents-office.md#off-09), [OFF-10 ReferenceManager](../proposed/05-documents-office.md#off-10), [OFF-11 ReviewPane](../proposed/05-documents-office.md#off-11)
 
@@ -78,7 +78,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-053"></a>
 ## WP-053 — Implement printing and publishing preflight
 
-**Implementation lead:** Sol. **Status:** active (output, jobs, native printers, asynchronous preview and preflight built and tested; awaiting acceptance review — [evidence](evidence/WP-053.md)). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
+**Implementation lead:** Sol. **Status:** accepted (print tickets, one geometry for preview/PDF/printer, CUPS spooling and preflight with repairs). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
 
 **Proposal scope:** [OFF-12 PrintPreview](../proposed/05-documents-office.md#off-12), [OFF-13 PreflightPanel](../proposed/05-documents-office.md#off-13), [PLT-04 PrintAdapter](../proposed/08-platform-integrations.md#plt-04)
 
@@ -141,7 +141,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-056"></a>
 ## WP-056 — Implement slide authoring and presentation
 
-**Implementation lead:** Sol. **Status:** active (persistent deck, canvas on the WP-042 stack, playback, animation preview/export, presenter windows and annotation implemented; audit gaps closed on `work/wp056-cf`, awaiting acceptance review; see [evidence](evidence/WP-056.md)). **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** accepted (persistent slide decks, exact playback and audience/presenter windows). **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-19 SlideCanvas](../proposed/05-documents-office.md#off-19), [OFF-20 SlideSorter](../proposed/05-documents-office.md#off-20), [OFF-21 SlideMasterEditor](../proposed/05-documents-office.md#off-21), [OFF-22 AnimationPane](../proposed/05-documents-office.md#off-22), [OFF-23 PresenterView](../proposed/05-documents-office.md#off-23)
 
@@ -162,7 +162,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-057"></a>
 ## WP-057 — Implement notebooks and structured blocks
 
-**Implementation lead:** Sol. **Status:** active (NotebookView and BlockEditor integrated; persistent block backend pending). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** accepted (persistent notebooks with rich blocks, lazy editing, search and recovery). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-26 NotebookView](../proposed/05-documents-office.md#off-26), [OFF-27 BlockEditor](../proposed/05-documents-office.md#off-27)
 
@@ -181,7 +181,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-058"></a>
 ## WP-058 — Implement mail, calendars and task workflows
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** accepted (SMTP/IMAP/CalDAV providers over the local mail, calendar and task store). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-28 MailView](../proposed/05-documents-office.md#off-28), [OFF-29 RichMailComposer](../proposed/05-documents-office.md#off-29), [OFF-30 CalendarView](../proposed/05-documents-office.md#off-30), [OFF-31 RecurrenceEditor](../proposed/05-documents-office.md#off-31), [OFF-32 TaskBoard](../proposed/05-documents-office.md#off-32)
 
@@ -204,7 +204,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-059"></a>
 ## WP-059 — Implement forms, schemas and report design
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-029](phase-02-controls-data.md#wp-029), [WP-051](phase-04-office.md#wp-051), [WP-053](phase-04-office.md#wp-053)
+**Implementation lead:** Sol. **Status:** accepted (saved form/report designs, grouped paginated reports with page headers and footers). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-029](phase-02-controls-data.md#wp-029), [WP-051](phase-04-office.md#wp-051), [WP-053](phase-04-office.md#wp-053)
 
 **Proposal scope:** [OFF-33 FormDesigner](../proposed/05-documents-office.md#off-33), [OFF-34 DatabaseSchemaView](../proposed/05-documents-office.md#off-34), [OFF-35 ReportDesigner](../proposed/05-documents-office.md#off-35)
 

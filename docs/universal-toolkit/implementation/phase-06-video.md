@@ -38,7 +38,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-071"></a>
 ## WP-071 — Implement professional timeline video edits
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** accepted (roll/slip/slide/ripple edits, transitions, multicam and linked sound). **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-03 TrimView](../proposed/07-video-motion.md#vid-03), [VID-04 MulticamView](../proposed/07-video-motion.md#vid-04), [VID-05 TransitionEditor](../proposed/07-video-motion.md#vid-05)
 
@@ -57,7 +57,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-072"></a>
 ## WP-072 — Implement captions, scopes and grading controls
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-050](phase-04-office.md#wp-050), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** accepted (caption timing and output, scopes on decoded frames and a real grade in output). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-050](phase-04-office.md#wp-050), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-06 CaptionEditor](../proposed/07-video-motion.md#vid-06), [VID-07 VideoScopes](../proposed/07-video-motion.md#vid-07), [VID-08 ColorWheels](../proposed/07-video-motion.md#vid-08)
 
@@ -116,7 +116,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-075"></a>
 ## WP-075 — Implement tracking and rotoscoping
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** accepted (subpixel tracking on decoded footage with occlusion recovery and layer-time masks). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-15 TrackingPanel](../proposed/07-video-motion.md#vid-15), [VID-16 RotoscopeEditor](../proposed/07-video-motion.md#vid-16)
 
@@ -158,7 +158,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-077"></a>
 ## WP-077 — Implement rig, UV and texture authoring
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-045](phase-03-authoring.md#wp-045), [WP-073](phase-06-video.md#wp-073), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** accepted (rig constraints and keys, UV operations, camera-aware 3D painting and GPU textures). **Depends on:** [WP-045](phase-03-authoring.md#wp-045), [WP-073](phase-06-video.md#wp-073), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [VID-18 RigEditor](../proposed/07-video-motion.md#vid-18), [VID-23 UVEditor](../proposed/07-video-motion.md#vid-23), [VID-24 TexturePaintView](../proposed/07-video-motion.md#vid-24)
 

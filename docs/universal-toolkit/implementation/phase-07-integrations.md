@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-082"></a>
 ## WP-082 — Implement collaboration, presence and version history
 
-**Implementation lead:** Sol. **Status:** active (two-client property sync, authenticated IPC, remote presence display, named versions and synchronized restore merged; remote transport, domain operations and shared checkpoints remain). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** accepted (signed LAN sync, merge rules, permissions, shared checkpoints and fault recovery). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** [PLT-14 CollaborationAdapter](../proposed/08-platform-integrations.md#plt-14), [PLT-15 PresenceLayer](../proposed/08-platform-integrations.md#plt-15), [PLT-16 VersionBrowser](../proposed/08-platform-integrations.md#plt-16)
 
@@ -82,7 +82,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-083"></a>
 ## WP-083 — Implement diagramming and CAD surfaces
 
-**Implementation lead:** Sol. **Status:** active (diagram graph/flow and constrained 2D CAD sketch merged; additional CAD output in progress). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** accepted (routed diagrams, Sankey flow, CAD sketch and SVG/GraphML/DXF output). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-03 DiagramCanvas](../proposed/09-specialized-domains.md#ext-03), [EXT-04 CadViewport](../proposed/09-specialized-domains.md#ext-04)
 
@@ -126,7 +126,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-085"></a>
 ## WP-085 — Implement scientific plotting
 
-**Implementation lead:** Sol. **Status:** active (2D numeric/uncertainty/export lane underway against the available scene boundary; WP-076 remains active). **Depends on:** [WP-030](phase-02-controls-data.md#wp-030), [WP-031](phase-02-controls-data.md#wp-031), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** accepted (traces, scatter, surfaces, 3D plots and reproducible exports). **Depends on:** [WP-030](phase-02-controls-data.md#wp-030), [WP-031](phase-02-controls-data.md#wp-031), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-06 ScientificPlot](../proposed/09-specialized-domains.md#ext-06)
 
@@ -145,7 +145,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-086"></a>
 ## WP-086 — Implement image slices, volumes and transfer functions
 
-**Implementation lead:** Sol. **Status:** active (typed voxel volumes, linked slice views and transfer editing merged; volume rendering follows). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-076](phase-06-video.md#wp-076), [WP-085](phase-07-integrations.md#wp-085)
+**Implementation lead:** Sol. **Status:** accepted (oblique reslicing and volume rendering with CPU reference and GPU path). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-076](phase-06-video.md#wp-076), [WP-085](phase-07-integrations.md#wp-085)
 
 **Proposal scope:** [EXT-07 ImageSliceView](../proposed/09-specialized-domains.md#ext-07), [EXT-08 VolumeView](../proposed/09-specialized-domains.md#ext-08), [EXT-09 TransferFunctionEditor](../proposed/09-specialized-domains.md#ext-09)
 
@@ -168,7 +168,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-087"></a>
 ## WP-087 — Implement dependency and trace exploration
 
-**Implementation lead:** Sol. **Status:** active (asset dependency extraction/index and view plus bounded trace ingestion/view merged; WP-074 and WP-083 dependencies remain active). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
+**Implementation lead:** Sol. **Status:** accepted (off-thread project scans, relink help and trace import and inspection). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
 
 **Proposal scope:** [EXT-10 AssetDependencyView](../proposed/09-specialized-domains.md#ext-10), [EXT-11 TraceView](../proposed/09-specialized-domains.md#ext-11)
 
@@ -187,7 +187,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-088"></a>
 ## WP-088 — Qualify platform and backend integration boundaries
 
-**Implementation lead:** Sol. **Status:** planned (Linux only, by the user). **Depends on:** [WP-005](phase-00-baseline.md#wp-005), [WP-018](phase-01-services.md#wp-018), [WP-053](phase-04-office.md#wp-053), [WP-060](phase-05-audio.md#wp-060), [WP-066](phase-05-audio.md#wp-066), [WP-070](phase-06-video.md#wp-070), [WP-077](phase-06-video.md#wp-077), [WP-080](phase-07-integrations.md#wp-080), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** accepted (Linux qualification harness, platform fixes, optional-engine switches and relocatable installs). **Depends on:** [WP-005](phase-00-baseline.md#wp-005), [WP-018](phase-01-services.md#wp-018), [WP-053](phase-04-office.md#wp-053), [WP-060](phase-05-audio.md#wp-060), [WP-066](phase-05-audio.md#wp-066), [WP-070](phase-06-video.md#wp-070), [WP-077](phase-06-video.md#wp-077), [WP-080](phase-07-integrations.md#wp-080), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

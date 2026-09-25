@@ -57,7 +57,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-062"></a>
 ## WP-062 — Implement mixing, panning and routing
 
-**Implementation lead:** Sol. **Status:** active (four host-backed controls integrated; audio graph pending). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
+**Implementation lead:** Sol. **Status:** accepted (real mixing, panning, buses, sends, surround and loop-free routing). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
 
 **Proposal scope:** [AUD-13 ChannelStrip](../proposed/06-audio-music.md#aud-13), [AUD-14 MixerView](../proposed/06-audio-music.md#aud-14), [AUD-15 PanningControl](../proposed/06-audio-music.md#aud-15), [AUD-16 RoutingMatrix](../proposed/06-audio-music.md#aud-16)
 
@@ -76,7 +76,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-063"></a>
 ## WP-063 — Implement waveform and spectral editing
 
-**Implementation lead:** Sol. **Status:** active (host-backed editor controls integrated; signal/DSP backend pending). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060)
+**Implementation lead:** Sol. **Status:** accepted (worker-thread peaks and spectra with real waveform and spectral edits). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060)
 
 **Proposal scope:** [AUD-20 WaveformEditor](../proposed/06-audio-music.md#aud-20), [AUD-21 SpectrogramView](../proposed/06-audio-music.md#aud-21)
 
@@ -99,7 +99,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-064"></a>
 ## WP-064 — Implement MIDI, patterns and clip launching
 
-**Implementation lead:** Sol. **Status:** active (four MIDI editing/launch controls integrated; music backend pending). **Depends on:** [WP-049](phase-03-authoring.md#wp-049), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
+**Implementation lead:** Sol. **Status:** accepted (sample-accurate MIDI scheduling, patterns, clip launching and MIDI files). **Depends on:** [WP-049](phase-03-authoring.md#wp-049), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
 
 **Proposal scope:** [AUD-22 PianoRoll](../proposed/06-audio-music.md#aud-22), [AUD-23 MidiControllerLane](../proposed/06-audio-music.md#aud-23), [AUD-24 StepSequencer](../proposed/06-audio-music.md#aud-24), [AUD-25 ClipLauncher](../proposed/06-audio-music.md#aud-25)
 
@@ -120,7 +120,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-065"></a>
 ## WP-065 — Implement take comping
 
-**Implementation lead:** Sol. **Status:** active (TakeCompView integrated; media interval and render backend pending). **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060), [WP-063](phase-05-audio.md#wp-063)
+**Implementation lead:** Sol. **Status:** accepted (take comping from real recordings with passes, punch and crossfades). **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060), [WP-063](phase-05-audio.md#wp-063)
 
 **Proposal scope:** [AUD-26 TakeCompView](../proposed/06-audio-music.md#aud-26)
 
@@ -139,7 +139,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-066"></a>
 ## WP-066 — Integrate plugin hosting and plugin controls
 
-**Implementation lead:** Sol. **Status:** active (plugin browser and rack integrated; ABI host and processing pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-060](phase-05-audio.md#wp-060), [WP-062](phase-05-audio.md#wp-062)
+**Implementation lead:** Sol. **Status:** accepted (CLAP plugin hosting with inserts, instruments, state, latency and editors). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-060](phase-05-audio.md#wp-060), [WP-062](phase-05-audio.md#wp-062)
 
 **Proposal scope:** [AUD-17 PluginRack](../proposed/06-audio-music.md#aud-17), [AUD-18 PluginBrowser](../proposed/06-audio-music.md#aud-18), [PLT-11 PluginHostAdapter](../proposed/08-platform-integrations.md#plt-11)
 
@@ -162,7 +162,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-067"></a>
 ## WP-067 — Implement score and notation editing
 
-**Implementation lead:** Sol. **Status:** active (ScoreView integrated; notation layout and music model pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-050](phase-04-office.md#wp-050), [WP-064](phase-05-audio.md#wp-064)
+**Implementation lead:** Sol. **Status:** accepted (score model, engraved layout, playback and MusicXML interchange). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-050](phase-04-office.md#wp-050), [WP-064](phase-05-audio.md#wp-064)
 
 **Proposal scope:** [AUD-27 ScoreView](../proposed/06-audio-music.md#aud-27)
 
@@ -185,7 +185,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-068"></a>
 ## WP-068 — Implement pitch analysis and correction editing
 
-**Implementation lead:** Sol. **Status:** active (PitchEditor integrated; analysis and DSP pending). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064)
+**Implementation lead:** Sol. **Status:** accepted (pitch analysis and correction DSP with one-step edits). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064)
 
 **Proposal scope:** [AUD-28 PitchEditor](../proposed/06-audio-music.md#aud-28)
 
