@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -8859,7 +8859,7 @@
       "name": "DatabaseSchemaView",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Introspection is live; migration actions remain proposals until the host explicitly executes them through LocalDatabaseProvider migration methods.",
+      "description": "Introspection is live; migration actions remain proposals until the host explicitly executes them through LocalDatabaseProvider migration methods. AGENT-GUARD (OFF-34): schemaSnapshot is only ever re-read from the provider, never patched from a plan, so a failed commit (acknowledged \"failed\") leaves the fields and relationships the database really has. The previewed plan lists the foreign keys it adds and removes.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/DatabaseSchemaView.qml",
@@ -8943,6 +8943,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "planRelationships",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -8988,7 +8996,9 @@
       "objectNames": [
         "databaseSchemaView",
         "schemaField_",
+        "schemaMigrationFailed",
         "schemaMigrationSql",
+        "schemaPlanRelation_",
         "schemaPreviewMigration",
         "schemaRelation_",
         "schemaRequestMigration",
@@ -15015,7 +15025,7 @@
       "name": "FormDesigner",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Schema and record values are host snapshots. Edits are saved only by a host request; design mode never writes to the database.",
+      "description": "Schema and record values are host snapshots. Edits are saved only by a host request; design mode never writes to the database. AGENT-CONTRACT (docs/forms-reports.md#designers): with `designDocument` set, the form layout is the document's form and every design edit (label, order, shown) is one LocalDataDesignDocument command, so undo, save and recovery cover it; without it the control only emits designChangeRequested and the host owns the design.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/FormDesigner.qml",
@@ -15023,6 +15033,14 @@
         {
           "name": "provider",
           "type": "Tk.LocalDatabaseProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "designDocument",
+          "type": "Tk.LocalDataDesignDocument",
           "default": "null",
           "readonly": false,
           "defaultProperty": false,
@@ -15115,6 +15133,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "displayFields",
+          "type": "var",
+          "default": "control.orderedFields()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -15137,11 +15163,23 @@
           "parameters": ""
         },
         {
+          "name": "syncDesign",
+          "parameters": ""
+        },
+        {
           "name": "fieldDesign",
           "parameters": "name"
         },
         {
+          "name": "orderedFields",
+          "parameters": ""
+        },
+        {
           "name": "caption",
+          "parameters": "name"
+        },
+        {
+          "name": "isHidden",
           "parameters": "name"
         },
         {
@@ -15169,8 +15207,24 @@
           "parameters": "id, state, message"
         },
         {
+          "name": "reportEdit",
+          "parameters": "ok"
+        },
+        {
           "name": "updateLabel",
           "parameters": "fieldName, label"
+        },
+        {
+          "name": "moveField",
+          "parameters": "fieldName, delta"
+        },
+        {
+          "name": "setShown",
+          "parameters": "fieldName, shown"
+        },
+        {
+          "name": "updateTitle",
+          "parameters": "title"
         }
       ],
       "enums": {},
@@ -15187,8 +15241,14 @@
         "formDesigner",
         "formField_",
         "formLabel_",
+        "formMoveDown_",
+        "formMoveUp_",
+        "formRedo",
         "formSaveDesign",
         "formSaveRecord",
+        "formShown_",
+        "formTitle",
+        "formUndo",
         "formValue_"
       ]
     },
@@ -27815,7 +27875,7 @@
       "name": "ReportDesigner",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Preview runs one allow-listed, parameterized read through the local provider.",
+      "description": "Preview runs one allow-listed, parameterized read through the local provider. AGENT-CONTRACT (docs/forms-reports.md#designers): with `designDocument` set, the header, footer, page header/footer, group, group total, page break, detail and filter controls edit the document's report through LocalDataDesignDocument commands (one undo step each) and follow its undo/redo; export requests then carry designDocument.report, the definition LocalReportDocumentModel builds. Without it the properties below are the host's snapshot.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ReportDesigner.qml",
@@ -27823,6 +27883,14 @@
         {
           "name": "provider",
           "type": "Tk.LocalDatabaseProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "designDocument",
+          "type": "Tk.LocalDataDesignDocument",
           "default": "null",
           "readonly": false,
           "defaultProperty": false,
@@ -27869,6 +27937,30 @@
           "required": false
         },
         {
+          "name": "totalFunction",
+          "type": "string",
+          "default": "\"sum\" // WP-029 aggregate applied to sumField per group",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageBreakPerGroup",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDetail",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "pageSize",
           "type": "int",
           "default": "20",
@@ -27888,6 +27980,22 @@
           "name": "footerText",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageHeaderText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageFooterText",
+          "type": "string",
+          "default": "qsTr(\"Page {page} of {pages}\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -27955,6 +28063,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "totalFunctions",
+          "type": "var",
+          "default": "[\"sum\", \"average\", \"minimum\", \"maximum\", \"countValues\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -27977,12 +28093,48 @@
           "parameters": "name"
         },
         {
+          "name": "fieldType",
+          "parameters": "name"
+        },
+        {
           "name": "numericFields",
           "parameters": ""
         },
         {
           "name": "refreshSchema",
           "parameters": ""
+        },
+        {
+          "name": "syncFromDesign",
+          "parameters": ""
+        },
+        {
+          "name": "edited",
+          "parameters": "ok"
+        },
+        {
+          "name": "groupSpec",
+          "parameters": "field, totalField, fn, pageBreak"
+        },
+        {
+          "name": "applyText",
+          "parameters": "key, text"
+        },
+        {
+          "name": "applyGroup",
+          "parameters": "field, totalField, fn, pageBreak"
+        },
+        {
+          "name": "applyDetail",
+          "parameters": "detail"
+        },
+        {
+          "name": "typedParameter",
+          "parameters": "field, value"
+        },
+        {
+          "name": "applyFilter",
+          "parameters": "field, value"
         },
         {
           "name": "runPreview",
@@ -28003,16 +28155,23 @@
       "bridge": false,
       "objectNames": [
         "reportDesigner",
+        "reportDetail",
         "reportFilterField",
         "reportFilterValue",
         "reportFooter",
         "reportGroupField",
         "reportHeader",
+        "reportPageBreak",
+        "reportPageFooter",
+        "reportPageHeader",
         "reportPageSize",
+        "reportRedo",
         "reportRequestExport",
         "reportRunPreview",
         "reportSumField",
-        "reportTable"
+        "reportTable",
+        "reportTotalFunction",
+        "reportUndo"
       ]
     },
     {
@@ -55322,10 +55481,227 @@
       "bridge": false
     },
     {
+      "name": "LocalDataDesignDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A form and report design as a session document (schema qindatk.local-data-design.v1, docs/forms-reports.md#design-document). The state is the design map LocalDataDesignStore validates: a stable SQLite binding (table, fields, their types when bound), the form layout and the report definition. AGENT-CONTRACT (docs/document-models.md#commands): every edit is one bounded whole-design DocumentCommand recorded by UndoService; a standalone document keeps a private history that a DocumentSession adopts, so save, autosave and recovery come from DocumentManager unchanged. An edit that would make the design structurally invalid is refused with lastError and changes nothing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_data_design_document.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "design",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "form",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "report",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tableName",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "boundFields",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "setDesign",
+          "returns": "bool",
+          "parameters": "const QVariantMap &design"
+        },
+        {
+          "name": "bindTable",
+          "returns": "bool",
+          "parameters": "QindaTK::LocalDatabaseProvider *provider, const QString &table, const QStringList &fields = {}"
+        },
+        {
+          "name": "setFormTitle",
+          "returns": "bool",
+          "parameters": "const QString &title"
+        },
+        {
+          "name": "setFormFieldLabel",
+          "returns": "bool",
+          "parameters": "const QString &field, const QString &label"
+        },
+        {
+          "name": "setFormFieldHidden",
+          "returns": "bool",
+          "parameters": "const QString &field, bool hidden"
+        },
+        {
+          "name": "moveFormField",
+          "returns": "bool",
+          "parameters": "const QString &field, int index"
+        },
+        {
+          "name": "setReportText",
+          "returns": "bool",
+          "parameters": "const QString &key, const QString &text"
+        },
+        {
+          "name": "setReportColumns",
+          "returns": "bool",
+          "parameters": "const QStringList &fields"
+        },
+        {
+          "name": "setReportDetail",
+          "returns": "bool",
+          "parameters": "bool detail"
+        },
+        {
+          "name": "setReportGroups",
+          "returns": "bool",
+          "parameters": "const QVariantList &groups"
+        },
+        {
+          "name": "setReportTotal",
+          "returns": "bool",
+          "parameters": "const QString &groupField, const QString &field, const QString &function, bool enabled"
+        },
+        {
+          "name": "setGroupPageBreak",
+          "returns": "bool",
+          "parameters": "const QString &groupField, bool pageBreakBefore"
+        },
+        {
+          "name": "setReportFilter",
+          "returns": "bool",
+          "parameters": "const QVariantMap &filter, const QVariantMap &parameters"
+        },
+        {
+          "name": "setReportPage",
+          "returns": "bool",
+          "parameters": "const QString &paperId, const QString &orientation"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "validate",
+          "returns": "QVariantMap",
+          "parameters": "QindaTK::LocalDatabaseProvider *provider"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocalDataDesignStore",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Atomic, versioned local codec for form/report layout and stable SQL names.",
+      "description": "Atomic, versioned local codec for form/report layout and stable SQL names (docs/forms-reports.md#design-format). Version 1 files and the version 2 session files LocalDataDesignDocument writes are both read here.",
       "singleton": false,
       "attached": null,
       "file": "src/core/local_data_design_store.h",
@@ -55908,7 +56284,7 @@
       "name": "LocalReportDocumentModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Turns a saved report binding into a paginated RichTextDocument and PDF.",
+      "description": "Runs a saved report definition against the local database and lays it out as a paginated RichTextDocument (docs/forms-reports.md#output). AGENT-CONTRACT (docs/printing.md#one-output-description): `document` is a stable object for the model's lifetime, so a Tk.PrintAdapter or a RichDocumentView bound to it follows every rebuild; preview, exportPdf and printers share its one page geometry and painter. A failed build (bad definition, parameters or data) leaves the document, rowCount and bands of the last good build untouched and reports errorText/errorStage.",
       "singleton": false,
       "attached": null,
       "file": "src/core/local_report_document_model.h",
@@ -55928,8 +56304,50 @@
           "constant": false
         },
         {
+          "name": "groupCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columns",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "bands",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "status",
           "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorStage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "built",
+          "type": "bool",
           "default": "",
           "readonly": true,
           "constant": false
@@ -55952,7 +56370,7 @@
         {
           "name": "build",
           "returns": "QVariantMap",
-          "parameters": "LocalDatabaseProvider *provider, const QVariantMap &report"
+          "parameters": "LocalDatabaseProvider *provider, const QVariantMap &report, const QVariantMap &parameters = {}"
         },
         {
           "name": "exportPdf",

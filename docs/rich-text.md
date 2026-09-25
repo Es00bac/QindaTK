@@ -183,6 +183,22 @@ unchanged ([printing.md](printing.md#bleed-and-page-scope)).
 Columns and linked text frames place the flow in page regions
 ([publishing.md](publishing.md#text-frames)).
 
+<a id="running-page-regions"></a>
+**Running page regions.** `PageSetup::headerText` and `footerText` (JSON
+`page.headerText`, `page.footerText`, at most 500 characters, format
+version 2) are one line of plain text centred over the content width in the
+top and bottom margin of every page, in the document font at 85% size.
+`{page}` expands to the page number and `{pages}` to the page count
+(`estimatedPageCount()` until pagination completes).
+`RichTextLayout::pageRegionText(page, footer)` returns the expanded text and
+`paintPage` paints it, so views, print sheets and PDF pages show the same
+line. The regions sit outside the content box and never change pagination.
+When a completed count changes, `finalizePages` re-stamps every page's
+revision. `applyPageSetupMm` keeps them. They are document-wide like the
+rest of the page setup; first-page or odd/even variants and fields other
+than the two numbers are not modelled. Reports use them for their page
+header and footer bands ([forms and reports](forms-reports.md#page-bands)).
+
 `RichTextDocument.exportPdf(path)` paints every paginated page to a local PDF
 file using the same `RichTextLayout::paintPage` path as the on-screen view.
 The file is committed atomically. It is the default ticket of

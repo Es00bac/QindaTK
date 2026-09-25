@@ -28,6 +28,7 @@ pages below are the reference.
 | [workbook.md](workbook.md) | Workbook model, formula grammar and functions, reference rules and names, incremental recalculation, transactions, cell and number formats, conditional formats, data validation, merged cells, sheet properties, clipboard ranges, CSV/TSV interchange, sessions and the native workbook format |
 | [slides.md](slides.md) | Slide deck model, master/layout inheritance and overrides, rich text boxes, exact-tick builds and easing, the shared slide painter and PDF export, deterministic playback, audience/presenter windows and display reconnect |
 | [query-pivot.md](query-pivot.md) | Typed query AST, null semantics, bounded grouping and pivots, provenance and grid/provider adapters |
+| [forms-reports.md](forms-reports.md) | Local SQLite forms and reports: the design document with undo, save and recovery, report definitions (bands, nested groups, totals, typed parameters), evaluation through the query engine, paginated output for preview, PDF and printers, schema qualification |
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
 | [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |

@@ -325,6 +325,10 @@ qt_add_qml_module(qindatk
         core/local_database_provider.cpp core/local_database_provider.h
         core/local_data_design_store.cpp core/local_data_design_store.h
         core/local_report_document_model.cpp core/local_report_document_model.h
+        core/local_report_spec.cpp core/local_report_spec.h core/local_report_engine.cpp
+        core/sqlite_query_source.cpp core/sqlite_query_source.h
+        core/local_data_design_document.cpp core/local_data_design_document.h
+        core/local_data_design_edits.cpp core/local_data_design_codec.cpp
         core/recurrence_service.cpp core/recurrence_service.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h

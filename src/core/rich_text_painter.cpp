@@ -243,6 +243,7 @@ void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintCont
             break;
         }
     }
+    paintRegions(painter, pageIndex, context);
     if (context.showCaret) {
         const CaretBox caret = caretBox(context.caret);
         if (caret.page == pageIndex)
@@ -250,6 +251,39 @@ void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintCont
                                      caret.rect.height()), context.caretColor);
     }
     painter->restore();
+}
+
+void RichTextLayout::paintRegions(QPainter *painter, int pageIndex, const PaintContext &context)
+{
+    // Running page regions sit in the page margins, centred over the content
+    // box's width, in the document font at 85% size. They are shaped against
+    // the layout device like body text, so preview, print and PDF agree.
+    const QString header = pageRegionText(pageIndex, false);
+    const QString footer = pageRegionText(pageIndex, true);
+    if (header.isEmpty() && footer.isEmpty()) return;
+    const PageSetup setup = m_document->pageSetupValue();
+    QFont font = Shaping::resolvedFont(*m_document, CharFormat{}, ParagraphFormat{});
+    font.setPointSizeF(font.pointSizeF() * 0.85);
+    const QColor defaultInk = m_document->defaults().color;
+    painter->setPen(defaultInk.isValid() ? defaultInk : context.ink);
+    const qreal left = setup.marginLeftPt * PxPerPt;
+    const qreal width = setup.contentWidthPt() * PxPerPt;
+    auto draw = [&](const QString &text, qreal bandTop, qreal bandHeight) {
+        if (text.isEmpty()) return;
+        QTextLayout layout(text, font, Shaping::layoutDevice());
+        QTextOption option(Qt::AlignHCenter);
+        option.setWrapMode(QTextOption::NoWrap);
+        layout.setTextOption(option);
+        layout.beginLayout();
+        QTextLine line = layout.createLine();
+        if (line.isValid()) line.setLineWidth(width);
+        layout.endLayout();
+        if (!line.isValid()) return;
+        const qreal top = bandTop + qMax<qreal>(0, (bandHeight - line.height()) / 2);
+        layout.draw(painter, QPointF(left, top));
+    };
+    draw(header, 0, setup.marginTopPt * PxPerPt);
+    draw(footer, (setup.heightPt - setup.marginBottomPt) * PxPerPt, setup.marginBottomPt * PxPerPt);
 }
 
 } // namespace QindaTK
