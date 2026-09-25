@@ -56,6 +56,20 @@ library scroll-text wallet
 clipboard-paste monitor-play sticky-note book-open sheet file-spreadsheet chart-column chart-bar
 funnel square-check-big text-align-start text-align-center text-align-end text-align-justify
 list-indent-increase list-indent-decrease text-indent-increase text-indent-decrease
+mail mail-open mail-plus mails inbox send-horizontal reply reply-all paperclip archive-restore
+calendar-days calendar-plus calendar-check calendar-clock calendar-range calendar-x contact
+book-user user-plus user-round users-round receipt receipt-text banknote landmark calculator
+piggy-bank chart-line chart-pie book-text building building-2 credit-card scale wallet-cards
+hand-coins coins circle-dollar-sign dollar-sign file-check file-clock file-minus file-output
+file-input file-down file-up files trending-up trending-down list-checks list-todo heading-1
+heading-2 heading-3 text-quote remove-formatting spell-check omega footprints merge table-2
+table-cells-merge table-cells-split between-horizontal-end between-vertical-end arrow-up-a-z
+arrow-down-z-a message-square message-square-plus message-square-x snowflake square-dashed-bottom
+copy-plus align-horizontal-distribute-center align-vertical-distribute-center type-outline slash
+move-right image-plus file-plus-2 notebook notebook-pen notebook-tabs text-select list-restart
+chart-area chart-scatter gallery-horizontal-end file-type clipboard-list clipboard-check refresh-ccw
+mail-check mail-warning mail-x alarm-clock bell-ring mailbox inbox chart-column-big pen-line
+signature handshake briefcase store truck vault
 """
 
 ELEMENT_RE = re.compile(r'\[\s*"(\w+)",\s*\{([^}]*)\}\s*\]', re.S)
