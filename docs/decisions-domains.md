@@ -382,3 +382,81 @@ each panel's full metadata under its (a), (b) label.
 **Consequences.** A figure file alone identifies and verifies its data.
 Large series make large files, since every sample is embedded; hosts that
 need small files export `csvData()`/`metadataJson()` sidecars instead.
+
+## D-170 — Notebook blocks are a flat depth-first list with parent IDs
+
+**Context.** Notebooks nest blocks (list items, toggles, sub-points) but are
+read, virtualized, searched, selected and pasted in reading order. A tree of
+child arrays makes every flat operation (cross-block selection, the ListView
+model, caret movement) walk the tree, and makes a single-block edit copy a
+branch.
+
+**Decision.** `NotebookDocument` stores each page's blocks as one flat list in
+reading order. A block's `parentId` names an earlier block of the same page,
+and every block between a parent and its child is also that parent's
+descendant. The native decoder rejects any other order; every structural edit
+ends with `NotebookTree::repair`, which lifts a block whose parent is gone to
+its nearest remaining ancestor. Moves, deletes and copies of a block include
+its contiguous subtree. Split hands the children to the tail; merge hands the
+second block's children to the first.
+
+**Consequences.** Views, selection and search use flat indices directly, and
+depth is derived. Operations that need siblings (indent, `moveBlockBy`)
+compute them per call, which is linear in the page (at most 10,000 blocks).
+Timing for very large pages belongs to WP-091. Docs: [notebooks](notebooks.md#model).
+
+## D-171 — Notebook history steps share unchanged pages
+
+**Context.** WP-057 needs undo for every text and structural edit, including
+cross-page moves and multi-block pastes, on notebooks of 10,000 or more
+blocks, through the shared `UndoService` and `DocumentSession`.
+
+**Decision.** A notebook step stores the whole state before and after. Qt's
+implicit sharing keeps unchanged pages and block lists shared by the live
+state and every step, so `retainedBytes` counts only the pages a step
+changed. Steps are validated by a stamp issued once per document lifetime,
+not by comparing content, so undo and redo are constant-time. Typing in one
+block merges under `text:<blockId>`.
+
+**Consequences.** One command type covers every operation, and composing
+macros is exact. A step touching many pages (a paste into a huge page) is
+charged for all of them, which the 256 MiB default budget bounds.
+
+## D-172 — Cross-block selections and pastes follow rich-text fragment rules
+
+**Context.** Copying from the middle of one block to the middle of another,
+then pasting into the middle of a third, must give the same result every
+time, keep formatting, and never reuse IDs.
+
+**Decision.** A selection is ordered by flat index, then UTF-16 offset
+snapped to grapheme boundaries. Text endpoints contribute their selected
+part; other endpoints and all blocks between are whole. The copied range has
+`openStart`/`openEnd` exactly like a rich-text `Fragment`: pasting into a
+text block splits it at the caret, joins an open first fragment to the head
+and an open last fragment to the tail. Every pasted block gets a fresh UUID,
+and references within the range (parents, a chart's source table) are
+rewritten. Formatting travels as runs over `RichText::Spans`, and HTML goes
+through `RichTextHtml`, so notebooks exchange formatted text with the rich
+text editor and other applications.
+
+**Consequences.** Paste and delete-selection are single undo steps with
+exact, testable results. Pasting a range whose endpoints are not text (a
+table) never merges.
+
+## D-173 — Block views are virtualized and keep drafts by block ID
+
+**Context.** The first `BlockEditor` built every block card with a Repeater,
+and a text field's unsaved text lived only in that field. Long pages were
+slow, and a rebuilt field lost its text.
+
+**Decision.** `BlockEditor` lists blocks in a `ListView` with `reuseItems`
+whose model is the ordered block IDs. The ID list is replaced only when the
+order changes, so a text commit updates cards in place. Uncommitted text is
+kept in the editor's `drafts`, keyed by block ID, and restored when a card is
+created or reused. Structural edits commit the affected draft first. Focus
+after an edit is requested by block ID and applied after the deferred model
+refresh.
+
+**Consequences.** Only the visible cards and the cache buffer exist.
+Scrolling away and back, or a structural refresh, never loses typing. A host
+that binds its own blocks sees the same behaviour.

@@ -60,6 +60,8 @@ qindatk_add_test(tst_node_graph_model)
 qindatk_add_test(tst_diagram_document)
 qindatk_add_test(tst_cad_document)
 qindatk_add_test(tst_scene_model_3d)
+qindatk_add_test(tst_notebook_document)
+qindatk_add_test(tst_notebook_services)
 # Skips headless; run under a display with QT_QUICK_BACKEND=rhi (docs/scene-3d.md).
 qindatk_add_test(tst_scene_view_3d_render)
 qindatk_add_test(tst_mesh_rig_document)
