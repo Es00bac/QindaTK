@@ -78,6 +78,7 @@ least-recently-used tile cache and computes missing tiles on the thread pool.
 | `delete` | every channel | removes the range; later samples move earlier |
 | `crop` | every channel | keeps only the range |
 | `spectralGain` | `lowHz`, `highHz`, `gainDb` (default −150: removal), `fftSize` (default 2048), optional `mask` | see below |
+| `pitch` | `targetPitchCents`, `correctionAmount`, `formantRatio`, `anchorSample`/`targetSample`, analysis settings | TD-PSOLA in place ([audio-pitch.md](audio-pitch.md)) |
 
 `apply(resourceId, edit)` validates, computes and records one undo step
 synchronously; `undo()`/`redo()` step through the model's own history
@@ -90,7 +91,7 @@ previews and history are not saved.
 
 **Memory (D-187).** Gain, fades and silence store only their parameters;
 their samples are recomputed from the base whenever the list is replayed.
-Spectral edits keep their computed patch as a cache bounded by
+Spectral and pitch edits keep their computed patch as a cache bounded by
 `edits.patchBudgetBytes` (64 MiB; `edits.patchBytes` reports what is held):
 past it the oldest patches are dropped and recomputed bit for bit when a
 replay or redo needs them. A replay edits one private copy in place, so
@@ -139,7 +140,7 @@ samples. Any other change to that source cancels the preview first.
 | Spectrum tiles and reduction | thread pool, per request | token checked per frame and column; a setting change or `cancel()` abandons the request |
 | Spectral preview | thread pool | token checked per frame |
 | Edit fold/apply (linear edits, replaying saved edits) | GUI thread; one working copy per replay | — |
-| Recomputing a spectral patch (after open, or dropped by the budget) | GUI thread during a replay or redo, bounded by the edit's range | — |
+| Recomputing a spectral or pitch patch (after open, or dropped by the budget) | GUI thread during a replay or redo, bounded by the edit's range | — |
 | Playback | device thread reads the compiled graph only | the graph holds immutable buffers; no edit code runs there |
 
 The device thread never sees an edit: edits produce new immutable buffers and
@@ -184,5 +185,7 @@ a reader never takes the previous result for the answer.
 ## Not covered here
 
 Performance measurement of large files, other platforms and screen-reader
-runs are WP-088…WP-094. Time stretch, pitch shift and repair tools beyond
-band and mask gain are not part of the reference engine.
+runs are WP-088…WP-094. Pitch, formant and note-timing correction is the
+`pitch` operation ([audio-pitch.md](audio-pitch.md), WP-068). Whole-source
+time stretch and repair tools beyond band and mask gain are not part of the
+reference engine.

@@ -270,8 +270,12 @@ T.Control {
             }
             ctx.fillStyle = root.css(Tk.Theme.color.textMuted)
             ctx.font = Tk.Theme.font.micro + "px " + Tk.Theme.font.monoFamily
+            // Axis labels sit inside the canvas: top-aligned at the top edge, bottom-aligned at the bottom.
+            ctx.textBaseline = "top"
             ctx.fillText(String(high) + " cents", Tk.Theme.space.xs, Tk.Theme.space.xs)
+            ctx.textBaseline = "bottom"
             ctx.fillText(String(low) + " cents", Tk.Theme.space.xs, height - Tk.Theme.space.xs)
+            ctx.textBaseline = "alphabetic"
         }
     }
     onAnalysisSnapshotChanged: pitchCanvas.requestPaint()

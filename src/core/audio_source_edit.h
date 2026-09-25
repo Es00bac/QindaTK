@@ -4,6 +4,7 @@
 #include "application_contracts.h"
 #include "audio_dsp.h"
 #include "audio_media.h"
+#include "audio_pitch.h"
 
 #include <QString>
 #include <QVariantList>
@@ -17,8 +18,10 @@ namespace QindaTK {
 // before this edit*, at the source's own rate. `channel` −1 is every
 // channel. Gain, fades, silence and spectral gain replace samples in place;
 // delete and crop change the length and always apply to every channel.
+// Pitch (D-197) replaces samples in place too; its parameters live in `pitch`
+// and audio_pitch_edit.cpp handles them.
 struct AudioSourceEdit {
-    enum class Kind { Gain, FadeIn, FadeOut, Silence, Delete, Crop, SpectralGain };
+    enum class Kind { Gain, FadeIn, FadeOut, Silence, Delete, Crop, SpectralGain, Pitch };
     Kind kind = Kind::Gain;
     int channel = -1;
     qint64 start = 0;
@@ -28,10 +31,11 @@ struct AudioSourceEdit {
     double lowHz = 0.0;                  // SpectralGain band, inclusive
     double highHz = 0.0;
     int fftSize = 2048;                  // SpectralGain analysis size; hop fftSize / 4
+    AudioPitch::Correction pitch;        // Pitch: target, amount, formant, retiming (start/end unused)
     // SpectralGain paint/lasso mask (D-186); empty is the lowHz…highHz band.
     std::vector<AudioDsp::SpectralMaskPolygon> mask;
 
-    // Prepared result of a spectral edit: planar replacement samples for the
+    // Prepared result of a spectral or pitch edit: planar replacement samples for the
     // affected channels over [patchStart, patchStart + patch->frames).
     // Not persisted: prepare() recomputes it deterministically. Gain, fades
     // and silence keep no patch; apply() computes them from the base samples
@@ -41,12 +45,13 @@ struct AudioSourceEdit {
     quint64 sequence = 0; // commit order inside an AudioSourceEditModel (patch budget)
 
     bool changesLength() const { return kind == Kind::Delete || kind == Kind::Crop; }
-    bool needsPatch() const { return kind == Kind::SpectralGain; }
+    bool needsPatch() const { return kind == Kind::SpectralGain || kind == Kind::Pitch; }
     QString operation() const;
     QString label() const;
     QVariantMap toMap() const;
     // Accepts {operation, channel, startSample, endSample, gainDb, shape,
-    // lowHz, highHz, fftSize, mask}; sample positions are decimal strings or
+    // lowHz, highHz, fftSize, mask} and the pitch keys
+    // (AudioPitchEditing::readMap); sample positions are decimal strings or
     // numbers; mask is [[{sample, hz}, …], …] (one list per polygon).
     static std::optional<AudioSourceEdit> fromMap(const QVariantMap &map, QString *error);
 };

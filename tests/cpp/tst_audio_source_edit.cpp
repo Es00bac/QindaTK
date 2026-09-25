@@ -148,7 +148,8 @@ private slots:
         QVERIFY(!problem(op(QStringLiteral("spectralGain"), 100, 300, {{QStringLiteral("highHz"), 1000.0}})).isEmpty());
         QVERIFY(!problem(op(QStringLiteral("fadeIn"), 0, 10, {{QStringLiteral("shape"), QStringLiteral("cubic")}})).isEmpty());
         const QVariantList capabilities = AudioSourceEditing::capabilities(*source);
-        QCOMPARE(capabilities.size(), 7);
+        QCOMPARE(capabilities.size(), 8); // …, spectralGain, pitch (WP-068)
+        QCOMPARE(capabilities.at(7).toMap().value(QStringLiteral("operation")).toString(), QStringLiteral("pitch"));
         QCOMPARE(capabilities.at(4).toMap().value(QStringLiteral("operation")).toString(), QStringLiteral("delete"));
         QCOMPARE(capabilities.at(4).toMap().value(QStringLiteral("perChannel")).toBool(), false);
         QCOMPARE(capabilities.at(0).toMap().value(QStringLiteral("perChannel")).toBool(), true);

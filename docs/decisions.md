@@ -1659,6 +1659,84 @@ is the current buffer plus at most the budget; an undo past dropped
 spectral patches re-runs their STFT on the GUI thread (bounded by each
 edit's range).
 
+## D-194 — Pitch is analysed by YIN on a 5 ms grid in MIDI cents
+
+**Context.** AUD-28/ENG-12 need an actual, declared pitch detector with
+confidence and unvoiced states, whose results PitchEditor can draw and
+edits can target. **Decision.** `AudioPitch::analyse` runs YIN
+(de Cheveigné & Kawahara 2002): FFT difference function over a window of
+one maximum lag, cumulative-mean normalisation, the first dip below the
+absolute threshold (0.15) followed to its minimum, then a centred
+re-evaluation of `d` at τ−1…τ+1 and a parabola for the sub-sample period.
+Frames sit on the global grid `f · round(rate × 5 ms)`; confidence is
+`1 − d′`; a frame without a dip or at ≤ −50 dBFS is unvoiced. Pitch is in
+MIDI cents (A4 = 6900). Notes are medians of voiced runs split at 50-cent
+departures lasting 4 frames; phrases bridge up to 6 unvoiced frames.
+`AudioPitchSource` runs it once per committed buffer on the thread pool.
+**Consequences.** Sines read within 0.02 cents and a 1200 cent/s glide
+within 5 cents; partial and whole analyses agree exactly; polyphony and
+pitch below 20 Hz are out of scope; the detector is replaceable behind
+`AudioPitch::analyse` without changing the snapshot contract.
+
+## D-195 — Pitch correction is TD-PSOLA on epoch-aligned sub-sample marks
+
+**Context.** The correction must be a documented method whose output can be
+verified numerically, keep formants, support retiming and leave the rest of
+the source untouched. **Decision.** The `pitch` edit re-analyses its region
+and applies TD-PSOLA (Moulines & Charpentier 1990): one mark per period on
+the waveform's extreme of one polarity (parabolic sub-sample position), hop
+marks in unvoiced material, synthesis marks spaced by period ÷ pitch ratio,
+Hann grains at least as long as the spacing on both sides, grain resampling
+by the formant ratio, and the grain sum divided by the window sum. Time
+edits map output to input with two linear pieces. Channels share the marks
+of their mean; 5 ms crossfades join the region to the untouched samples.
+Unvoiced grains read the input at one whole-sample offset held through the
+run (re-synced to the time map past half a hop), and unvoiced frames next to
+a voiced run whose periods repeat join the run for marking, so noise inside
+a region passes through and a voice onset after noise is shifted.
+**Consequences.** No change reproduces the input to rounding; noise between
+voiced parts of a corrected region is the input, and retimed noise keeps
+0.90–0.96 of its energy (grains averaged at different offsets had lost
+~⅓ in a pitch edit and ~40% in a retime); a ±699-cent
+shift of a harmonic tone lands within 0.25 cents per frame; stereo phase is
+kept. A phase vocoder or a formant-envelope method would be a new operation
+or a versioned parameter, not a silent swap.
+
+## D-196 — Pitch edits declare their limits and measured limitations
+
+**Context.** WP-068 asks for stated limitations instead of general quality
+claims. **Decision.** Edits beyond ±700 cents, formant ratios outside
+0.8–1.25, stretches outside 2/3–1.5× per side, regions under 20 ms, and
+pitch or formant changes over unvoiced material are refused with a reason;
+`AudioPitchSource.editFor` clamps gesture targets into those limits. The
+docs list only what the fixtures assert (docs/audio-pitch.md) and name the
+known artefacts: envelope preservation (a pure sine barely moves), voiced-grain
+repetition buzz on breathy material, the joins between voice and noise or silence
+(within 3 cents over the last 11 ms before a gap; 6 cents from 11 ms and
+0.25 cents from 21 ms after an onset), splices in retimed unvoiced runs,
+and re-processing when a note is edited twice.
+**Consequences.** Hosts can show the limits from the snapshot
+(`maximumShiftCents`, `formantMinimum`, `formantMaximum`); listening tests,
+real vocal fixtures and throughput belong to WP-088…WP-094.
+
+## D-197 — A pitch edit is a source edit and the analysis holds through previews
+
+**Context.** Pitch parameters must be non-destructive, undoable, saved and
+rendered, and a stale analysis must never replace newer edits.
+**Decision.** Pitch corrections are the `pitch` operation of
+`AudioSourceEditModel` (D-134): one undo step each, persisted as their
+parameters (target cents, amount, formant ratio, anchor/target samples,
+analysis settings) and recomputed deterministically on replay, previewed on
+the thread pool (D-137); the computed patch is held like a spectral patch,
+inside the D-187 budget and recomputed when dropped. `AudioPitchSource` holds its analysis of the
+committed samples while a preview is ready, marks it stale on any change to
+the committed samples, refuses requests while stale, and drops any result
+computed for an older revision. `commitEdit` commits the ready preview only
+when it is exactly the request. **Consequences.** Playback and offline
+render use the corrected samples with no new code on the device thread;
+note IDs survive a drag; the audio-editing stack stays the single owner of
+sample edits and history.
+
 ## D-201 — Optional engines are explicit build switches with a resolved-feature summary
 
 **Context.** Qt Quick 3D, Qt Shader Tools, Qt Widgets and Qt PrintSupport
