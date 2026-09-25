@@ -99,6 +99,8 @@ QString validate(const ScoreContent &content)
         if (measure.numerator < 1 || measure.numerator > 32 || !validDenominator(measure.denominator))
             return QObject::tr("Measure %1 has an unsupported time signature").arg(m + 1);
         if (measure.fifths < -7 || measure.fifths > 7) return QObject::tr("Measure %1 has an invalid key").arg(m + 1);
+        if (measure.pickup < 0 || measure.pickup >= meterTicks(measure))
+            return QObject::tr("The pickup of measure %1 must be shorter than its meter").arg(m + 1);
     }
     if (content.measures.back().breakAfter != ScoreBreak::None)
         return QObject::tr("The last measure cannot end a system or page");
@@ -190,7 +192,8 @@ QJsonObject toJson(const ScoreContent &content)
         measures.append(QJsonObject{{QStringLiteral("id"), idText(measure.id)},
                                     {QStringLiteral("time"), QStringLiteral("%1/%2").arg(measure.numerator).arg(measure.denominator)},
                                     {QStringLiteral("fifths"), measure.fifths},
-                                    {QStringLiteral("break"), breakName(measure.breakAfter)}});
+                                    {QStringLiteral("break"), breakName(measure.breakAfter)},
+                                    {QStringLiteral("pickup"), QString::number(measure.pickup)}});
     QJsonArray parts;
     for (const ScorePart &part : content.parts) {
         QJsonArray staves;
@@ -259,6 +262,7 @@ std::optional<ScoreContent> fromJson(const QJsonObject &object, QString *error)
         measure.numerator = time[0].toInt();
         measure.denominator = time[1].toInt();
         measure.fifths = m.value(QStringLiteral("fifths")).toInt();
+        measure.pickup = m.value(QStringLiteral("pickup")).toString().toLongLong(); // absent: 0
         const auto breakAfter = parseBreak(m.value(QStringLiteral("break")).toString());
         if (!breakAfter) return fail(QObject::tr("A measure has an unknown break"));
         measure.breakAfter = *breakAfter;

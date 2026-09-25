@@ -12,11 +12,15 @@ namespace QindaTK {
 // AGENT-CONTRACT (D-180, docs/notation.md#playback): plays a ScoreModel
 // through an AudioSession's MIDI model and engine (WP-064). sync() writes
 // the score's MIDI rendering (Score::toMidi) into one pattern of
-// `session.midi` as one MIDI undo step and keeps one beat-locked clip of it
-// on a MIDI track at `startTicks`, so the tempo map (WP-049) times it and the
-// engine schedules it like any pattern. The score stays the source; the
-// pattern is derived and is replaced whole on every sync. Audition uses the
-// engine's cue voices (auditionNoteOn/Off).
+// `session.midi` and keeps one beat-locked clip of it on a MIDI track at
+// `startTicks`, so the tempo map (WP-049) times it and the engine schedules
+// it like any pattern. The score stays the source; the pattern is derived
+// and is replaced whole on every sync. The track and pattern IDs are UUIDv5
+// of the score ID (Score::playbackTrackId / playbackPatternId) and the clip
+// is the one of that pattern on that track, so the link lives in the saved
+// session itself: a reopened session, a new ScorePlayback or a score set
+// again finds them instead of adding copies. A sync that fails part-way
+// undoes the steps it made. Audition uses the engine's cue voices.
 class ScorePlayback : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -72,17 +76,18 @@ signals:
 
 private:
     QVariantMap fail(const QString &message);
-    bool replaceClip(qint64 length, QString *error);
+    void relink();
+    const TimelineClip *linkedClip() const;
     std::optional<qint64> clipMusicalStart() const;
 
     QPointer<ScoreModel> m_score;
     QPointer<AudioSession> m_session;
     QMetaObject::Connection m_scoreConnection;
+    QList<QMetaObject::Connection> m_sessionConnections;
     qint64 m_start = 0;
     QString m_trackId;
     QString m_patternId;
     QString m_clipId;
-    qint64 m_clipLength = 0;
     bool m_autoSync = false;
     QHash<QUuid, QUuid> m_noteMap;
     QList<int> m_auditioned;

@@ -178,6 +178,56 @@ private slots:
                  QStringLiteral("Measure 1, beat 4, voice 1: quarter note D 4"));
     }
 
+    void pickupBarAndTempoAreHandledAndReported()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("pickup.musicxml"));
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write(R"(<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="0" implicit="yes">
+      <attributes><divisions>1</divisions><key><fifths>0</fifths><mode>major</mode></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <direction placement="above"><direction-type><words>Allegretto</words></direction-type><sound tempo="96"/></direction>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type>
+        <stem>up</stem></note>
+    </measure>
+    <measure number="1">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>3</duration><voice>1</voice><type>half</type><dot/></note>
+    </measure>
+  </part>
+</score-partwise>
+)");
+        out.close();
+        ScoreModel model;
+        const QVariantMap report = model.importMusicXml(file);
+        QVERIFY2(ok(report), qPrintable(report.value(QStringLiteral("error")).toString()));
+        QCOMPARE(report.value(QStringLiteral("pickups")).toInt(), 1);
+        QCOMPARE(report.value(QStringLiteral("unsupported")).toStringList(),
+                 (QStringList{QStringLiteral("tempo"), QStringLiteral("words")}));
+        QCOMPARE(report.value(QStringLiteral("recomputed")).toStringList(),
+                 (QStringList{QStringLiteral("key/mode"), QStringLiteral("stem")}));
+        QCOMPARE(report.value(QStringLiteral("filledRests")).toInt(), 0);
+        const QVariantList measures = model.measures();
+        QCOMPARE(measures.value(0).toMap().value(QStringLiteral("pickup")).toString(), QStringLiteral("960"));
+        QCOMPARE(measures.value(1).toMap().value(QStringLiteral("startTicks")).toString(), QStringLiteral("960"));
+        QCOMPARE(model.totalTicksText(), QStringLiteral("3840"));
+        const QVariantList order = model.readingOrder();
+        QCOMPARE(order.value(0).toMap().value(QStringLiteral("label")).toString(),
+                 QStringLiteral("Measure 1, beat 3, voice 1: quarter note G 4")); // the upbeat
+        // The pickup survives export and import.
+        const QString again = dir.filePath(QStringLiteral("again.musicxml"));
+        QVERIFY(ok(model.exportMusicXml(again)));
+        ScoreModel reread;
+        QVERIFY(ok(reread.importMusicXml(again)));
+        QCOMPARE(reread.toJson(), model.toJson());
+        // A pickup becomes a full bar again only on a bar of rests.
+        QVERIFY(!ok(model.setPickup(measures.value(0).toMap().value(QStringLiteral("id")).toString(), QStringLiteral("0"))));
+    }
+
     void midiConversionMergesTiesAndKeepsNotation()
     {
         Melody m;
@@ -259,6 +309,95 @@ private slots:
         QCOMPARE(playback.clipId(), clip);
         QCOMPARE(session.midi()->undoText(), QStringLiteral("Update score playback"));
         QCOMPARE(noteOn(events(*session.compileGraph(Rate, true), channel, 8 * 24000), 65), qint64(24000));
+    }
+
+    void playbackLinkSurvivesReopenAndReassignment()
+    {
+        Melody m;
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("session.qaudio"));
+        const auto midiTracks = [](AudioSession &session) {
+            int count = 0;
+            for (const QString &id : session.timeline()->trackIds())
+                count += session.timeline()->trackData(id).value(QStringLiteral("kind")).toString() == QLatin1String("midi");
+            return count;
+        };
+        QString track, pattern, clip;
+        {
+            AudioSession session;
+            ScorePlayback playback;
+            playback.setScore(&m.model);
+            playback.setSession(&session);
+            QVERIFY(ok(playback.sync()));
+            track = playback.trackId();
+            pattern = playback.patternId();
+            clip = playback.clipId();
+            QCOMPARE(track, Score::idText(Score::playbackTrackId(m.model.content().id)));
+            QVERIFY(session.save(file));
+        }
+        AudioSession reopened;
+        QVERIFY(reopened.open(file));
+        ScorePlayback playback;
+        playback.setSession(&reopened);
+        playback.setScore(&m.model);
+        // Found before any sync, and a sync reuses them.
+        QCOMPARE(playback.trackId(), track);
+        QCOMPARE(playback.patternId(), pattern);
+        QCOMPARE(playback.clipId(), clip);
+        QVERIFY(ok(playback.sync()));
+        QCOMPARE(playback.clipId(), clip);
+        QCOMPARE(midiTracks(reopened), 1);
+        QCOMPARE(reopened.midi()->patterns().size(), 1);
+        QCOMPARE(reopened.timeline()->clipCount(), 1);
+
+        // Another score gets its own link; switching back finds the first.
+        ScoreModel other;
+        other.newScore(QStringLiteral("Other"), 1, QStringLiteral("4/4"), 0);
+        playback.setScore(&other);
+        QVERIFY(playback.trackId().isEmpty());
+        QVERIFY(ok(playback.sync()));
+        QVERIFY(playback.trackId() != track);
+        playback.setScore(&m.model);
+        QCOMPARE(playback.trackId(), track);
+        QVERIFY(ok(playback.sync()));
+        QCOMPARE(midiTracks(reopened), 2);
+        QCOMPARE(reopened.midi()->patterns().size(), 2);
+        QCOMPARE(reopened.timeline()->clipCount(), 2);
+    }
+
+    void failedSyncRollsBack()
+    {
+        Melody m;
+        AudioSession session;
+        ScorePlayback playback;
+        playback.setScore(&m.model);
+        playback.setSession(&session);
+        QVERIFY(ok(playback.sync()));
+        const QString clip = playback.clipId();
+        const MidiPattern before = *session.midi()->pattern(QUuid::fromString(playback.patternId()));
+        const int timelineHistory = session.timeline()->historyCount();
+        // A hidden track refuses new clips; the longer score needs a new one.
+        TimelineEditRequest hide;
+        hide.kind = TimelineEditKind::TrackProperty;
+        hide.trackId = QUuid::fromString(playback.trackId());
+        hide.property = QStringLiteral("hidden");
+        hide.value = true;
+        OperationError problem;
+        const QString operation = session.timeline()->begin(hide, &problem);
+        QVERIFY(!operation.isEmpty());
+        QVERIFY(!session.timeline()->update(operation, {}).error);
+        QVERIFY(!session.timeline()->commit(operation));
+        QVERIFY(ok(m.model.appendMeasures(1)));
+        const QVariantMap failed = playback.sync();
+        QVERIFY(!ok(failed));
+        QVERIFY(!playback.lastError().isEmpty());
+        // The MIDI step and the clip removal were undone.
+        QCOMPARE(*session.midi()->pattern(QUuid::fromString(playback.patternId())), before);
+        QCOMPARE(playback.clipId(), clip);
+        QVERIFY(session.timeline()->clipRecord(QUuid::fromString(clip)));
+        QCOMPARE(session.timeline()->clipCount(), 1);
+        QCOMPARE(session.timeline()->undoText(), QStringLiteral("Change track")); // only the host's hide remains
+        QVERIFY(session.timeline()->historyCount() >= timelineHistory);
     }
 
     void auditionSoundsTheChord()

@@ -32,6 +32,9 @@ struct ScoreMidiResult {
 
 namespace Score {
 QUuid midiNoteId(const QUuid &scoreNoteId);
+// The playback track and pattern of a score in a session (ScorePlayback).
+QUuid playbackTrackId(const QUuid &scoreId);
+QUuid playbackPatternId(const QUuid &scoreId);
 double dynamicVelocity(const QString &dynamic); // 0..1, mf when empty
 ScoreMidiResult toMidi(const ScoreContent &content, int ticksPerQuarter, const QSet<QUuid> &parts = {});
 QVariantMap midiResultMap(const ScoreMidiResult &result);

@@ -78,6 +78,7 @@ struct ScoreMeasureLayout {
     bool showTime = false;
     double timeX = 0;
     int numerator = 4, denominator = 4;
+    qint64 phase = 0;                           // meter ticks before a pickup starts
     QVector<std::pair<qint64, double>> columns; // tick -> x, ascending
     QVector<ScoreVoiceLayout> voices;
 };

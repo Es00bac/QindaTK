@@ -142,8 +142,10 @@ qt_add_qml_module(qindatk
         core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_model.h
         core/score_types.cpp core/score_rhythm.cpp core/score_codec.cpp core/score_types.h
         core/score_layout.cpp core/score_layout_notes.cpp core/score_render.cpp core/score_layout.h
+        core/score_paint.cpp core/score_glyphs.cpp core/score_paint.h core/score_canvas_item.cpp core/score_canvas_item.h
         core/score_model.cpp core/score_model_structure.cpp core/score_model_edit.cpp core/score_model.h
-        core/score_musicxml_write.cpp core/score_musicxml_read.cpp
+        core/score_musicxml_write.cpp core/score_musicxml_read.cpp core/score_musicxml_read_notes.cpp
+        core/score_musicxml_read_p.h
         core/score_midi.cpp core/score_midi.h core/score_playback.cpp core/score_playback.h
         core/audio_channel_meters.cpp core/audio_channel_meters.h
         core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_types.h
