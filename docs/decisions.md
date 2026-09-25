@@ -1730,7 +1730,7 @@ Documents have no lifetime operation limit; a headless hub needs
 `setCompactionBaseline`; a rebuild resets the document once; replica stores
 move to format 2 (version 1 still opens).
 
-## D-204 — Path node ids are editor state; miter joins follow SVG
+## D-284 — Path node ids are editor state; miter joins follow SVG
 
 **Context.** CAN-19 needs stable node and segment ids so a node selection
 survives segment insertion, but the native path record stores nodes as an
@@ -1766,7 +1766,7 @@ it, emitting `operationDiscarded`; transient refusals stay queued.
 tells the user which edit was dropped. An edit made without permission is
 not kept for a later upgrade.
 
-## D-205 — Panels name the fields they set; fill kinds recall per object
+## D-285 — Panels name the fields they set; fill kinds recall per object
 
 **Context.** Style panels sent whole descriptors and the model applied the
 fields that differed from the published (first object's) values, so setting

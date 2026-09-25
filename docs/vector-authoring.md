@@ -41,7 +41,7 @@ mixed fields in their own terms (`width`, `color`, `cap`, ...; for fill
 `kind`, `color`, `pattern`, `gradient`), and the panels show them as
 "Mixed". Route panel requests through `applyStrokeStyle(descriptor)` and
 `applyFillStyle(descriptor)`. The panels add `changed`, the fields the user
-set, and exactly those become style keys (D-205): setting a mixed width to
+set, and exactly those become style keys (D-285): setting a mixed width to
 the value shown makes every width that value, and changing the alignment of
 a mixed selection leaves each object's own width alone. A descriptor without
 `changed` applies the fields that differ from the published one. Choosing the
@@ -137,7 +137,7 @@ publishes every node of every contour with a stable id (`n<k>`) and derived
 start node's id) and each contour's closed state. Ids survive the model's own
 edits, undo and redo of them (it remembers the ids of geometry it has seen)
 and edits made elsewhere (nodes keep their ids by anchor matching); they are
-editor state, not saved (D-204). The node selection is held by id, so it
+editor state, not saved (D-284). The node selection is held by id, so it
 survives segment insertion, undo and moves; ids that disappear leave it.
 
 - `insertNode(segmentId, t)` splits the segment's cubic at `t` by de
@@ -214,7 +214,7 @@ Commits, the native decoder and both models share its rules
   a join whose miter length exceeds limit x width bevels, on the canvas
   (`Qt::SvgMiterJoin`) as in exported SVG. `documentBounds` includes each
   mitred join's tip (up to the limit), so a raised limit never leaves a spike
-  outside the spatial index or damage rectangles (D-204).
+  outside the spatial index or damage rectangles (D-284).
 - **Opacity and blend.** Opacity (0–1) and the separable blend modes
   `normal`, `multiply`, `screen`, `overlay`, `darken`, `lighten`,
   `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` and
