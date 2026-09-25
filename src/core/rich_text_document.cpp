@@ -24,13 +24,14 @@ void ChangeSet::merge(const ChangeSet &other)
     lists = lists || other.lists;
     objects = objects || other.objects;
     document = document || other.document;
+    annotations = annotations || other.annotations;
     reset = reset || other.reset;
 }
 
 bool ChangeSet::isEmpty() const
 {
     return paragraphs.isEmpty() && removedParagraphs.isEmpty() && tables.isEmpty()
-        && listDefinitions.isEmpty() && !structure && !lists && !objects && !document && !reset;
+        && listDefinitions.isEmpty() && !structure && !lists && !objects && !document && !annotations && !reset;
 }
 
 RichTextDocument::RichTextDocument(QObject *parent)
@@ -218,12 +219,23 @@ int RichTextDocument::formatIndexAt(const Position &position) const
     const int offset = qBound(0, position.offset, int(p->text.size()));
     int index = spanFormatAt(*p, offset > 0 ? offset - 1 : 0);
     CharFormat format = charFormat(index);
+    const CharFormat *next = offset > 0 && offset < p->text.size() ? &charFormat(spanFormatAt(*p, offset)) : nullptr;
     // Typing never copies an object identity, and only extends a link from inside it.
-    const bool insideLink = !format.href.isEmpty() && offset > 0 && offset < p->text.size()
-        && charFormat(spanFormatAt(*p, offset)).href == format.href;
-    if (format.objectId.isEmpty() && (format.href.isEmpty() || insideLink)) return index;
+    const bool insideLink = !format.href.isEmpty() && next && next->href == format.href;
+    // AGENT-NOTE (docs/references-review.md#marks): typed text never joins a
+    // field result or a tracked change, and joins a comment only inside it.
+    QStringList comments;
+    for (const QString &id : std::as_const(format.commentIds))
+        if (next && next->commentIds.contains(id)) comments.append(id);
+    if (format.objectId.isEmpty() && (format.href.isEmpty() || insideLink) && format.fieldId.isEmpty()
+        && format.insertionId.isEmpty() && format.deletionId.isEmpty() && comments == format.commentIds)
+        return index;
     format.objectId.clear();
     if (!insideLink) format.href.clear();
+    format.fieldId.clear();
+    format.insertionId.clear();
+    format.deletionId.clear();
+    format.commentIds = comments;
     return const_cast<RichTextDocument *>(this)->internFormat(format);
 }
 
@@ -279,7 +291,7 @@ void RichTextDocument::resetContent(QVector<Block> blocks, QVector<CharFormat> f
                                     QHash<QString, ListDefinition> lists,
                                     QHash<QString, RichObject> objects, const PageSetup &page,
                                     const DocumentDefaults &defaults, const DocumentId &id,
-                                    StyleSheet styles, FrameSet frames)
+                                    StyleSheet styles, FrameSet frames, Annotations annotations)
 {
     if (m_open) cancelTransaction();
     if (blocks.isEmpty() || !blocks.last().paragraph) {
@@ -304,6 +316,7 @@ void RichTextDocument::resetContent(QVector<Block> blocks, QVector<CharFormat> f
     // hand-built content must satisfy styleSheetProblem/frameSetProblem too.
     m_styles = std::move(styles);
     m_frames = std::move(frames);
+    m_annotations = std::move(annotations); // the codec checks annotationsProblem
     m_resolvedCharacter.clear();
     if (id.isValid()) m_documentId = id;
     m_paragraphs.clear();
@@ -477,8 +490,25 @@ bool RichTextDocument::loadFromFile(const QString &path)
     return false;
 }
 
+void RichTextDocument::setTrackChanges(bool enabled)
+{
+    if (m_trackChanges == enabled) return;
+    m_trackChanges = enabled;
+    emit changed();
+}
+
+void RichTextDocument::setReviewAuthor(const QString &author)
+{
+    if (m_reviewAuthor == author.trimmed()) return;
+    m_reviewAuthor = author.trimmed();
+    emit changed();
+}
+
 OperationError RichTextDocument::reject(ErrorCode code, const QString &message)
 {
+    static const char *const names[] = {"", "invalidArgument", "unsupported", "unavailable", "cancelled",
+                                        "staleRevision", "staleGeneration", "validation", "backendFailure", "conflict"};
+    m_lastErrorCode = QLatin1String(names[qBound(0, int(code), 9)]);
     m_lastError = message;
     emit rejected(message);
     emit changed();

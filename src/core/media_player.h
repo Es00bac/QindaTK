@@ -7,6 +7,7 @@
 #include "time_map.h"
 #include "timeline_model.h"
 #include "transport_model.h"
+#include "video_finishing.h"
 
 #include <QImage>
 #include <QPointer>
@@ -37,6 +38,9 @@ class MediaPlayer : public QObject {
     Q_PROPERTY(bool useProxies READ useProxies WRITE setUseProxies NOTIFY sourceChanged)
     Q_PROPERTY(int maxPreviewWidth READ maxPreviewWidth WRITE setMaxPreviewWidth NOTIFY sourceChanged)
     Q_PROPERTY(int maxPreviewHeight READ maxPreviewHeight WRITE setMaxPreviewHeight NOTIFY sourceChanged)
+    // Grade and captions applied to every presented and exported frame
+    // (D-126); the monitor shows open-gesture previews, exports the committed grade.
+    Q_PROPERTY(QindaTK::VideoFinishing *finishing READ finishing WRITE setFinishing NOTIFY sourceChanged)
     Q_PROPERTY(QindaTK::TransportModel *transport READ transport CONSTANT)
     Q_PROPERTY(QString state READ state NOTIFY stateChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
@@ -84,6 +88,8 @@ public:
     void setMaxPreviewWidth(int width);
     int maxPreviewHeight() const { return m_previewSize.height(); }
     void setMaxPreviewHeight(int height);
+    VideoFinishing *finishing() const { return m_finishing; }
+    void setFinishing(VideoFinishing *finishing);
     TransportModel *transport() const { return m_transport; }
     QString state() const { return m_state; }
     QString lastError() const { return m_lastError; }
@@ -149,6 +155,7 @@ private:
     void finishProbe(const Resolved &original, const QString &playbackUri, bool proxy,
                      const MediaSourceInfoPtr &info, const OperationError &error);
     void applyProgram(MediaProgramPtr program, const QString &state, const QString &error);
+    void refinish();
     void setStateText(const QString &state, const QString &error);
     void watchTimeMap();
     qint64 presentedIndex() const;
@@ -167,6 +174,9 @@ private:
     QString m_state = QStringLiteral("empty");
     QString m_lastError;
     MediaProgramPtr m_program;
+    MediaProgramPtr m_unfinished; // m_program before finishing
+    QPointer<VideoFinishing> m_finishing;
+    QMetaObject::Connection m_finishingLink;
     quint64 m_generation = 0;
     QList<QMetaObject::Connection> m_sourceLinks;
     QMetaObject::Connection m_timeMapLink;

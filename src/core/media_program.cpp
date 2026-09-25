@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QSet>
 #include <algorithm>
+#include <limits>
 
 namespace QindaTK {
 namespace {
@@ -37,12 +38,39 @@ std::optional<TimelineRate> rateFrom(const QJsonValue &value)
     return TimelineRate::normalized(*numerator, *denominator);
 }
 
+QJsonObject windowJson(const MediaTransitionWindow &window)
+{
+    return {{QStringLiteral("type"), window.type}, {QStringLiteral("start"), text(window.start)},
+            {QStringLiteral("duration"), text(window.duration)},
+            {QStringLiteral("parameters"), QJsonObject::fromVariantMap(window.parameters)},
+            {QStringLiteral("partnerClipId"), window.partnerClipId}};
+}
+
+std::optional<MediaTransitionWindow> windowFrom(const QJsonValue &value)
+{
+    MediaTransitionWindow window;
+    if (value.isUndefined() || value.isNull()) return window;
+    const QJsonObject object = value.toObject();
+    const auto start = decimal(object.value(QStringLiteral("start")));
+    const auto duration = decimal(object.value(QStringLiteral("duration")));
+    if (!start || !duration || *duration < 0 || !TimelineTime::add(*start, *duration)) return std::nullopt;
+    window.type = object.value(QStringLiteral("type")).toString();
+    window.start = *start;
+    window.duration = *duration;
+    window.parameters = object.value(QStringLiteral("parameters")).toObject().toVariantMap();
+    window.partnerClipId = object.value(QStringLiteral("partnerClipId")).toString();
+    return window;
+}
+
 QJsonObject spanJson(const MediaClipSpan &span)
 {
-    return {{QStringLiteral("clipId"), span.clipId}, {QStringLiteral("resourceId"), span.resourceId},
+    QJsonObject object{{QStringLiteral("clipId"), span.clipId}, {QStringLiteral("resourceId"), span.resourceId},
             {QStringLiteral("uri"), span.uri}, {QStringLiteral("revision"), span.revision},
             {QStringLiteral("start"), text(span.start)}, {QStringLiteral("duration"), text(span.duration)},
             {QStringLiteral("sourceOffset"), text(span.sourceOffset)}};
+    if (!span.fadeIn.isNull()) object.insert(QStringLiteral("fadeIn"), windowJson(span.fadeIn));
+    if (!span.fadeOut.isNull()) object.insert(QStringLiteral("fadeOut"), windowJson(span.fadeOut));
+    return object;
 }
 
 std::optional<MediaClipSpan> spanFrom(const QJsonValue &value)
@@ -61,7 +89,50 @@ std::optional<MediaClipSpan> spanFrom(const QJsonValue &value)
     span.start = *start;
     span.duration = *duration;
     span.sourceOffset = *offset;
+    const auto fadeIn = windowFrom(object.value(QStringLiteral("fadeIn")));
+    const auto fadeOut = windowFrom(object.value(QStringLiteral("fadeOut")));
+    if (!fadeIn || !fadeOut) return std::nullopt;
+    span.fadeIn = *fadeIn;
+    span.fadeOut = *fadeOut;
     return span;
+}
+
+// Extends the outgoing and incoming spans of each transition on one track
+// over its window (D-120). Spans without media or with an unrepresentable
+// window keep their cut.
+void applyTransitions(const TimelineModel &timeline, const QUuid &trackId, QVector<MediaClipSpan> &spans)
+{
+    QHash<QString, int> index;
+    for (int i = 0; i < spans.size(); ++i) index.insert(spans.at(i).clipId, i);
+    for (int i = 0; i < spans.size(); ++i) {
+        const TimelineClip *incoming = timeline.clipRecord(QUuid(spans.at(i).clipId));
+        if (!incoming || incoming->transition.isNull() || incoming->start == std::numeric_limits<qint64>::min())
+            continue;
+        const TimelineTransition &transition = incoming->transition;
+        int outgoing = -1;
+        for (const QUuid &id : timeline.clipsInRange(trackId, incoming->start - 1, incoming->start)) {
+            const TimelineClip *clip = timeline.clipRecord(id);
+            if (clip && clip->end() == incoming->start) outgoing = index.value(id.toString(QUuid::WithoutBraces), -1);
+            if (outgoing >= 0) break;
+        }
+        if (outgoing < 0) continue;
+        const auto windowStart = TimelineTime::subtract(incoming->start, transition.beforeCut);
+        const auto inDuration = TimelineTime::add(spans.at(i).duration, transition.beforeCut);
+        const auto inOffset = TimelineTime::subtract(spans.at(i).sourceOffset, transition.beforeCut);
+        const auto outDuration = TimelineTime::add(spans.at(outgoing).duration, transition.afterCut);
+        if (!windowStart || !inDuration || !inOffset || !outDuration || transition.duration() < 1) continue;
+        MediaTransitionWindow window{transition.type, *windowStart, transition.duration(), transition.parameters, {}};
+        MediaClipSpan &in = spans[i];
+        MediaClipSpan &out = spans[outgoing];
+        in.start = *windowStart;
+        in.duration = *inDuration;
+        in.sourceOffset = *inOffset;
+        in.fadeIn = window;
+        in.fadeIn.partnerClipId = out.clipId;
+        out.duration = *outDuration;
+        out.fadeOut = window;
+        out.fadeOut.partnerClipId = in.clipId;
+    }
 }
 
 bool validSize(const QSize &size)
@@ -80,6 +151,7 @@ QString MediaProgram::cacheKey() const
         for (const MediaClipSpan &span : *list)
             parts << span.clipId << span.uri << span.revision;
     }
+    parts << finishing.digest();
     return QString::fromLatin1(QCryptographicHash::hash(parts.join(QLatin1Char('|')).toUtf8(),
                                                         QCryptographicHash::Sha1).toHex());
 }
@@ -122,6 +194,15 @@ std::optional<qint64> MediaProgram::frameAtSample(qint64 sample) const
     const auto frame = TimelineTime::rescale(*relative, timebase, frameRate, TimeMap::Floor);
     if (!frame || *frame >= frameCount) return std::nullopt;
     return frame;
+}
+
+std::optional<qint64> MediaProgram::frameStartMilliseconds(qint64 frame) const
+{
+    const auto ticks = frameStartTicks(frame);
+    const auto relative = ticks ? TimelineTime::subtract(*ticks, kind == Kind::Timeline ? originTicks : 0)
+                                : std::nullopt;
+    return relative ? TimelineTime::rescale(*relative, timebase, TimelineRate{1000, 1}, TimeMap::Floor)
+                    : std::nullopt;
 }
 
 qint64 MediaProgram::endSample() const
@@ -189,6 +270,7 @@ std::shared_ptr<MediaProgram> MediaProgram::fromTimeline(const TimelineModel &ti
         const bool video = track->kind == QLatin1String("video") && !track->hidden;
         const bool audio = track->kind == QLatin1String("audio") && !track->muted && (!anySolo || track->solo);
         if (!video && !audio) continue;
+        QVector<MediaClipSpan> spans;
         for (const TimelineModel::IndexEntry &entry : timeline.trackIndex(track->id)) {
             const TimelineClip *clip = timeline.clipRecord(entry.id);
             if (!clip || clip->resourceId.isEmpty()) continue;
@@ -206,8 +288,10 @@ std::shared_ptr<MediaProgram> MediaProgram::fromTimeline(const TimelineModel &ti
             span.start = clip->start;
             span.duration = clip->duration;
             span.sourceOffset = clip->sourceOffset;
-            (video ? program->video : program->audio).append(span);
+            spans.append(span);
         }
+        applyTransitions(timeline, track->id, spans);
+        (video ? program->video : program->audio).append(spans);
     }
     program->unresolved = unresolved.values();
     program->unresolved.sort();
@@ -244,7 +328,7 @@ QJsonObject MediaProgram::toJson() const
     QJsonArray videoSpans, audioSpans;
     for (const MediaClipSpan &span : video) videoSpans.append(spanJson(span));
     for (const MediaClipSpan &span : audio) audioSpans.append(spanJson(span));
-    return {{QStringLiteral("schema"), kSchema},
+    QJsonObject json{{QStringLiteral("schema"), kSchema},
             {QStringLiteral("kind"), kind == Kind::Timeline ? QStringLiteral("timeline") : QStringLiteral("unsupported")},
             {QStringLiteral("programId"), programId}, {QStringLiteral("revision"), revision},
             {QStringLiteral("timebase"), rateJson(timebase)}, {QStringLiteral("frameRate"), rateJson(frameRate)},
@@ -252,6 +336,8 @@ QJsonObject MediaProgram::toJson() const
             {QStringLiteral("originTicks"), text(originTicks)}, {QStringLiteral("frameCount"), text(frameCount)},
             {QStringLiteral("width"), frameSize.width()}, {QStringLiteral("height"), frameSize.height()},
             {QStringLiteral("video"), videoSpans}, {QStringLiteral("audio"), audioSpans}};
+    if (!finishing.isNull()) json.insert(QStringLiteral("finishing"), finishing.toJson());
+    return json;
 }
 
 std::shared_ptr<MediaProgram> MediaProgram::fromJson(const QJsonObject &json, QString *error)
@@ -295,6 +381,10 @@ std::shared_ptr<MediaProgram> MediaProgram::fromJson(const QJsonObject &json, QS
             target->append(*span);
         }
     }
+    QString finishingError;
+    const auto finishing = MediaFinishing::fromJson(json.value(QStringLiteral("finishing")).toObject(), &finishingError);
+    if (!finishing) return reject(QStringLiteral("The program's finishing is invalid: %1").arg(finishingError));
+    program->finishing = *finishing;
     return program;
 }
 

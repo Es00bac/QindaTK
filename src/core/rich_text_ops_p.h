@@ -2,6 +2,7 @@
 #pragma once
 
 #include "rich_text_document.h"
+#include <functional>
 
 // Private helpers shared by the rich_text_*.cpp operation files.
 namespace QindaTK::RichText::Detail {
@@ -27,6 +28,14 @@ QString cleanInsertedText(QString text);
 StepText textStep(const RichTextDocument &doc, const Paragraph &p, int offset, int length,
                   const QString &inserted, const QVector<Span> &insertedSpans,
                   const QVector<RichObject> &insertedObjects = {});
+
+// Review and field helpers (rich_text_review_edit.cpp). rewriteFormats maps
+// the character formats of [from, to) in `p` through `edit` as one StepSpans
+// (none when nothing changes) and returns false when the step is refused.
+bool rewriteFormats(RichTextDocument &doc, const Paragraph &p, int from, int to,
+                    const std::function<void(CharFormat &)> &edit);
+QString newAnnotationId();
+QString reviewTime();                     // now, ISO 8601 UTC to the second
 
 // Table grid helpers (rich_text_table_edit.cpp) shared with the merged-cell
 // and table-style operations.

@@ -79,6 +79,9 @@ class RichTextArea : public QQuickItem {
     Q_PROPERTY(QColor markerColor MEMBER m_markerColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor frameGuideColor MEMBER m_frameGuideColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor oversetColor MEMBER m_oversetColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor insertionColor MEMBER m_insertionColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor deletionColor MEMBER m_deletionColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor commentColor MEMBER m_commentColor NOTIFY colorsChanged)
     Q_PROPERTY(qreal caretWidth MEMBER m_caretWidth NOTIFY colorsChanged)
 public:
     explicit RichTextArea(QQuickItem *parent = nullptr);
@@ -159,6 +162,14 @@ public:
     // Shows a frame and puts the caret at its first character (or just the
     // frame's page when the story does not reach it).
     Q_INVOKABLE bool goToFrame(const QString &frameId);
+    // WP-052: the selection as paragraph positions ({anchorParagraphId,
+    // anchorOffset, focusParagraphId, focusOffset}) and review requests at it.
+    Q_INVOKABLE QVariantMap selectionRange() const;
+    Q_INVOKABLE QString addComment(const QString &body);
+    Q_INVOKABLE QString insertEquation(const QString &source);
+    Q_INVOKABLE QString insertReference(const QString &type, const QString &targetId);
+    Q_INVOKABLE bool selectRange(const QString &startParagraphId, int startOffset,
+                                 const QString &endParagraphId, int endOffset);
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 signals:
@@ -273,6 +284,7 @@ private:
     mutable quint64 m_accessibleRevision = ~0ull;
     QColor m_ink, m_pageColor, m_linkColor, m_selectionColor, m_selectedTextColor, m_caretColor;
     QColor m_borderColor, m_objectFill, m_objectText, m_markerColor, m_frameGuideColor, m_oversetColor;
+    QColor m_insertionColor, m_deletionColor, m_commentColor;
     qreal m_caretWidth = 1.0;
 };
 

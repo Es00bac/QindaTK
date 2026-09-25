@@ -103,12 +103,50 @@ QVariantMap toMap(const TimelineClip &clip)
             {QStringLiteral("locked"), clip.locked},
             {QStringLiteral("anchor"), clip.anchor == TimelineClip::Anchor::Musical
                                            ? QStringLiteral("musical") : QStringLiteral("time")}};
+    if (!clip.linkId.isNull()) map.insert(QStringLiteral("linkId"), clip.linkId.toString(QUuid::WithoutBraces));
+    if (!clip.transition.isNull()) map.insert(QStringLiteral("transition"), toMap(clip.transition));
     // Beat-locked clips carry their canonical musical anchor; `start` is derived.
     if (clip.anchor == TimelineClip::Anchor::Musical) {
         map.insert(QStringLiteral("musicalTick"), QString::number(clip.musicalTick));
         map.insert(QStringLiteral("musicalOffset"), QString::number(clip.musicalOffset));
     }
     return map;
+}
+
+QVariantMap toMap(const TimelineTransition &transition)
+{
+    return {{QStringLiteral("type"), transition.type},
+            {QStringLiteral("beforeCut"), QString::number(transition.beforeCut)},
+            {QStringLiteral("afterCut"), QString::number(transition.afterCut)},
+            {QStringLiteral("duration"), QString::number(transition.duration())},
+            {QStringLiteral("alignment"), transition.alignment},
+            {QStringLiteral("parameters"), transition.parameters}};
+}
+
+std::optional<TimelineTransition> transitionFromMap(const QVariantMap &map, QString *error)
+{
+    TimelineTransition transition;
+    if (!readString(map, QStringLiteral("type"), transition.type, error)
+        || !readString(map, QStringLiteral("alignment"), transition.alignment, error)
+        || !readTicks(map, QStringLiteral("beforeCut"), transition.beforeCut, error, false)
+        || !readTicks(map, QStringLiteral("afterCut"), transition.afterCut, error, false))
+        return std::nullopt;
+    // Parameter values are stored as strings so a JSON round trip compares equal.
+    const QVariantMap parameters = map.value(QStringLiteral("parameters")).toMap();
+    for (auto it = parameters.cbegin(); it != parameters.cend(); ++it)
+        transition.parameters.insert(it.key(), it.value().toString());
+    if (transition.isNull()) return TimelineTransition{};
+    static const QStringList types{QStringLiteral("dissolve"), QStringLiteral("wipe"), QStringLiteral("dip")};
+    if (!types.contains(transition.type)) {
+        setError(error, tr("transition type must be dissolve, wipe or dip"));
+        return std::nullopt;
+    }
+    if (transition.beforeCut < 0 || transition.afterCut < 0
+        || !TimelineTime::add(transition.beforeCut, transition.afterCut)) {
+        setError(error, tr("transition lengths must be non-negative exact ticks"));
+        return std::nullopt;
+    }
+    return transition;
 }
 
 QVariantMap toMap(const TimelineMarker &marker)
@@ -171,6 +209,22 @@ std::optional<TimelineClip> clipFromMap(const QVariantMap &map, QString *error,
         || !readTicks(map, QStringLiteral("musicalTick"), clip.musicalTick, error, false)
         || !readTicks(map, QStringLiteral("musicalOffset"), clip.musicalOffset, error, false))
         return std::nullopt;
+    if (map.contains(QStringLiteral("linkId"))) {
+        const QVariant link = map.value(QStringLiteral("linkId"));
+        const bool empty = link.isNull() || (link.metaType().id() == QMetaType::QString && link.toString().isEmpty());
+        if (empty) clip.linkId = {};
+        else if (!readId(map, QStringLiteral("linkId"), clip.linkId, error, false)) return std::nullopt;
+    }
+    if (map.contains(QStringLiteral("transition"))) {
+        const QVariant value = map.value(QStringLiteral("transition"));
+        if (value.isNull()) {
+            clip.transition = {};
+        } else {
+            const auto transition = transitionFromMap(value.toMap(), error);
+            if (!transition) return std::nullopt;
+            clip.transition = *transition;
+        }
+    }
     if (map.contains(QStringLiteral("anchor"))) {
         const QString anchor = map.value(QStringLiteral("anchor")).toString();
         if (anchor == QLatin1String("time")) clip.anchor = TimelineClip::Anchor::Time;

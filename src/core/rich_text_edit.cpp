@@ -362,6 +362,8 @@ OperationError RichTextDocument::applyStep(Step &step, bool forward, ChangeSet &
             return applyStyleStep(s, forward, change);
         } else if constexpr (std::is_same_v<T, StepFrames>) {
             return applyFrames(s, forward, change);
+        } else if constexpr (std::is_same_v<T, StepAnnotation>) {
+            return applyAnnotation(s, forward, change);
         } else {
             static_assert(std::is_same_v<T, StepDocument>);
             if (!(m_page == (forward ? s.pageBefore : s.pageAfter))

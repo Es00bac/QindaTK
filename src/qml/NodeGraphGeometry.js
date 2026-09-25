@@ -83,6 +83,26 @@ function paintEdge(ctx, a, b, mode, stub, clearance) {
     }
 }
 
+// Document-space polyline (DiagramDocument.routeEdges) mapped into the view.
+function paintRoute(ctx, points, zoom, panX, panY) {
+    for (let i = 0; i < points.length; ++i) {
+        const x = panX + Number(points[i].x) * zoom
+        const y = panY + Number(points[i].y) * zoom
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+    }
+}
+
+// Middle of a routed polyline's middle segment, else of the endpoints.
+function edgeMidpoint(route, a, b, zoom, panX, panY) {
+    const points = route && route.points ? route.points : []
+    if (points.length < 2) return Qt.point((a.x + b.x) / 2, (a.y + b.y) / 2)
+    const index = Math.floor((points.length - 2) / 2)
+    const p = points[index], q = points[index + 1]
+    return Qt.point(panX + (Number(p.x) + Number(q.x)) / 2 * zoom,
+                    panY + (Number(p.y) + Number(q.y)) / 2 * zoom)
+}
+
 function groupById(groups, groupId) {
     const source = groups || []
     for (let i = 0; i < source.length; ++i)

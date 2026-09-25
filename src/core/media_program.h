@@ -2,6 +2,7 @@
 #pragma once
 
 #include "media_decoder.h"
+#include "media_finishing.h"
 
 #include <QJsonObject>
 #include <QSize>
@@ -16,6 +17,20 @@
 namespace QindaTK {
 class TimelineModel;
 
+// A transition window on a program span (docs/sequence-edits.md, D-120):
+// program ticks [start, start + duration). On the incoming span it is the
+// fade in and `partnerClipId` names the outgoing span it blends from; on the
+// outgoing span it is the fade out and names the incoming span.
+struct MediaTransitionWindow {
+    QString type;       // dissolve, wipe, dip
+    qint64 start = 0;
+    qint64 duration = 0; // 0: no transition
+    QVariantMap parameters;
+    QString partnerClipId;
+    bool isNull() const { return duration <= 0; }
+    bool contains(qint64 ticks) const { return !isNull() && ticks >= start && ticks - start < duration; }
+};
+
 struct MediaClipSpan {
     QString clipId;
     QString resourceId;
@@ -24,6 +39,8 @@ struct MediaClipSpan {
     qint64 start = 0; // program ticks
     qint64 duration = 1;
     qint64 sourceOffset = 0; // ticks into the source media
+    MediaTransitionWindow fadeIn;  // spans include their transition handles
+    MediaTransitionWindow fadeOut;
 };
 
 struct MediaSourceFrameRef {
@@ -61,7 +78,12 @@ struct MediaAudioMix {
 //   (front), skipping hidden tracks; each clip maps program ticks T to
 //   source ticks sourceOffset + (T - start), held to a source frame;
 //   audio mixes every unmuted audio track (only soloed ones when any is),
-//   placed at the first sample at or after each clip's start.
+//   placed at the first sample at or after each clip's start;
+//   a clip's transition (TimelineClip::transition, WP-071) extends the
+//   outgoing and incoming spans over its window and MediaTransition blends
+//   their pictures and crossfades their sound there;
+//   `finishing` (grade, then burned-in captions; WP-072, D-126) is applied
+//   last to every frame render() returns, for playback and export alike.
 // Sample positions and ticks share origin 0, as in TimelineModel.
 class MediaProgram {
 public:
@@ -89,6 +111,7 @@ public:
     QVector<MediaClipSpan> video; // back to front
     QVector<MediaClipSpan> audio;
     QStringList unresolved;
+    MediaFinishing finishing;
 
     bool isEmpty() const { return kind == Kind::Empty || frameCount <= 0; }
     QString cacheKey() const;
@@ -98,6 +121,9 @@ public:
     std::optional<qint64> frameAtSample(qint64 sample) const;
     qint64 endSample() const;
     QVariantMap describe() const;
+    // Whole program milliseconds at the start of `frame`, rounded down
+    // (MediaFinishing's caption clock); std::nullopt outside the program.
+    std::optional<qint64> frameStartMilliseconds(qint64 frame) const;
 
     // Worker-thread operations; `pool` belongs to the calling thread.
     MediaRenderedFrame render(qint64 frame, const QSize &outputSize, MediaDecoderPool &pool,

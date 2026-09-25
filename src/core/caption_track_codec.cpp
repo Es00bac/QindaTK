@@ -33,16 +33,55 @@ QVector<QString> blocks(const QString &input)
     return result;
 }
 
+QString unescapeVtt(QString text)
+{
+    text.replace(QStringLiteral("&lt;"), QStringLiteral("<"));
+    text.replace(QStringLiteral("&gt;"), QStringLiteral(">"));
+    text.replace(QStringLiteral("&nbsp;"), QString(QChar(0x00a0)));
+    text.replace(QStringLiteral("&lrm;"), QString(QChar(0x200e)));
+    text.replace(QStringLiteral("&rlm;"), QString(QChar(0x200f)));
+    text.replace(QStringLiteral("&amp;"), QStringLiteral("&"));
+    return text;
+}
+
+QString escapeVtt(QString text)
+{
+    text.replace(QLatin1Char('&'), QStringLiteral("&amp;"));
+    text.replace(QLatin1Char('<'), QStringLiteral("&lt;"));
+    text.replace(QLatin1Char('>'), QStringLiteral("&gt;"));
+    return text;
+}
+
+// A blank line ends a cue in both sidecar formats, so cue text never carries one.
+QString withoutBlankLines(QString text)
+{
+    while (text.contains(QStringLiteral("\n\n"))) text.replace(QStringLiteral("\n\n"), QStringLiteral("\n"));
+    return text;
+}
+
+bool meaningfulLanguage(const QString &language)
+{
+    return !language.isEmpty() && language != QLatin1String("und");
+}
+
 bool parseBlocks(const QString &input, const QString &language, const bool webVtt,
-                 QVector<CaptionCueRecord> *cues, QString *error)
+                 QVector<CaptionCueRecord> *cues, QString *error, QString *headerLanguage)
 {
     if (input.size() > kMaximumInput) {
         *error = QStringLiteral("Caption input exceeds the 8 MiB bound.");
         return false;
     }
     auto parts = blocks(input);
-    if (webVtt && !parts.isEmpty() && parts.first().startsWith(QStringLiteral("WEBVTT")))
+    if (webVtt && !parts.isEmpty() && parts.first().startsWith(QStringLiteral("WEBVTT"))) {
+        // Header lines up to the first blank line; `Language:` names the track.
+        for (const QString &line : parts.first().split(QLatin1Char('\n'))) {
+            if (headerLanguage && line.startsWith(QStringLiteral("Language:")))
+                *headerLanguage = line.mid(9).trimmed();
+        }
         parts.removeFirst();
+    }
+    static const QRegularExpression langSpan(QStringLiteral("^<lang ([^>\\s]+)>(.*)</lang>$"),
+                                             QRegularExpression::DotMatchesEverythingOption);
     const QRegularExpression arrow(QStringLiteral("^\\s*(.+?)\\s+-->\\s+([^\\s]+)(?:\\s+.*)?$"));
     QVector<CaptionCueRecord> parsed;
     int generatedId = 1;
@@ -83,6 +122,14 @@ bool parseBlocks(const QString &input, const QString &language, const bool webVt
         cue.outMs = outMs;
         cue.language = language.isEmpty() ? QStringLiteral("und") : language;
         cue.text = lines.mid(timingLine + 1).join(QLatin1Char('\n'));
+        if (webVtt) {
+            const auto span = langSpan.match(cue.text);
+            if (span.hasMatch()) {
+                cue.language = span.captured(1);
+                cue.text = span.captured(2);
+            }
+            cue.text = unescapeVtt(cue.text);
+        }
         parsed.append(cue);
     }
     if (parsed.isEmpty()) {
@@ -157,18 +204,26 @@ QString formatTime(qint64 milliseconds, QChar decimal)
         .arg(fraction, 3, 10, QLatin1Char('0'));
 }
 
-bool parseWebVtt(const QString &text, const QString &language, QVector<CaptionCueRecord> *cues, QString *error)
-{ return parseBlocks(text, language, true, cues, error); }
+bool parseWebVtt(const QString &text, const QString &language, QVector<CaptionCueRecord> *cues, QString *error,
+                 QString *headerLanguage)
+{ return parseBlocks(text, language, true, cues, error, headerLanguage); }
 
 bool parseSrt(const QString &text, const QString &language, QVector<CaptionCueRecord> *cues, QString *error)
-{ return parseBlocks(text, language, false, cues, error); }
+{ return parseBlocks(text, language, false, cues, error, nullptr); }
 
-QString toWebVtt(const QVector<CaptionCueRecord> &cues)
+QString toWebVtt(const QVector<CaptionCueRecord> &cues, const QString &trackLanguage)
 {
-    QString output = QStringLiteral("WEBVTT\n\n");
-    for (const auto &cue : cues)
+    QString output = QStringLiteral("WEBVTT\n");
+    if (meaningfulLanguage(trackLanguage))
+        output += QStringLiteral("Language: ") + trackLanguage + QLatin1Char('\n');
+    output += QLatin1Char('\n');
+    for (const auto &cue : cues) {
+        QString text = escapeVtt(withoutBlankLines(cue.text));
+        if (meaningfulLanguage(trackLanguage) && meaningfulLanguage(cue.language) && cue.language != trackLanguage)
+            text = QStringLiteral("<lang ") + cue.language + QLatin1Char('>') + text + QStringLiteral("</lang>");
         output += cue.id + QLatin1Char('\n') + formatTime(cue.inMs) + QStringLiteral(" --> ")
-            + formatTime(cue.outMs) + QLatin1Char('\n') + cue.text + QStringLiteral("\n\n");
+            + formatTime(cue.outMs) + QLatin1Char('\n') + text + QStringLiteral("\n\n");
+    }
     return output;
 }
 
@@ -179,7 +234,7 @@ QString toSrt(const QVector<CaptionCueRecord> &cues)
         const auto &cue = cues.at(i);
         output += QString::number(i + 1) + QLatin1Char('\n') + formatTime(cue.inMs, QLatin1Char(','))
             + QStringLiteral(" --> ") + formatTime(cue.outMs, QLatin1Char(','))
-            + QLatin1Char('\n') + cue.text + QStringLiteral("\n\n");
+            + QLatin1Char('\n') + withoutBlankLines(cue.text) + QStringLiteral("\n\n");
     }
     return output;
 }

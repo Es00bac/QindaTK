@@ -74,8 +74,10 @@ QFont resolvedFont(const RichTextDocument &doc, const CharFormat &direct, const 
     font.setPointSizeF(sizePt * PxPerPt);
     font.setWeight(QFont::Weight(qBound(1, f.weight > 0 ? f.weight : heading.weight > 0 ? heading.weight : 400, 1000)));
     font.setItalic(f.italic == 1);
-    font.setUnderline(f.underline == 1);
-    font.setStrikeOut(f.strike == 1);
+    // Tracked insertions are underlined and deletions struck through in the
+    // shaped text itself (a draw-time format cannot strike text out).
+    font.setUnderline(f.underline == 1 || !f.insertionId.isEmpty());
+    font.setStrikeOut(f.strike == 1 || !f.deletionId.isEmpty());
     font.setHintingPreference(QFont::PreferNoHinting);
     return font;
 }

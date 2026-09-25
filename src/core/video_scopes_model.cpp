@@ -1,17 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "video_scopes_model.h"
+#include "media_player.h"
 
 #include <QColorSpace>
-#include <QVector>
-#include <QtMath>
-
-namespace {
-constexpr int kMaxPixels = 16 * 1024 * 1024;
-constexpr int kHistogramBins = 128;
-constexpr int kWaveColumns = 128;
-constexpr int kWaveRows = 64;
-constexpr int kVectorSide = 64;
-}
 
 VideoScopesModel::VideoScopesModel(QObject *parent) : QObject(parent) {}
 
@@ -27,7 +18,83 @@ void VideoScopesModel::clear()
 {
     m_error.clear();
     m_snapshot.clear();
+    m_frame = {};
+    m_frameId.clear();
     emit changed();
+}
+
+void VideoScopesModel::setMatrix(const QString &name)
+{
+    const auto matrix = VideoScopeConvention::matrixFrom(name);
+    if (!matrix) { failed(QStringLiteral("Unknown scope matrix %1 (bt709, bt601, bt2020).").arg(name)); return; }
+    if (*matrix == m_convention.matrix) return;
+    m_convention.matrix = *matrix;
+    conventionChanged();
+}
+
+void VideoScopesModel::setSignalRange(const QString &name)
+{
+    const auto range = VideoScopeConvention::rangeFrom(name);
+    if (!range) { failed(QStringLiteral("Unknown signal range %1 (full, limited).").arg(name)); return; }
+    if (*range == m_convention.range) return;
+    m_convention.range = *range;
+    conventionChanged();
+}
+
+void VideoScopesModel::setAnalysisSpace(const QString &name)
+{
+    const auto space = VideoScopeConvention::spaceFrom(name);
+    if (!space) { failed(QStringLiteral("Unknown analysis space %1 (srgb, signal).").arg(name)); return; }
+    if (*space == m_convention.space) return;
+    m_convention.space = *space;
+    conventionChanged();
+}
+
+void VideoScopesModel::conventionChanged()
+{
+    if (!m_frame.isNull() && m_active) analyzeFrame(m_frame, m_frameId);
+    else emit changed();
+}
+
+void VideoScopesModel::setPlayer(QindaTK::MediaPlayer *player)
+{
+    if (m_player == player) return;
+    disconnect(m_playerLink);
+    disconnect(m_playerGone);
+    m_player = player;
+    m_playerRevision = 0;
+    if (player) {
+        m_playerLink = connect(player, &QindaTK::MediaPlayer::frameChanged, this, &VideoScopesModel::playerFrameChanged);
+        m_playerGone = connect(player, &QObject::destroyed, this, [this] {
+            m_player = nullptr;
+            emit changed();
+        });
+    }
+    emit changed();
+    playerFrameChanged();
+}
+
+void VideoScopesModel::setActive(bool active)
+{
+    if (m_active == active) return;
+    m_active = active;
+    emit changed();
+    if (active && m_stale) playerFrameChanged();
+}
+
+void VideoScopesModel::playerFrameChanged()
+{
+    if (!m_player) return;
+    const QImage image = m_player->presentedImage();
+    const quint64 revision = m_player->presentedRevision();
+    if (image.isNull() || revision == m_playerRevision) return;
+    if (!m_active) {
+        m_stale = true;
+        return;
+    }
+    m_stale = false;
+    m_playerRevision = revision;
+    analyzeFrame(image, m_player->presentedFrameKey());
 }
 
 QVariantMap VideoScopesModel::analyzeColorBarsFixture(const QString &frameId)
@@ -49,81 +116,14 @@ QVariantMap VideoScopesModel::analyzeColorBarsFixture(const QString &frameId)
 
 QVariantMap VideoScopesModel::analyzeFrame(const QImage &frame, const QString &frameId)
 {
-    if (frame.isNull())
-        return failed(QStringLiteral("No decoded frame was supplied."));
-    if (frameId.isEmpty())
-        return failed(QStringLiteral("A stable frame ID is required."));
-    if (qint64(frame.width()) * frame.height() > kMaxPixels)
-        return failed(QStringLiteral("Frame exceeds the 16-megapixel analysis bound."));
-
-    const bool hadProfile = frame.colorSpace().isValid();
-    QImage srgb = frame;
-    if (hadProfile) {
-        srgb = frame.convertedToColorSpace(QColorSpace(QColorSpace::SRgb), QImage::Format_RGBA8888);
-        if (srgb.isNull())
-            return failed(QStringLiteral("The frame color profile could not be converted to sRGB."));
-    } else {
-        srgb = frame.convertToFormat(QImage::Format_RGBA8888);
-        srgb.setColorSpace(QColorSpace(QColorSpace::SRgb));
-    }
-
-    QVector<int> histogram(kHistogramBins, 0);
-    QVector<int> waveform(kWaveColumns * kWaveRows, 0);
-    QVector<int> vectorscope(kVectorSide * kVectorSide, 0);
-    int samples = 0;
-    int transparent = 0;
-    int maxColumnCount = 0;
-    for (int y = 0; y < srgb.height(); ++y) {
-        const uchar *line = srgb.constScanLine(y);
-        for (int x = 0; x < srgb.width(); ++x) {
-            const uchar *p = line + x * 4;
-            if (p[3] == 0) { ++transparent; continue; }
-            const double r = p[0] / 255.0;
-            const double g = p[1] / 255.0;
-            const double b = p[2] / 255.0;
-            const double luma = qBound(0.0, 0.2126 * r + 0.7152 * g + 0.0722 * b, 1.0);
-            const int h = qMin(kHistogramBins - 1, int(luma * kHistogramBins));
-            const int column = qMin(kWaveColumns - 1, x * kWaveColumns / srgb.width());
-            const int row = qMin(kWaveRows - 1, int((1.0 - luma) * kWaveRows));
-            const double cb = (b - luma) / (2.0 * (1.0 - 0.0722)) + 0.5;
-            const double cr = (r - luma) / (2.0 * (1.0 - 0.2126)) + 0.5;
-            const int vx = qBound(0, qRound(cb * (kVectorSide - 1)), kVectorSide - 1);
-            const int vy = qBound(0, qRound((1.0 - cr) * (kVectorSide - 1)), kVectorSide - 1);
-            ++histogram[h];
-            ++waveform[column * kWaveRows + row];
-            ++vectorscope[vy * kVectorSide + vx];
-            ++samples;
-        }
-    }
-    for (int c = 0; c < kWaveColumns; ++c) {
-        int count = 0;
-        for (int row = 0; row < kWaveRows; ++row)
-            count += waveform[c * kWaveRows + row];
-        maxColumnCount = qMax(maxColumnCount, count);
-    }
-
-    QVariantList hist, wave, vectors;
-    hist.reserve(histogram.size());
-    wave.reserve(waveform.size());
-    vectors.reserve(vectorscope.size());
-    for (int value : histogram) hist.append(value);
-    for (int value : waveform) wave.append(value);
-    for (int value : vectorscope) vectors.append(value);
+    const QVariantMap result = VideoScopeAnalysis::analyze(frame, frameId, m_convention);
+    if (!result.value(QStringLiteral("valid")).toBool())
+        return failed(result.value(QStringLiteral("error")).toString());
+    m_frame = frame;
+    m_frameId = frameId;
     m_error.clear();
-    m_snapshot = {
-        {QStringLiteral("valid"), true}, {QStringLiteral("frameId"), frameId},
-        {QStringLiteral("width"), srgb.width()}, {QStringLiteral("height"), srgb.height()},
-        {QStringLiteral("sampleCount"), samples}, {QStringLiteral("transparentPixelCount"), transparent},
-        {QStringLiteral("profileConvertedToSrgb"), hadProfile},
-        {QStringLiteral("colorSpaceAssumption"), hadProfile ? QStringLiteral("input profile converted to sRGB") : QStringLiteral("untagged input assumed encoded sRGB")},
-        {QStringLiteral("rangeConvention"), QStringLiteral("full-range normalized encoded RGB [0,1]")},
-        {QStringLiteral("lumaConvention"), QStringLiteral("Rec.709 Y' from encoded sRGB; no legal-range scaling")},
-        {QStringLiteral("vectorscopeConvention"), QStringLiteral("Rec.709 full-range Cb/Cr; Cb horizontal, Cr vertical")},
-        {QStringLiteral("histogramBins"), kHistogramBins}, {QStringLiteral("histogram"), hist},
-        {QStringLiteral("waveformColumns"), kWaveColumns}, {QStringLiteral("waveformRows"), kWaveRows},
-        {QStringLiteral("waveform"), wave}, {QStringLiteral("waveformPeakColumnSamples"), maxColumnCount},
-        {QStringLiteral("vectorscopeSide"), kVectorSide}, {QStringLiteral("vectorscope"), vectors}
-    };
+    m_snapshot = result;
+    ++m_analysisCount;
     emit changed();
     return m_snapshot;
 }

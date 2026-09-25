@@ -31,9 +31,10 @@ std::array<double, 3> wheelRgb(const QPointF &point)
             2.0 * point.y() / 3.0};
 }
 
-int byte(double value)
+// SDR output: graded values clip to the nominal [0, 1] range.
+double unit(double value)
 {
-    return qBound(0, qRound(qBound(0.0, value, 1.0) * 255.0), 255);
+    return std::isfinite(value) ? std::clamp(value, 0.0, 1.0) : 0.0;
 }
 }
 
@@ -99,7 +100,11 @@ ColorGradeResult ColorGradeProcessor::process(const QImage &source,
     const QColorSpace outputSpace = QColorSpace::fromIccProfile(outputBytes);
     if (!workingSpace.isValid() || !outputSpace.isValid())
         return fail(ErrorCode::BackendFailure, QStringLiteral("context.profile"), QStringLiteral("Qt could not reopen a validated RGB profile"));
-    QImage linear = source.convertedToColorSpace(workingSpace, QImage::Format_RGBA8888);
+    // AGENT-NOTE: the grade runs on 32-bit float linear pixels. An 8-bit
+    // linear buffer maps sRGB codes 0-12 onto three values, so even a
+    // neutral grade banded shadows; float keeps a neutral grade an exact
+    // identity after the final conversion rounds back to 8 bits.
+    QImage linear = source.convertedToColorSpace(workingSpace, QImage::Format_RGBA32FPx4);
     if (linear.isNull())
         return fail(ErrorCode::BackendFailure, QStringLiteral("source.colorSpace"), QStringLiteral("Input profile could not be converted to linear sRGB"));
 
@@ -112,13 +117,13 @@ ColorGradeResult ColorGradeProcessor::process(const QImage &source,
                                  std::max(0.0, 1.0 + gain[2])};
     const double exposure = std::exp2(parameters.exposureEv);
     for (int y = 0; y < linear.height(); ++y) {
-        uchar *row = linear.scanLine(y);
+        auto *row = reinterpret_cast<float *>(linear.scanLine(y));
         for (int x = 0; x < linear.width(); ++x) {
-            uchar *p = row + x * 4;
+            float *p = row + x * 4;
             for (int channel = 0; channel < 3; ++channel) {
-                const double lifted = p[channel] / 255.0 + 0.25 * lift[channel];
+                const double lifted = double(p[channel]) + 0.25 * lift[channel];
                 const double signedGamma = std::copysign(std::pow(std::abs(lifted), exponent[channel]), lifted);
-                p[channel] = uchar(byte(signedGamma * gainScale[channel] * exposure));
+                p[channel] = float(unit(signedGamma * gainScale[channel] * exposure));
             }
         }
     }

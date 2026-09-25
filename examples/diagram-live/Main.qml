@@ -21,10 +21,15 @@ Item {
         const approvedIn = diagram.addPort(approved, qsTr("Done"), "input", "work")
         const reworkIn = diagram.addPort(rework, qsTr("Revise"), "input", "work")
         const reworkOut = diagram.addPort(rework, qsTr("Resubmit"), "output", "work")
+        const reworkDrop = diagram.addPort(rework, qsTr("Withdraw"), "output", "work")
+        const withdrawn = diagram.addNode(qsTr("Withdrawn"), 940, 300, "output")
+        const withdrawnIn = diagram.addPort(withdrawn, qsTr("Closed"), "input", "work")
+        // Every step conserves its flow: triage 12 + 3 in = 10 + 5 out.
         diagram.setEdgeFlow(diagram.connectPorts(request, requestOut, triage, triageIn), 12)
-        diagram.setEdgeFlow(diagram.connectPorts(triage, triageYes, approved, approvedIn), 7)
+        diagram.setEdgeFlow(diagram.connectPorts(triage, triageYes, approved, approvedIn), 10)
         diagram.setEdgeFlow(diagram.connectPorts(triage, triageNo, rework, reworkIn), 5)
         diagram.setEdgeFlow(diagram.connectPorts(rework, reworkOut, triage, triageIn), 3)
+        diagram.setEdgeFlow(diagram.connectPorts(rework, reworkDrop, withdrawn, withdrawnIn), 2)
     }
 
     Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas }
@@ -59,7 +64,7 @@ Item {
             }
         }
         Tk.Label {
-            text: qsTr("Wire width shows request volume. Drag cards freely or choose Auto layout. Activate output then input to connect; middle drag pans.")
+            text: qsTr("Wire width shows request volume; the Sankey view places the same quantities as bands. Drag cards (Ctrl+click to multi-select) or choose Auto layout. Activate output then input to connect; middle drag pans.")
             muted: true
             wrapMode: Text.Wrap
         }
@@ -69,11 +74,19 @@ Item {
             Tk.Flex.flex: 1
             document: diagram
             flowMode: true
+            snapStep: Tk.Theme.space.md
             tooltip: qsTr("Request flow diagram")
         }
+        Tk.SankeyDiagram {
+            objectName: "liveSankeyDiagram"
+            implicitHeight: Tk.Theme.size.fieldWidth * 1.5
+            document: diagram
+            tooltip: qsTr("Request volume by stage")
+        }
         Tk.Label {
-            text: diagram.lastError || qsTr("%1 nodes · %2 connections · revision %3")
-                .arg(diagram.nodes.length).arg(diagram.edges.length).arg(diagram.revision)
+            text: diagram.lastError || qsTr("%1 nodes · %2 connections · %3 unbalanced · revision %4")
+                .arg(diagram.nodes.length).arg(diagram.edges.length)
+                .arg(diagram.revision >= 0 ? diagram.flowImbalances().length : 0).arg(diagram.revision)
             muted: true
         }
     }

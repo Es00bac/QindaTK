@@ -138,6 +138,14 @@ qindatk_add_test(tst_media_decode)
 qindatk_add_test(tst_media_program)
 qindatk_add_test(tst_media_playback)
 qindatk_add_test(tst_media_catalog)
+# WP-071 sequence edits: planner (no media), editor/multicam backends (no
+# media) and rendered/exported output (QSKIPs without FFmpeg).
+qindatk_add_test(tst_sequence_edits)
+qindatk_add_test(tst_sequence_editor)
+qindatk_add_test(tst_sequence_render)
+# WP-072 finishing on real media: grade and captions in playback and export,
+# embedded captions, scopes on decoded frames (QSKIPs without FFmpeg).
+qindatk_add_test(tst_video_finishing)
 qindatk_add_test(tst_pdf_annotation_document)
 qindatk_add_test(tst_asset_provider)
 qindatk_add_test(tst_resource_async)
@@ -250,6 +258,9 @@ qindatk_add_test(tst_rich_text_tables)
 qindatk_add_test(tst_rich_text_styles)
 qindatk_add_test(tst_rich_text_merged_cells)
 qindatk_add_test(tst_rich_text_frames)
+qindatk_add_test(tst_rich_text_equations)
+qindatk_add_test(tst_rich_text_references)
+qindatk_add_test(tst_rich_text_review)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

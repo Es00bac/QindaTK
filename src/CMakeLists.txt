@@ -139,6 +139,7 @@ qt_add_qml_module(qindatk
         core/timeline_codec.cpp core/timeline_codec.h
         core/timeline_snap.cpp core/timeline_snap.h
         core/timeline_planner.cpp core/timeline_planner_misc.cpp core/timeline_planner_ripple.cpp
+        core/timeline_planner_nle.cpp core/timeline_planner_links.cpp
         core/timeline_planner.h
         core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
         core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
@@ -154,6 +155,7 @@ qt_add_qml_module(qindatk
         core/node_graph_model.cpp core/node_graph_types.cpp core/node_graph_groups.cpp
         core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
         core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
+        core/diagram_document_flow.cpp core/diagram_document_route.cpp core/diagram_document_export.cpp
         core/diagram_document.h
         core/cad_document.cpp core/cad_document_solver.cpp core/cad_document_io.cpp
         core/cad_document_export.cpp
@@ -189,8 +191,12 @@ qt_add_qml_module(qindatk
         core/media_decoder.h core/media_ffmpeg_p.h
         core/media_decoder_ffmpeg.cpp core/media_decoder_frames.cpp core/media_decoder_audio.cpp
         core/media_encoder.h core/media_encoder_ffmpeg.cpp
+        core/media_captions.h core/media_captions_ffmpeg.cpp
+        core/media_finishing.cpp core/media_finishing.h
+        core/video_finishing.cpp core/video_finishing.h
         core/media_backend_stub.cpp
         core/media_program.cpp core/media_program.h core/media_program_render.cpp
+        core/media_transition.cpp core/media_transition.h
         core/media_export.cpp core/media_export.h core/media_export_jobs.cpp
         core/media_decode_worker.cpp core/media_decode_worker.h
         core/media_playback_engine.cpp core/media_playback_engine.h
@@ -198,8 +204,11 @@ qt_add_qml_module(qindatk
         core/media_frame_view.cpp core/media_frame_view.h
         core/media_catalog.cpp core/media_catalog.h core/media_catalog_jobs.cpp
         core/media_frame_feed.cpp core/media_frame_feed.h
+        core/sequence_editor.cpp core/sequence_editor.h
+        core/multicam_model.cpp core/multicam_model.h
         core/video_scopes_model.cpp core/video_scopes_model.h
-        core/caption_track_model.cpp core/caption_track_model.h
+        core/video_scope_analysis.cpp core/video_scope_analysis.h
+        core/caption_track_model.cpp core/caption_track_model.h core/caption_track_edits.cpp
         core/caption_track_codec.cpp core/caption_track_codec.h
         core/caption_frame_renderer.cpp core/caption_frame_renderer.h
         core/caption_sequence_exporter.cpp core/caption_sequence_exporter.h
@@ -219,8 +228,14 @@ qt_add_qml_module(qindatk
         core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_frames.cpp
         core/rich_text_publishing.cpp core/rich_text_publishing.h
         core/rich_text_page_setup_mm.cpp
+        core/rich_text_review.cpp core/rich_text_review.h core/rich_text_review_edit.cpp
+        core/rich_text_review_snapshots.cpp core/rich_text_fields.cpp core/rich_text_fields_p.h
+        core/rich_text_fields_snapshots.cpp
+        core/rich_text_equation.cpp core/rich_text_equation.h core/rich_text_equation_text.cpp
+        core/rich_text_equation_layout.cpp core/rich_text_equation_edit.cpp
         core/rich_text_pdf_export.cpp
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
+        core/rich_text_codec_review.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
         core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
         core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp

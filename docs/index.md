@@ -30,6 +30,7 @@ pages below are the reference.
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
 | [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
+| [references-review.md](references-review.md) | Equations (TeX subset, layout, linear text), reference fields that renumber in one undo step, comments and tracked changes with accept/reject |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Document sessions of any registered kind, the reference file format, atomic save, multi-document close and recovery behavior |
 | [document-models.md](document-models.md) | Domain model/command/codec contracts, the shared history engine, save clean marks, recovery frames and how a new domain joins |
@@ -53,11 +54,13 @@ pages below are the reference.
 | [raster-document.md](raster-document.md) | Deterministic pressure/tilt brush samples, pen/mouse canvas input, 256 px raster tiles, sparse 8-bit masks, bounded undo, versioned document save/reopen and atomic PNG export |
 | [node-graph.md](node-graph.md) | Typed source/solid/mask/transform/blend/output graph: type table and parameter identity, groups, edit transactions and history, incremental image evaluation and versioned topology storage |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
-| [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits, atomic PNG sequences and timing manifests |
-| [media-playback.md](media-playback.md) | Media decode with exact frame identity and rate policy, audio sync, source/timeline programs, playback engine and frame transfer, virtual media bins with proxies and relink, frame feeds, verified export and the test signal |
+| [caption-rendering.md](caption-rendering.md) | Caption formats (JSON, WebVTT with languages, SRT, embedded Matroska SubRip, burned-in), split/merge/shift edits, reading warnings, burned-caption rendering with exact intervals, atomic PNG sequences |
+| [media-playback.md](media-playback.md) | Media decode with exact frame identity and rate policy, audio sync, source/timeline programs, playback engine and frame transfer, program finishing (grade and captions), virtual media bins with proxies and relink, frame feeds, verified export and the test signal |
+| [video-scopes.md](video-scopes.md) | Waveform, RGB parade, histogram and vectorscope snapshots of decoded frames under stated matrix, range and space conventions, graticule targets, demand-driven analysis bound to the player's presented frame |
 | [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
 | [tracking-roto.md](tracking-roto.md) | Accepted feature tracks, loss confidence, cancellable analysis, keyframed normalized masks and composition pixel application |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
+| [sequence-edits.md](sequence-edits.md) | NLE sequence edits: roll, ripple, slip and slide with linked sound, frame-exact bounds, transitions and their evaluation, multicam angles and switching, and the SequenceEditor/MulticamModel backends of the trim, transition and multicam views |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
 | [audio-engine.md](audio-engine.md) | Realtime audio engine and session: threads/queues, graph lifetime, devices and reconfiguration, recording latency, persistence, relink, offline render, callback measurements |
 | [audio-mixer.md](audio-mixer.md) | Mixer and routing: channel/bus/port identities, pan laws and layouts, sends, solo in place and groups, feedback refusals, device ports that never fall back, channel meters, MixerView/ChannelStrip/PanningControl/RoutingMatrix |

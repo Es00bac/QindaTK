@@ -17,7 +17,8 @@ The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable
 IDs; Undo and Redo operate on the diagram graph. The example shows measured
 wire quantities and per-node totals; Auto layout arranges its feedback cycle
-in one undoable step.
+in one undoable step. Wires are routed around cards, and a `SankeyDiagram`
+below the canvas draws the same conserved quantities as bands.
 
 The [extension manager fixture](extension-manager-live/Main.qml) shows a
 restored catalog with unavailable native extensions, clear diagnostics,
@@ -73,9 +74,16 @@ Connecting the free frame on page 2 takes the overset text. It is an
 `tests/qml/tst_publishing_example.qml` drives it
 ([publishing.md](../docs/publishing.md)).
 
-The [document review workbench](document-review/Main.qml) exercises
-`EquationEditor`, `ReferenceManager`, and `ReviewPane` with host-owned sample
-records, including a broken reference and orphaned comment.
+The [document review workbench](document-review/Main.qml) binds
+`ReferenceManager`, `ReviewPane` and `EquationEditor` to one
+`Tk.RichTextDocument` beside its page view. The field report's captions,
+cross-reference, citations, bibliography, equation, comment thread and
+tracked replacement are made with the document's own operations, so adding a
+caption renumbers the cross-reference in one undo step, accepting a change
+edits the text, and the equation is drawn on the page from its source. It
+runs as the `example_document-review` smoke test, and
+`tests/qml/tst_review_example.qml` drives it
+([references-review.md](../docs/references-review.md)).
 
 The [print and preflight workbench](print-preflight/Main.qml) exercises
 `PrintPreview` and `PreflightPanel` with a live rich-document preview and

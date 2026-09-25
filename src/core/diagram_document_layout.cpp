@@ -11,17 +11,18 @@
 
 namespace QindaTK {
 
-// AGENT-NOTE (docs/diagram.md): collapse cycles before assigning columns so
-// feedback edges and parallel links never make topological layout ambiguous.
-bool DiagramDocument::autoLayout(double columnStep, double rowStep,
-                                 double originX, double originY)
+// AGENT-NOTE (docs/diagram.md, D-123): collapse cycles before assigning
+// columns so feedback edges and parallel links never make topological layout
+// ambiguous. Components in a column are then ordered by the mean row of their
+// predecessors (one downward barycenter sweep) to reduce crossings; saved
+// node order breaks ties. autoLayout and sankeyLayout share this ranking.
+DiagramDocument::Ranking DiagramDocument::rank() const
 {
-    if (!std::isfinite(columnStep) || !std::isfinite(rowStep)
-        || columnStep <= 0 || rowStep <= 0 || !std::isfinite(originX)
-        || !std::isfinite(originY) || m_state.nodes.isEmpty()) {
-        setError(QStringLiteral("Invalid diagram layout")); return false;
-    }
     const int count = m_state.nodes.size();
+    Ranking result;
+    result.depth.fill(0, count);
+    result.row.fill(0, count);
+    if (!count) return result;
     QHash<QString, int> byId;
     for (int i = 0; i < count; ++i) byId.insert(m_state.nodes.at(i).id, i);
     QVector<QVector<int>> links(count);
@@ -61,10 +62,15 @@ bool DiagramDocument::autoLayout(double columnStep, double rowStep,
 
     QVector<QSet<int>> successors(componentCount);
     QVector<int> indegree(componentCount), depth(componentCount), first(componentCount, count);
+    QVector<QVector<int>> members(componentCount), predecessors(count);
     for (int i = 0; i < count; ++i) {
         first[component[i]] = std::min(first[component[i]], i);
-        for (int next : links.at(i))
-            if (component[i] != component[next]) successors[component[i]].insert(component[next]);
+        members[component[i]].append(i);
+        for (int next : links.at(i)) {
+            if (component[i] == component[next]) continue;
+            successors[component[i]].insert(component[next]);
+            predecessors[next].append(i);
+        }
     }
     for (const auto &successorSet : successors)
         for (int next : successorSet) ++indegree[next];
@@ -82,27 +88,61 @@ bool DiagramDocument::autoLayout(double columnStep, double rowStep,
         }
     }
 
-    QHash<int, int> rowByDepth;
+    int maxDepth = 0;
+    for (int d : depth) maxDepth = std::max(maxDepth, d);
+    QVector<QVector<int>> columns(maxDepth + 1);
+    for (int group = 0; group < componentCount; ++group) columns[depth[group]].append(group);
+    // Predecessors always sit in shallower columns, so their rows are final
+    // when a column is ordered. Hash iteration never affects output.
+    for (int column = 0; column <= maxDepth; ++column) {
+        QHash<int, double> barycenter;
+        for (int group : columns.at(column)) {
+            double sum = 0;
+            int incoming = 0;
+            for (int member : members.at(group))
+                for (int previous : predecessors.at(member)) {
+                    sum += result.row.at(previous);
+                    ++incoming;
+                }
+            barycenter.insert(group, incoming ? sum / incoming : 0.0);
+        }
+        auto &groups = columns[column];
+        std::sort(groups.begin(), groups.end(), [&](int a, int b) {
+            const double left = barycenter.value(a), right = barycenter.value(b);
+            return left != right ? left < right : first[a] < first[b];
+        });
+        int row = 0;
+        for (int group : groups)
+            for (int member : members.at(group)) {
+                result.depth[member] = column;
+                result.row[member] = row++;
+            }
+    }
+    result.columns = maxDepth + 1;
+    return result;
+}
+
+bool DiagramDocument::autoLayout(double columnStep, double rowStep,
+                                 double originX, double originY)
+{
+    if (!std::isfinite(columnStep) || !std::isfinite(rowStep)
+        || columnStep <= 0 || rowStep <= 0 || !std::isfinite(originX)
+        || !std::isfinite(originY) || m_state.nodes.isEmpty()) {
+        setError(QStringLiteral("Invalid diagram layout")); return false;
+    }
+    const int count = m_state.nodes.size();
+    const Ranking ranking = rank();
     QVector<QPointF> positions(count);
     bool changedPosition = false;
-    // Component order follows the first persisted node, then nodes within a
-    // component follow persisted order. Hash iteration never affects output.
-    QVector<int> order(componentCount);
-    for (int i = 0; i < componentCount; ++i) order[i] = i;
-    std::sort(order.begin(), order.end(), [&](int a, int b) { return first[a] < first[b]; });
-    for (int group : order) {
-        for (int i = 0; i < count; ++i) {
-            if (component[i] != group) continue;
-            const int row = rowByDepth[depth[group]]++;
-            const double x = originX + depth[group] * columnStep;
-            const double y = originY + row * rowStep;
-            if (!std::isfinite(x) || !std::isfinite(y)
-                || std::abs(x) > 1000000 || std::abs(y) > 1000000) {
-                setError(QStringLiteral("Diagram layout exceeds coordinate range")); return false;
-            }
-            positions[i] = QPointF(x, y);
-            changedPosition |= m_state.nodes.at(i).x != x || m_state.nodes.at(i).y != y;
+    for (int i = 0; i < count; ++i) {
+        const double x = originX + ranking.depth.at(i) * columnStep;
+        const double y = originY + ranking.row.at(i) * rowStep;
+        if (!std::isfinite(x) || !std::isfinite(y)
+            || std::abs(x) > 1000000 || std::abs(y) > 1000000) {
+            setError(QStringLiteral("Diagram layout exceeds coordinate range")); return false;
         }
+        positions[i] = QPointF(x, y);
+        changedPosition |= m_state.nodes.at(i).x != x || m_state.nodes.at(i).y != y;
     }
     if (!changedPosition) { setError({}); return true; }
     rememberEdit();

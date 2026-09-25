@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // Painting of laid-out pages. Theme colours (ink, links, selection) are
 // draw-time formats, so a theme change never re-shapes text.
+#include "rich_text_equation.h"
 #include "rich_text_layout_p.h"
 #include "rich_text_objects.h"
 #include "rich_text_shaping_p.h"
@@ -10,6 +11,20 @@
 
 namespace QindaTK {
 using namespace RichText;
+
+namespace {
+
+// Equations draw themselves from their source (D-114); other objects go
+// through the host's renderer or the labelled placeholder.
+void paintObject(QPainter *painter, const QRectF &rect, const RichObject &object, const PaintContext &context)
+{
+    const QColor ink = context.ink.isValid() ? context.ink : painter->pen().color();
+    if (object.kind == u"equation" && Equation::paintObject(painter, rect, object, ink)) return;
+    if (context.objects) context.objects->paint(painter, rect, object, context);
+    else RichTextImageRenderer::paintPlaceholder(painter, rect, object, context, false);
+}
+
+} // namespace
 
 QList<QTextLayout::FormatRange> RichTextLayout::decorations(const Paragraph &p, const ParagraphMetrics &m,
                                                              const PaintContext &context) const
@@ -24,6 +39,30 @@ QList<QTextLayout::FormatRange> RichTextLayout::decorations(const Paragraph &p, 
             link.setFontUnderline(true);
             const int from = layoutOffset(m, start);
             ranges.append({from, layoutOffset(m, start + span.length) - from, link});
+        }
+        // Review marks (docs/references-review.md#review): shaping already
+        // underlines insertions and strikes deletions; colours are draw-time.
+        bool openComment = false;
+        for (const QString &id : format.commentIds) {
+            const auto thread = m_document->annotations().threads.constFind(id);
+            openComment = openComment || (thread != m_document->annotations().threads.constEnd() && !thread->resolved);
+        }
+        QTextCharFormat review;
+        bool marked = false;
+        if (!format.deletionId.isEmpty() && context.deletion.isValid()) {
+            review.setForeground(context.deletion);
+            marked = true;
+        } else if (!format.insertionId.isEmpty() && context.insertion.isValid()) {
+            review.setForeground(context.insertion);
+            marked = true;
+        }
+        if (openComment && context.comment.isValid()) {
+            review.setBackground(context.comment);
+            marked = true;
+        }
+        if (marked) {
+            const int from = layoutOffset(m, start);
+            ranges.append({from, layoutOffset(m, start + span.length) - from, review});
         }
         start += span.length;
     }
@@ -101,8 +140,7 @@ void RichTextLayout::paintParagraph(QPainter *painter, const Paragraph &p, Parag
         const qreal x = qMin(textLine.cursorToX(lo), textLine.cursorToX(lo + 1));
         const qreal h = object->heightPt * PxPerPt;
         const QRectF rect(origin.x() + x, origin.y() + textLine.y() + textLine.ascent() - h, object->widthPt * PxPerPt, h);
-        if (context.objects) context.objects->paint(painter, rect, *object, context);
-        else RichTextImageRenderer::paintPlaceholder(painter, rect, *object, context, false);
+        paintObject(painter, rect, *object, context);
     }
 }
 
@@ -200,10 +238,8 @@ void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintCont
             break;
         case PageItem::Float:
         case PageItem::PageObject:
-            if (const RichObject *object = m_document->object(item.objectId)) {
-                if (context.objects) context.objects->paint(painter, itemRect, *object, context);
-                else RichTextImageRenderer::paintPlaceholder(painter, itemRect, *object, context, false);
-            }
+            if (const RichObject *object = m_document->object(item.objectId))
+                paintObject(painter, itemRect, *object, context);
             break;
         }
     }

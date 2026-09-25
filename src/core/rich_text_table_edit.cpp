@@ -383,6 +383,13 @@ bool RichTextDocument::setTableCellText(const QString &tableId, const QString &c
     if (!transaction.valid) return false;
     // One replacement step in the format of the text it replaces.
     const int format = formatIndexAt({p->id, p->text.isEmpty() ? 0 : 1});
+    if (m_trackChanges) {
+        // Tracked (WP-052): the old text stays, marked deleted, and the new
+        // text is an insertion in front of it.
+        const std::optional<Position> start = deleteRange({p->id, 0}, {p->id, int(p->text.size())});
+        const std::optional<Position> end = start ? insertText(*start, clean, format) : std::nullopt;
+        return transaction.finish(end.has_value(), end.value_or(Position{p->id, 0}));
+    }
     const QVector<Span> spans = clean.isEmpty() ? QVector<Span>{} : QVector<Span>{{int(clean.size()), format}};
     const bool ok = !apply(textStep(*this, *p, 0, int(p->text.size()), clean, spans));
     return transaction.finish(ok, {p->id, int(clean.size())});

@@ -4,6 +4,8 @@
 #include "rich_text_ops_p.h"
 #include "rich_text_spans.h"
 
+#include <algorithm>
+
 namespace QindaTK {
 using namespace RichText;
 
@@ -105,21 +107,29 @@ QVector<RichObject> RichTextDocument::objectsIn(const QVector<Block> &blocks) co
     return result;
 }
 
-std::optional<Position> RichTextDocument::insertText(const Position &at, const QString &raw, int format)
+std::optional<Position> RichTextDocument::insertText(const Position &requested, const QString &raw, int format)
 {
-    if (!isValidPosition(at)) {
+    if (!isValidPosition(requested)) {
         reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid insertion position"));
         return std::nullopt;
     }
+    const Position at = outsideField(requested); // field results are atomic
     const QString text = cleanInsertedText(raw);
     AutoTransaction transaction(this, tr("Typing"));
     if (!transaction.valid) return std::nullopt;
-    int typing = format >= 0 && format < m_formats.size() ? format : formatIndexAt(at);
-    if (!charFormat(typing).objectId.isEmpty()) {
-        CharFormat plain = charFormat(typing);
-        plain.objectId.clear();
-        typing = internFormat(plain);
-    }
+    CharFormat plain = charFormat(format >= 0 && format < m_formats.size() ? format : formatIndexAt(at));
+    // Typed text is never an object, a field or a deletion; with tracking on
+    // it joins or starts an insertion (docs/references-review.md#tracked-changes).
+    // Only text with characters records a change (a bare "\n" splits a paragraph).
+    const bool characters = std::any_of(text.cbegin(), text.cend(), [](QChar c) { return c != u'\n'; });
+    const std::optional<QString> insertion = characters ? trackedInsertionId(at) : std::optional<QString>(QString());
+    if (!insertion) return transaction.finish(false, at), std::nullopt;
+    plain.objectId.clear();
+    plain.fieldId.clear();
+    plain.deletionId.clear();
+    plain.insertionId = *insertion;
+    plain.commentIds = m_annotations.threads.isEmpty() ? QStringList() : charFormat(formatIndexAt(at)).commentIds;
+    const int typing = internFormat(plain);
     Position caret = at;
     const QStringList lines = text.split(u'\n');
     for (qsizetype i = 0; i < lines.size(); ++i) {
@@ -243,11 +253,17 @@ std::optional<Position> RichTextDocument::deleteRange(const Position &a, const P
         return std::nullopt;
     }
     const bool ordered = compare(a, b) <= 0;
-    const Position start = ordered ? a : b;
-    const Position end = ordered ? b : a;
+    Position start = ordered ? a : b;
+    Position end = ordered ? b : a;
     if (start == end) return start;
+    expandOverFields(&start, &end); // a field result goes as a whole
     AutoTransaction transaction(this, tr("Delete"));
     if (!transaction.valid) return std::nullopt;
+    if (m_trackChanges) {
+        // Tracked: the text stays, marked deleted (paragraphs are not joined).
+        if (!transaction.finish(markDeleted(start, end), start)) return std::nullopt;
+        return start;
+    }
     Paragraph *first = paragraph(start.paragraph);
     Paragraph *last = paragraph(end.paragraph);
     bool ok = true;
@@ -417,9 +433,10 @@ bool RichTextDocument::changeListLevel(const Position &a, const Position &b, int
     return transaction.finish(ok && changed, b);
 }
 
-std::optional<Position> RichTextDocument::insertObject(const Position &at, RichObject object)
+std::optional<Position> RichTextDocument::insertObject(const Position &requested, RichObject object)
 {
     if (object.id.isEmpty()) object.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const Position at = isValidPosition(requested) ? outsideField(requested) : requested;
     const Paragraph *p = paragraph(at.paragraph);
     if (!isValidPosition(at) || m_objects.contains(object.id) || !(object.widthPt > 0)
         || !(object.heightPt > 0) || (p->table && object.placement != Placement::Inline)) {
@@ -431,6 +448,9 @@ std::optional<Position> RichTextDocument::insertObject(const Position &at, RichO
     CharFormat format = charFormat(formatIndexAt(at));
     format.objectId = object.id;
     format.href.clear();
+    const std::optional<QString> insertion = trackedInsertionId(at);
+    if (!insertion) return transaction.finish(false, at), std::nullopt;
+    format.insertionId = *insertion;
     const int index = internFormat(format);
     const Position caret{at.paragraph, at.offset + 1};
     const bool ok = !apply(textStep(*this, *p, at.offset, 0, QString(QChar(ObjectChar)),

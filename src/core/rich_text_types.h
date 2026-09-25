@@ -3,12 +3,13 @@
 
 #include <QColor>
 #include <QString>
+#include <QStringList>
 #include <QUuid>
 #include <QVector>
 #include <memory>
 #include <optional>
 
-// Value types of the structured rich-text document (WP-050, WP-051). Lengths
+// Value types of the structured rich-text document (WP-050 to WP-052). Lengths
 // are typographic points; layout converts them to 96-dpi pixels (PxPerPt).
 // AGENT-CONTRACT: docs/rich-text.md and docs/publishing.md document these
 // fields and the qindatk.richtext persistence schema in rich_text_codec*.cpp;
@@ -43,6 +44,14 @@ struct CharFormat {
     VerticalAlign verticalAlign = VerticalAlign::Normal;
     QString objectId;      // set only on the U+FFFC character of an object
     QString styleId;       // named character style (WP-051); empty: none
+    // Semantic marks (WP-052, docs/references-review.md). They name records
+    // in RichText::Annotations; typing never copies a field or change mark.
+    QString fieldId;       // the run is the generated result of this reference field
+    QStringList commentIds;// comment threads anchored on the run, sorted, unique
+    QString insertionId;   // tracked insertion
+    QString deletionId;    // tracked deletion (the text stays until accepted)
+    bool hasMarks() const
+    { return !fieldId.isEmpty() || !commentIds.isEmpty() || !insertionId.isEmpty() || !deletionId.isEmpty(); }
     friend bool operator==(const CharFormat &, const CharFormat &) = default;
 };
 size_t qHash(const CharFormat &format, size_t seed = 0) noexcept;
