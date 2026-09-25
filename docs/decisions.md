@@ -1091,7 +1091,6 @@ thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
 
-## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
 ## D-126 — Grade and captions are a finishing stage of the media program
 
 **Context.** VID-06/08 require a grade and burned-in captions that the
