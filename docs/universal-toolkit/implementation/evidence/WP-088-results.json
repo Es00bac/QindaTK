@@ -1,0 +1,889 @@
+{
+  "schema": "qindatk-qualification/1",
+  "runId": "20260925-021945",
+  "arguments": [
+    "--smoke",
+    "--evidence"
+  ],
+  "host": {
+    "kernel": "6.18.48-gentoo-dist-bin",
+    "distribution": "GNU/Linux",
+    "weston": "weston 15.0.1",
+    "xwayland": "The X.Org Foundation Xwayland Version 24.1.13 (12401013)",
+    "gpuVendor": "AMD"
+  },
+  "summary": {
+    "passed": 47,
+    "failed": 0,
+    "unqualified": 21
+  },
+  "builds": [
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "buildDir": "qt611-no-ffmpeg",
+      "features": {
+        "poppler": true,
+        "alsa": true,
+        "ffmpeg": false,
+        "quick3d": true,
+        "shaderTools": true,
+        "widgets": true,
+        "nativePrint": true,
+        "qtVersion": "6.11.1"
+      },
+      "status": "passed",
+      "reason": ""
+    }
+  ],
+  "results": [
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "no display server (offscreen)",
+        "qtk-preview exit 0, api=software, platform=offscreen, window activated=true",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "accessibility",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped",
+        "tst_sheet_accessibility: 2 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "atspi",
+      "status": "unqualified",
+      "reason": "the offscreen platform has no AT-SPI bridge",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-software",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "render",
+      "status": "unqualified",
+      "reason": "Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [
+        "no display server (offscreen)",
+        "qtk-preview exit 134, api=?, platform=?, window activated=?"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "native-windows",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "file-dialogs",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "print-pdf",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "input",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "accessibility",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "atspi",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "offscreen-rhi",
+      "operation": "render-context-loss",
+      "status": "unqualified",
+      "reason": "configuration not established: Qt could not create a GPU context here: Failed to create RHI (backend 2)",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "headless weston, pixman renderer",
+        "qtk-preview exit 0, api=software, platform=wayland, window activated=false",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "accessibility",
+      "status": "unqualified",
+      "reason": "tst_sheet_accessibility not run: this compositor never activates a window (headless Weston has no seat)",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "atspi",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "AT-SPI: button and check box found, Press delivered and observed (qt611-no-ffmpeg-wayland-software-atspi-atspi.json)"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-software",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "headless weston, gl renderer",
+        "qtk-preview exit 0, api=opengl, platform=wayland, window activated=false",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "accessibility",
+      "status": "unqualified",
+      "reason": "tst_sheet_accessibility not run: this compositor never activates a window (headless Weston has no seat)",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "atspi",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "AT-SPI: button and check box found, Press delivered and observed (qt611-no-ffmpeg-wayland-opengl-atspi-atspi.json)"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-opengl",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped",
+        "tst_scene_view_3d_render: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "headless weston, gl renderer",
+        "qtk-preview exit 0, api=vulkan, platform=wayland, window activated=false",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "accessibility",
+      "status": "unqualified",
+      "reason": "tst_sheet_accessibility not run: this compositor never activates a window (headless Weston has no seat)",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "atspi",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "AT-SPI: button and check box found, Press delivered and observed (qt611-no-ffmpeg-wayland-vulkan-atspi-atspi.json)"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "wayland-vulkan",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped",
+        "tst_scene_view_3d_render: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "rootful Xwayland :180 inside headless weston (gl renderer)",
+        "qtk-preview exit 0, api=software, platform=xcb, window activated=true",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "accessibility",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped",
+        "tst_sheet_accessibility: 2 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "atspi",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "AT-SPI: button and check box found, Press delivered and observed (qt611-no-ffmpeg-xcb-software-atspi-atspi.json)"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-software",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "render",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "rootful Xwayland :180 inside headless weston (gl renderer)",
+        "qtk-preview exit 0, api=opengl, platform=xcb, window activated=true",
+        "grab 320x200, centre pixel #12a4d6"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "native-windows",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_detached_panel_host: 1 passed, 0 failed, 0 skipped",
+        "tst_window_host: 7 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "file-dialogs",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_native_file_dialog: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "print-pdf",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_print_output: 9 passed, 0 failed, 0 skipped",
+        "tst_native_print: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "input",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_stylus_handler: 14 passed, 0 failed, 0 skipped",
+        "tst_raster_stroke_input: 2 passed, 0 failed, 0 skipped",
+        "tst_canvas_input: 8 passed, 0 failed, 0 skipped",
+        "tst_gesture_router: 5 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "accessibility",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_accessibility_adapter: 4 passed, 0 failed, 0 skipped",
+        "tst_sheet_accessibility: 2 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "atspi",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "AT-SPI: button and check box found, Press delivered and observed (qt611-no-ffmpeg-xcb-opengl-atspi-atspi.json)"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "plugin-editors",
+      "status": "unqualified",
+      "reason": "not yet available: WP-066 plugin host and editor types are not in this tree",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "xcb-opengl",
+      "operation": "render-context-loss",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_canvas_render: 1 passed, 0 failed, 0 skipped",
+        "tst_canvas_render_lifecycle: 1 passed, 0 failed, 0 skipped",
+        "tst_scene_view_3d_render: 1 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "any (platform-independent)",
+      "operation": "print-cups",
+      "status": "unqualified",
+      "reason": "the CUPS scheduler is not running on this host",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "any (platform-independent)",
+      "operation": "input-tablet-hardware",
+      "status": "unqualified",
+      "reason": "no pen tablet is attached; synthetic tablet events are covered by 'input'",
+      "evidence": [],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "any (platform-independent)",
+      "operation": "media-devices",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "tst_audio_engine: 4 passed, 0 failed, 0 skipped"
+      ],
+      "log": ""
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "installed",
+      "operation": "install-relocation",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "stage build/qualify/stage/qt611-no-ffmpeg moved to build/qualify/relocated/qt611-no-ffmpeg",
+        "loaded <moved stage>/bin/../lib64/libqindatk.so.0",
+        "qml-only consumer: importRoot=<moved stage>/lib64/qml buttonText=Qualify",
+        "installed qtk-preview --check: exit 0",
+        "ldd: libqindatk.so.0 => <moved stage>/bin/../lib64/libqindatk.so.0 (0x00007fd955200000)",
+        "strings/readelf over 7 RUNPATH-bearing ELF files: 0 developer-path hits"
+      ],
+      "log": "build/qualify/results/20260925-021945/logs/qt611-no-ffmpeg-install.log"
+    },
+    {
+      "qt": "6.11",
+      "variant": "no-ffmpeg",
+      "configuration": "installed",
+      "operation": "optional-engines",
+      "status": "passed",
+      "reason": "",
+      "evidence": [
+        "media.ffmpeg: unavailable - QindaTK was built without the FFmpeg media backend",
+        "audio.alsa: available",
+        "pdf.poppler: available",
+        "volume.gpuShaders: available",
+        "scene3d.quick3d: available",
+        "dialogs.native: available",
+        "print.native: available"
+      ],
+      "log": "build/qualify/results/20260925-021945/logs/qt611-no-ffmpeg-consumer.log"
+    }
+  ]
+}

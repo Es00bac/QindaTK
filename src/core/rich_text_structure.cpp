@@ -98,7 +98,8 @@ bool RichTextDocument::setPageSetup(const PageSetup &page)
         && page.marginBottomPt >= 0 && page.marginLeftPt >= 0 && page.contentWidthPt() >= 36
         && page.contentHeightPt() >= 36 && page.columns >= 1 && page.columns <= 24
         && std::isfinite(page.columnGapPt) && page.columnGapPt >= 0 && page.columnGapPt <= 1440
-        && page.columnWidthPt() >= 36 && std::isfinite(page.bleedPt) && page.bleedPt >= 0 && page.bleedPt <= 72;
+        && page.columnWidthPt() >= 36 && std::isfinite(page.bleedPt) && page.bleedPt >= 0 && page.bleedPt <= 72
+        && page.headerText.size() <= PageSetup::MaximumRegionText && page.footerText.size() <= PageSetup::MaximumRegionText;
     if (!valid) {
         reject(ErrorCode::Validation, QStringLiteral("Page content area is too small"));
         return false;
