@@ -152,6 +152,34 @@ std::optional<std::pair<qint64, qint64>> spectralPatchRange(const SpectralGainSp
     return std::make_pair(first, last);
 }
 
+std::vector<std::pair<int, int>> maskBinRanges(const std::vector<SpectralMaskPolygon> &mask, double centre,
+                                               int fftSize, int sampleRate)
+{
+    std::vector<std::pair<int, int>> ranges;
+    if (sampleRate <= 0 || fftSize <= 0) return ranges;
+    const double binsPerHz = double(fftSize) / double(sampleRate);
+    std::vector<double> crossings;
+    for (const SpectralMaskPolygon &polygon : mask) {
+        crossings.clear();
+        const size_t count = polygon.size();
+        for (size_t i = 0; i < count && count >= 3; ++i) {
+            const SpectralMaskPoint &a = polygon[i];
+            const SpectralMaskPoint &b = polygon[(i + 1) % count];
+            // Half-open rule: an edge counts when the line x = centre passes
+            // between its ends, so a shared vertex is crossed exactly once.
+            if ((a.sample <= centre) == (b.sample <= centre)) continue;
+            crossings.push_back(a.hz + (centre - a.sample) * (b.hz - a.hz) / (b.sample - a.sample));
+        }
+        std::sort(crossings.begin(), crossings.end());
+        for (size_t i = 0; i + 1 < crossings.size(); i += 2) {
+            const int first = int(std::clamp(std::ceil(crossings[i] * binsPerHz), 0.0, double(fftSize / 2) + 1.0));
+            const int last = int(std::clamp(std::floor(crossings[i + 1] * binsPerHz), -1.0, double(fftSize / 2)));
+            if (first <= last) ranges.emplace_back(first, last);
+        }
+    }
+    return ranges;
+}
+
 std::optional<SpectralPatch> spectralGain(const float *samples, qint64 frames, const SpectralGainSpec &spec,
                                           const CancellationToken &cancel)
 {
@@ -169,12 +197,23 @@ std::optional<SpectralPatch> spectralGain(const float *samples, qint64 frames, c
     const qint64 f0 = ceilDiv(spec.start, hop);
     const qint64 f1 = ceilDiv(spec.end, hop);
     const auto sampleAt = [&](qint64 at) { return at >= 0 && at < frames ? double(samples[at]) : 0.0; };
-    for (qint64 f = f0; f < f1 && low <= high; ++f) {
+    const bool masked = !spec.mask.empty();
+    std::vector<char> selected(size_t(n / 2 + 1), 0);
+    for (qint64 f = f0; f < f1 && (masked || low <= high); ++f) {
         if (cancel.isCancelled()) return std::nullopt;
         const qint64 first = f * hop - n / 2;
+        if (masked) {
+            // A frame the mask misses adds no difference; skip its FFTs.
+            std::fill(selected.begin(), selected.end(), char(0));
+            bool any = false;
+            for (const auto &[a, b] : maskBinRanges(spec.mask, double(f * hop), n, spec.sampleRate))
+                for (int k = a; k <= b; ++k) selected[size_t(k)] = any = true;
+            if (!any) continue;
+        }
         for (int j = 0; j < n; ++j) work[size_t(j)] = {sampleAt(first + j) * window[size_t(j)], 0.0};
         fft.forward(work.data());
-        for (int k = low; k <= high; ++k) {
+        for (int k = masked ? 0 : low; k <= (masked ? n / 2 : high); ++k) {
+            if (masked && !selected[size_t(k)]) continue;
             work[size_t(k)] *= spec.gain;
             if (k != 0 && k != n / 2) work[size_t(n - k)] *= spec.gain;
         }

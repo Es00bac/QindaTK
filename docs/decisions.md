@@ -1516,6 +1516,38 @@ Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.
 
+## D-186 — Spectral masks are sample/Hz polygons applied per analysis frame
+
+**Context.** AUD-21 asks for paint and lasso masks, and WP-063 is the only
+package that owns it; a rectangle band gain cannot follow a sweep or a
+harmonic. **Decision.** A mask is a list of polygons whose vertices are
+exact source samples and Hz, carried by the `spectralGain` edit as `mask`
+and saved with it. A lasso is one polygon; a brush stroke adds one octagon
+per dab (dabs at least a brush radius apart), so the mask is a union. A
+frame centred on sample *c* changes bin *k* when `k·rate/N` lies inside any
+polygon on the line `x = c` (even-odd per polygon, half-open edge rule);
+frames the mask misses are skipped and contribute nothing, and a rectangle
+mask gives exactly the band edit. At most 4096 points per edit.
+`SpectrogramView` converts gestures to sample/Hz points (decimal addition
+keeps samples exact past 2^53) and draws the committed mask from them, so
+it keeps its place through zoom. **Consequences.** Masks are reversible,
+persistent and numerically the same machinery as band gain; free-form
+repair tools remain out of scope.
+
+## D-187 — Committed edits hold parameters; spectral patches are a bounded cache
+
+**Context.** Every in-place edit kept a float copy of its range for the
+session, so repeated whole-file gains on long sources grew without limit.
+**Decision.** Gain, fades and silence keep no samples: `apply()` recomputes
+them from the base. Spectral patches are a cache of a deterministic result,
+bounded by `edits.patchBudgetBytes` (64 MiB by default); past it the oldest
+are dropped, the newest always stays, and a fold or redo recomputes a
+dropped one bit for bit. A fold edits one private working copy in place;
+only a length change allocates another. **Consequences.** Memory for edits
+is the current buffer plus at most the budget; an undo past dropped
+spectral patches re-runs their STFT on the GUI thread (bounded by each
+edit's range).
+
 ## D-201 — Optional engines are explicit build switches with a resolved-feature summary
 
 **Context.** Qt Quick 3D, Qt Shader Tools, Qt Widgets and Qt PrintSupport

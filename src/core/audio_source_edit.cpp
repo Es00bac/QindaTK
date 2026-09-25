@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace QindaTK {
 namespace {
@@ -75,6 +76,8 @@ QString AudioSourceEdit::label() const
     case Kind::Delete: return tr("Delete %1 samples").arg(end - start);
     case Kind::Crop: return tr("Crop to %1 samples").arg(end - start);
     case Kind::SpectralGain:
+        if (!mask.empty())
+            return gainDb <= AudioDsp::kSilenceDb ? tr("Remove masked region") : tr("Masked spectral gain %1 dB").arg(gainDb, 0, 'f', 1);
         return gainDb <= AudioDsp::kSilenceDb ? tr("Remove %1–%2 Hz").arg(qRound(lowHz)).arg(qRound(highHz))
                                               : tr("Spectral gain %1 dB, %2–%3 Hz")
                                                     .arg(gainDb, 0, 'f', 1).arg(qRound(lowHz)).arg(qRound(highHz));
@@ -94,6 +97,17 @@ QVariantMap AudioSourceEdit::toMap() const
         map.insert(QStringLiteral("lowHz"), lowHz);
         map.insert(QStringLiteral("highHz"), highHz);
         map.insert(QStringLiteral("fftSize"), fftSize);
+        if (!mask.empty()) {
+            QVariantList polygons;
+            for (const AudioDsp::SpectralMaskPolygon &polygon : mask) {
+                QVariantList points;
+                for (const AudioDsp::SpectralMaskPoint &point : polygon)
+                    points.push_back(QVariantMap{{QStringLiteral("sample"), QString::number(qint64(point.sample))},
+                                                 {QStringLiteral("hz"), point.hz}});
+                polygons.push_back(points);
+            }
+            map.insert(QStringLiteral("mask"), polygons);
+        }
     }
     return map;
 }
@@ -129,6 +143,30 @@ std::optional<AudioSourceEdit> AudioSourceEdit::fromMap(const QVariantMap &map, 
     edit.lowHz = map.value(QStringLiteral("lowHz")).toDouble();
     edit.highHz = map.value(QStringLiteral("highHz")).toDouble();
     edit.fftSize = map.value(QStringLiteral("fftSize"), 2048).toInt();
+    const QVariantList polygons = map.value(QStringLiteral("mask")).toList();
+    for (const QVariant &polygonValue : polygons) {
+        AudioDsp::SpectralMaskPolygon polygon;
+        for (const QVariant &pointValue : polygonValue.toList()) {
+            const QVariantMap point = pointValue.toMap();
+            const auto sample = sampleValue(point.value(QStringLiteral("sample")));
+            bool hzOk = false;
+            const double hz = point.value(QStringLiteral("hz")).toDouble(&hzOk);
+            if (!sample || !hzOk || !std::isfinite(hz))
+                return failed(tr("A mask point needs a whole sample and a frequency"));
+            polygon.push_back({double(*sample), hz});
+        }
+        edit.mask.push_back(std::move(polygon));
+    }
+    if (!edit.mask.empty() && !map.contains(QStringLiteral("lowHz")) && !map.contains(QStringLiteral("highHz"))) {
+        // The band of a masked edit is the mask's frequency extent (labels, validation).
+        edit.lowHz = std::numeric_limits<double>::max();
+        edit.highHz = 0.0;
+        for (const auto &polygon : edit.mask)
+            for (const auto &point : polygon) {
+                edit.lowHz = std::min(edit.lowHz, point.hz);
+                edit.highHz = std::max(edit.highHz, point.hz);
+            }
+    }
     return edit;
 }
 
@@ -149,7 +187,7 @@ QVariantList AudioSourceEditing::capabilities(const AudioBuffer &buffer)
             parameters << QStringLiteral("shape");
         if (entry.kind == AudioSourceEdit::Kind::SpectralGain)
             parameters << QStringLiteral("gainDb") << QStringLiteral("lowHz") << QStringLiteral("highHz")
-                       << QStringLiteral("fftSize");
+                       << QStringLiteral("fftSize") << QStringLiteral("mask");
         list.push_back(QVariantMap{{QStringLiteral("operation"), QString::fromLatin1(entry.name)},
                                    {QStringLiteral("perChannel"), !length && buffer.channels > 1},
                                    {QStringLiteral("changesLength"), length},
@@ -179,6 +217,19 @@ QString AudioSourceEditing::validate(const AudioBuffer &buffer, const AudioSourc
                                               buffer.sampleRate};
         if (!AudioDsp::spectralPatchRange(spec, buffer.frames))
             return tr("The selection is shorter than one analysis hop (%1 samples)").arg(edit.fftSize / 4);
+        int points = 0;
+        for (const AudioDsp::SpectralMaskPolygon &polygon : edit.mask) {
+            if (polygon.size() < 3) return tr("A mask polygon needs at least three points");
+            points += int(polygon.size());
+            for (const AudioDsp::SpectralMaskPoint &point : polygon)
+                if (point.sample < double(edit.start) || point.sample > double(edit.end) || point.hz < 0.0
+                    || point.hz > buffer.sampleRate / 2.0)
+                    return tr("A mask point lies outside the edit's samples or 0 Hz to half the sample rate");
+        }
+        if (points > AudioDsp::kMaxMaskPoints)
+            return tr("A mask has at most %1 points").arg(AudioDsp::kMaxMaskPoints);
+    } else if (!edit.mask.empty()) {
+        return tr("Only spectral gain takes a mask");
     }
     return {};
 }
@@ -190,56 +241,62 @@ bool AudioSourceEditing::prepare(const AudioBuffer &buffer, AudioSourceEdit &edi
         if (error) *error = problem;
         return false;
     }
-    if (!inPlace(edit.kind)) return true;
+    // AGENT-GUARD (D-187): only spectral edits carry a patch. Gain, fades and
+    // silence are recomputed from the base samples by apply(), so the edit
+    // list never holds a copy of their range (a whole-file gain on an hour of
+    // stereo would otherwise keep 1.4 GB per step).
+    if (!edit.needsPatch()) return true;
     const int first = edit.channel < 0 ? 0 : edit.channel;
     const int count = edit.channel < 0 ? buffer.channels : 1;
     auto patch = std::make_shared<AudioBuffer>();
     patch->sampleRate = buffer.sampleRate;
     patch->channels = count;
-    if (edit.kind == AudioSourceEdit::Kind::SpectralGain) {
-        AudioDsp::SpectralGainSpec spec{edit.start, edit.end, edit.lowHz, edit.highHz,
-                                        AudioDsp::gainFromDecibels(edit.gainDb), edit.fftSize, buffer.sampleRate};
-        for (int c = 0; c < count; ++c) {
-            const auto result = AudioDsp::spectralGain(buffer.channel(first + c), buffer.frames, spec, cancel);
-            if (!result) {
-                if (error) *error = tr("Spectral processing was cancelled");
-                return false;
-            }
-            if (c == 0) {
-                edit.patchStart = result->start;
-                patch->frames = qint64(result->samples.size());
-                patch->samples.resize(size_t(patch->frames) * size_t(count));
-            }
-            std::copy(result->samples.begin(), result->samples.end(), patch->channel(c));
-        }
-        edit.patch = std::move(patch);
-        return true;
-    }
-    edit.patchStart = edit.start;
-    patch->frames = edit.end - edit.start;
-    patch->samples.resize(size_t(patch->frames) * size_t(count));
-    const double gain = AudioDsp::gainFromDecibels(edit.gainDb);
+    const AudioDsp::SpectralGainSpec spec{edit.start, edit.end, edit.lowHz, edit.highHz,
+                                          AudioDsp::gainFromDecibels(edit.gainDb), edit.fftSize, buffer.sampleRate,
+                                          edit.mask};
     for (int c = 0; c < count; ++c) {
-        const float *in = buffer.channel(first + c) + edit.start;
-        float *out = patch->channel(c);
-        for (qint64 i = 0; i < patch->frames; ++i) {
-            if ((i & 0xffff) == 0 && cancel.isCancelled()) {
-                if (error) *error = tr("The edit was cancelled");
-                return false;
-            }
-            double factor = 1.0;
-            switch (edit.kind) {
-            case AudioSourceEdit::Kind::Gain: factor = gain; break;
-            case AudioSourceEdit::Kind::FadeIn: factor = fadeInGain(i, patch->frames, edit.shape); break;
-            case AudioSourceEdit::Kind::FadeOut: factor = fadeInGain(patch->frames - 1 - i, patch->frames, edit.shape); break;
-            case AudioSourceEdit::Kind::Silence: factor = 0.0; break;
-            default: break;
-            }
-            out[i] = float(double(in[i]) * factor);
+        const auto result = AudioDsp::spectralGain(buffer.channel(first + c), buffer.frames, spec, cancel);
+        if (!result) {
+            if (error) *error = tr("Spectral processing was cancelled");
+            return false;
         }
+        if (c == 0) {
+            edit.patchStart = result->start;
+            patch->frames = qint64(result->samples.size());
+            patch->samples.resize(size_t(patch->frames) * size_t(count));
+        }
+        std::copy(result->samples.begin(), result->samples.end(), patch->channel(c));
     }
     edit.patch = std::move(patch);
     return true;
+}
+
+void AudioSourceEditing::applyInPlace(AudioBuffer &buffer, const AudioSourceEdit &edit)
+{
+    const int first = edit.channel < 0 ? 0 : edit.channel;
+    const int count = edit.channel < 0 ? buffer.channels : 1;
+    if (edit.needsPatch()) {
+        if (!edit.patch) return;
+        for (int c = 0; c < edit.patch->channels; ++c)
+            std::copy_n(edit.patch->channel(c), edit.patch->frames, buffer.channel(first + c) + edit.patchStart);
+        return;
+    }
+    const qint64 frames = edit.end - edit.start;
+    const double gain = AudioDsp::gainFromDecibels(edit.gainDb);
+    for (int c = 0; c < count; ++c) {
+        float *samples = buffer.channel(first + c) + edit.start;
+        for (qint64 i = 0; i < frames; ++i) {
+            double factor = 1.0;
+            switch (edit.kind) {
+            case AudioSourceEdit::Kind::Gain: factor = gain; break;
+            case AudioSourceEdit::Kind::FadeIn: factor = fadeInGain(i, frames, edit.shape); break;
+            case AudioSourceEdit::Kind::FadeOut: factor = fadeInGain(frames - 1 - i, frames, edit.shape); break;
+            case AudioSourceEdit::Kind::Silence: factor = 0.0; break;
+            default: break;
+            }
+            samples[i] = float(double(samples[i]) * factor);
+        }
+    }
 }
 
 AudioBufferPtr AudioSourceEditing::apply(const AudioBuffer &buffer, const AudioSourceEdit &edit)
@@ -249,10 +306,7 @@ AudioBufferPtr AudioSourceEditing::apply(const AudioBuffer &buffer, const AudioS
     out->channels = buffer.channels;
     if (inPlace(edit.kind)) {
         *out = buffer;
-        if (!edit.patch) return out;
-        const int first = edit.channel < 0 ? 0 : edit.channel;
-        for (int c = 0; c < edit.patch->channels; ++c)
-            std::copy_n(edit.patch->channel(c), edit.patch->frames, out->channel(first + c) + edit.patchStart);
+        applyInPlace(*out, edit);
         return out;
     }
     const bool crop = edit.kind == AudioSourceEdit::Kind::Crop;

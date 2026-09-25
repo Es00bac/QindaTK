@@ -9,9 +9,15 @@ Item {
     width: 1100
     height: 700
     property string status: qsTr("Fixture snapshots · no audio engine attached")
-    property string selectionStart: "0"
-    property string selectionEnd: "0"
+    property string selectionStart: "9007199254741290"
+    property string selectionEnd: "9007199254741690"
+    property string selectionChannel: "all"
     property string spectralRange: "No spectral selection"
+    // A committed lasso mask around the middle harmonic, in sample/Hz coordinates.
+    property var spectralMask: [[
+        { sample: "9007199254741290", hz: 900 }, { sample: "9007199254741690", hz: 700 },
+        { sample: "9007199254741890", hz: 1500 }, { sample: "9007199254741490", hz: 2600 }
+    ]]
 
     readonly property var waveformColumns: [
         { minimum: -0.08, maximum: 0.06, startSample: "9007199254740990", endSample: "9007199254741090" },
@@ -27,6 +33,8 @@ Item {
         { minimum: -0.30, maximum: 0.26, startSample: "9007199254741990", endSample: "9007199254742090" },
         { minimum: -0.09, maximum: 0.11, startSample: "9007199254742090", endSample: "9007199254742190" }
     ]
+    readonly property var rightColumns: page.waveformColumns.map(c => ({
+        minimum: c.minimum * 0.6, maximum: c.maximum * 0.7, startSample: c.startSample, endSample: c.endSample }))
     readonly property var spectralTiles: {
         const cells = []
         for (let x = 0; x < 24; ++x) {
@@ -72,8 +80,11 @@ Item {
                 objectName: "fixtureWaveformEditor"
                 anchors.fill: parent
                 sourceId: "asset:room-take-04"
-                channelId: "channel:left"
                 columns: page.waveformColumns
+                channelLayout: [{ id: "0", label: "L" }, { id: "1", label: "R" }]
+                channelColumns: [page.waveformColumns, page.rightColumns]
+                selectionChannelId: page.selectionChannel
+                gainDb: -3
                 regions: [{ id: "impact-04", startSample: "9007199254741290",
                             endSample: "9007199254741690", label: "Impact transient" }]
                 selectionStartSample: page.selectionStart
@@ -81,16 +92,21 @@ Item {
                 rulerMarks: [{ fraction: 0, label: "sample 9007199254740990" },
                              { fraction: 0.5, label: "midpoint" },
                              { fraction: 0.92, label: "end" }]
-                tooltip: qsTr("Room take waveform, left channel")
+                tooltip: qsTr("Room take waveform, both channels")
                 onSelectionPreviewRequested: function(id, source, channel, start, end) {
                     page.status = qsTr("Preview %1 · %2:%3–%4").arg(id).arg(channel).arg(start).arg(end)
                 }
                 onSelectionCommitted: function(id, source, channel, start, end) {
                     page.selectionStart = start
                     page.selectionEnd = end
+                    page.selectionChannel = channel
                     page.status = qsTr("Host acknowledged selection %1–%2 (%3)").arg(start).arg(end).arg(id)
                 }
                 onGestureCanceled: function(id) { page.status = qsTr("Selection canceled · %1").arg(id) }
+                onEditRequested: function(id, source, channel, operation, start, end, parameters) {
+                    page.status = qsTr("Edit request %1 · channel %2 · %3–%4 · %5")
+                        .arg(operation).arg(channel).arg(start).arg(end).arg(JSON.stringify(parameters))
+                }
                 onZoomRequested: function(anchor, factor) { page.status = qsTr("Host zoom request at sample %1 ×%2").arg(anchor).arg(factor) }
                 }
             }
@@ -120,6 +136,7 @@ Item {
                 hopSize: 1024
                 fftNormalization: "power normalized"
                 statusText: qsTr("Mock provider payload · replace with bounded analysis tiles")
+                maskPolygons: page.spectralMask
                 tooltip: qsTr("Spectrogram, logarithmic frequency axis")
                 onSelectionPreviewRequested: function(id, source, channel, start, end, low, high) {
                     page.spectralRange = qsTr("Preview %1 · samples %2–%3 · %4–%5 Hz")
@@ -132,6 +149,14 @@ Item {
                     page.status = page.spectralRange
                 }
                 onGestureCanceled: function(id) { page.status = qsTr("Spectral selection canceled · %1").arg(id) }
+                onMaskCommitted: function(id, source, channel, polygons, start, end, low, high) {
+                    page.spectralMask = polygons
+                    page.status = qsTr("Mask %1 · %2 polygon(s) · %3–%4").arg(id).arg(polygons.length).arg(start).arg(end)
+                }
+                onProcessRequested: function(id, source, channel, operation, start, end, low, high, parameters) {
+                    page.status = qsTr("Process request %1 · %2–%3 · %4")
+                        .arg(operation).arg(start).arg(end).arg(parameters.mask ? qsTr("mask") : qsTr("region"))
+                }
                 }
             }
             Tk.Caption { objectName: "fixtureStatus"; text: page.status; color: Tk.Theme.color.textMuted }

@@ -226,6 +226,7 @@ void AudioWaveformSource::run()
     const AudioBufferPtr buffer = currentBuffer();
     if (!buffer) {
         m_columns.clear();
+        m_channelColumns.clear();
         emit resultChanged();
         if (!session() || resourceId().isEmpty()) setState(QStringLiteral("empty"));
         else setState(QStringLiteral("failed"), tr("The source %1 has no decoded samples").arg(resourceId()));
@@ -233,19 +234,26 @@ void AudioWaveformSource::run()
     }
     if (channel() >= buffer->channels) {
         m_columns.clear();
+        m_channelColumns.clear();
         emit resultChanged();
         setState(QStringLiteral("failed"), tr("The source has no channel %1").arg(channel()));
         return;
     }
     if (m_pyramid && m_pyramidRevision == m_revision && m_pyramid->buffer() == buffer) {
         const auto [start, end] = viewRange();
-        QVariantList list;
-        for (const AudioPeakPyramid::Column &column : m_pyramid->columns(channel(), start, end, columnCount()))
-            list.push_back(QVariantMap{{QStringLiteral("minimum"), column.minimum},
-                                       {QStringLiteral("maximum"), column.maximum},
-                                       {QStringLiteral("startSample"), QString::number(column.start)},
-                                       {QStringLiteral("endSample"), QString::number(column.end)}});
-        m_columns = list;
+        const auto columnsOf = [&, start = start, end = end](int channelIndex) {
+            QVariantList list;
+            for (const AudioPeakPyramid::Column &column : m_pyramid->columns(channelIndex, start, end, columnCount()))
+                list.push_back(QVariantMap{{QStringLiteral("minimum"), column.minimum},
+                                           {QStringLiteral("maximum"), column.maximum},
+                                           {QStringLiteral("startSample"), QString::number(column.start)},
+                                           {QStringLiteral("endSample"), QString::number(column.end)}});
+            return list;
+        };
+        m_columns = columnsOf(channel());
+        m_channelColumns.clear();
+        if (m_splitChannels)
+            for (int c = 0; c < buffer->channels; ++c) m_channelColumns.push_back(columnsOf(c));
         emit resultChanged();
         setState(QStringLiteral("ready"));
         return;
@@ -274,6 +282,24 @@ void AudioWaveformSource::run()
     // AGENT-NOTE (D-135): one pass over the samples per source revision, off
     // the GUI thread; zooming and scrolling then only read the pyramid.
     watcher->setFuture(QtConcurrent::run([buffer, token] { return AudioPeakPyramid::build(buffer, token); }));
+}
+
+void AudioWaveformSource::setSplitChannels(bool split)
+{
+    if (m_splitChannels == split) return;
+    m_splitChannels = split;
+    emit splitChannelsChanged();
+    settingsTouched();
+}
+
+QVariantList AudioWaveformSource::channelLayout() const
+{
+    QVariantList layout;
+    for (int c = 0; c < channels(); ++c) {
+        const QString label = channels() == 2 ? (c == 0 ? tr("L") : tr("R")) : QString::number(c + 1);
+        layout.push_back(QVariantMap{{QStringLiteral("id"), QString::number(c)}, {QStringLiteral("label"), label}});
+    }
+    return layout;
 }
 
 QVariantMap AudioWaveformSource::extrema(const QString &startSample, const QString &endSample) const
