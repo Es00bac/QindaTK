@@ -1694,6 +1694,29 @@ Documents have no lifetime operation limit; a headless hub needs
 `setCompactionBaseline`; a rebuild resets the document once; replica stores
 move to format 2 (version 1 still opens).
 
+## D-204 — Path node ids are editor state; miter joins follow SVG
+
+**Context.** CAN-19 needs stable node and segment ids so a node selection
+survives segment insertion, but the native path record stores nodes as an
+array, and persisting ids would change the v6 format and every node-level
+equality in history, clipboard and parametric regeneration. Separately, the
+canvas stroked miter joins with `Qt::MiterJoin`, which clips an over-long
+miter at limit x width from the corner, while SVG export writes
+`stroke-miterlimit`, which bevels past limit x width of miter length; and
+bounds padded strokes by half the width only, so a spike under a raised
+limit fell outside the spatial index. **Decision.** `CanvasPathEditModel`
+numbers nodes itself (`n<k>`; a segment is `s` + its start node): its own
+edits carry ids explicitly, geometry it has seen before (undo, redo) gets
+the same ids back from a bounded memory, and other edits keep ids by anchor
+matching (LCS, then equal-length runs by position). Ids are not saved; a
+reopened document numbers afresh. `CanvasPath::pen` uses `Qt::SvgMiterJoin`
+(verified against `QPainterPathStroker`), and `documentBounds` includes each
+join's miter tip up to the limit (`CanvasAppearanceRules::miterTips`), which
+also covers the RHI tessellator's clipped spikes. **Consequences.** The
+format is unchanged and selections survive every edit in a session. Joins
+sharper than the limit now bevel on the canvas as in exported SVG; objects
+with sharp mitred joins have larger (correct) paint bounds.
+
 ## D-205 — A permanently refused edit is discarded from the replica
 
 **Context.** An edit queued offline before a permission loss stayed applied
@@ -1706,6 +1729,26 @@ it, emitting `operationDiscarded`; transient refusals stay queued.
 **Consequences.** Replicas converge with the hub after a downgrade; the host
 tells the user which edit was dropped. An edit made without permission is
 not kept for a later upgrade.
+
+## D-205 — Panels name the fields they set; fill kinds recall per object
+
+**Context.** Style panels sent whole descriptors and the model applied the
+fields that differed from the published (first object's) values, so setting
+a mixed width to the first object's value did nothing. Choosing fill kind
+`none` and back applied a fixed grey or the first pattern swatch, and stroke
+units were a host concern. **Decision.** StrokeStyleEditor and
+FillStyleEditor add `changed` (the fields the user set) to each request, and
+`CanvasStyleModel` applies exactly those. The model keeps each selected
+object's last colour, pattern (with the colour behind it) and gradient while
+it is bound, and a kind change restores each object's own settings of that
+kind before falling back to the descriptor's. Units (`document`, `px`, `pt`,
+`mm`, `in`; one document unit is one CSS pixel, as SVG export writes it) are
+presentation: the width is converted on request and the last typed value is
+shown exactly while the document still holds what it produced. The
+selection comes from a `CanvasSelectionModel` shared with the
+ToolController. **Consequences.** Mixed selections keep exact intent and
+kind switches are reversible without undo; recall is session state, not
+document data, and ends when the model is destroyed.
 
 ## D-206 — Text carets and selections travel as element anchors
 

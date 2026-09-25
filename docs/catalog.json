@@ -406,7 +406,7 @@
       "name": "AppearanceStack",
       "kind": "qml",
       "base": "Item",
-      "description": "`effects` is the host's ordered appearance graph snapshot. User operations are requests; the host validates capability and writes accepted state back.",
+      "description": "`effects` is the host's ordered appearance graph snapshot. User operations are requests; the host validates capability and writes accepted state back. `paints` lists the object's fixed paint entries (fill, pattern, stroke) in the order they are painted, before any effect; they are inspected here and edited in the fill and stroke panels.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/AppearanceStack.qml",
@@ -415,6 +415,14 @@
           "name": "effects",
           "type": "var",
           "default": "[] // [{id, name, kind, enabled, supported, parameters, masked}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paints",
+          "type": "var",
+          "default": "[]  // [{id, kind, name, present, detail}]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -466,7 +474,9 @@
         "appearanceEnabled_",
         "appearanceMoveDown_",
         "appearanceMoveUp_",
-        "appearanceName_"
+        "appearanceName_",
+        "appearancePaintDetail_",
+        "appearancePaint_"
       ]
     },
     {
@@ -14369,7 +14379,7 @@
       "name": "FillStyleEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "The fill descriptor is host-owned. `settings` retains one record per kind, so changing kind and returning restores the prior colour/gradient/pattern.",
+      "description": "The fill descriptor is host-owned. `settings` retains one record per kind, so changing kind and returning restores the prior colour/gradient/pattern. Each request carries `changed`: \"kind\" when the kind changes plus the setting fields the user set, so a host applies exactly those. `fill.mixed` lists \"kind\", \"color\", \"pattern\" or \"gradient\" when they differ across a selection.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/FillStyleEditor.qml",
@@ -14455,6 +14465,10 @@
           "parameters": ""
         },
         {
+          "name": "isMixed",
+          "parameters": "field"
+        },
+        {
           "name": "patternIndex",
           "parameters": "id"
         }
@@ -14468,6 +14482,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "fillColorMixed",
         "fillEditGradient",
         "fillKind",
         "fillPattern",
@@ -23820,7 +23835,7 @@
       "name": "PathEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "Overlay this on a CanvasView. The document owns every node edit and undo; the item only previews a drag until pointer release.",
+      "description": "Overlay this on a CanvasView. The document owns every node edit and undo; the item only previews a drag until pointer release. `model` (a CanvasPathEditModel) gives every node a stable id, holds the node selection by id and performs insert, delete, split, join and node-type requests, so a selection survives segment insertion and undo.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PathEditor.qml",
@@ -23868,7 +23883,7 @@
         {
           "name": "nodes",
           "type": "var",
-          "default": "[]",
+          "default": "[] // the shown contour's nodes: {id, x, y, inX, inY, outX, outY, type, ...}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -23886,6 +23901,22 @@
           "type": "int",
           "default": "0",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "alias",
+          "default": "edits",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNodeIds",
+          "type": "var",
+          "default": "edits.selectedNodeIds",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         }
@@ -23916,6 +23947,30 @@
         {
           "name": "finish",
           "parameters": "index, part, viewPoint"
+        },
+        {
+          "name": "report",
+          "parameters": "ok"
+        },
+        {
+          "name": "insertAfterSelection",
+          "parameters": ""
+        },
+        {
+          "name": "deleteSelection",
+          "parameters": ""
+        },
+        {
+          "name": "setSelectionType",
+          "parameters": "type"
+        },
+        {
+          "name": "splitSelection",
+          "parameters": ""
+        },
+        {
+          "name": "joinSelection",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -23928,6 +23983,7 @@
       "bridge": false,
       "objectNames": [
         "path",
+        "pathEditModel",
         "pathEditor"
       ]
     },
@@ -35637,7 +35693,7 @@
       "name": "StrokeStyleEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "Edits one canonical stroke descriptor. The host owns preview, persistence, unit conversion and the transaction represented by styleChangeRequested.",
+      "description": "Edits one canonical stroke descriptor. The host owns preview, persistence, unit conversion and the transaction represented by styleChangeRequested. Each request carries `changed`, the fields the user set, so a host can apply exactly those (a value equal to a mixed key's shown value included). `style.mixed` lists fields whose values differ across a selection: they show \"Mixed\" until the user sets them.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/StrokeStyleEditor.qml",
@@ -35727,6 +35783,10 @@
           "parameters": ""
         },
         {
+          "name": "isMixed",
+          "parameters": "field"
+        },
+        {
           "name": "request",
           "parameters": "patch"
         },
@@ -35751,6 +35811,7 @@
         "strokeAlignment",
         "strokeCap",
         "strokeColor",
+        "strokeColorMixed",
         "strokeDashMode",
         "strokeDashPattern",
         "strokeJoin",
@@ -47160,7 +47221,7 @@
       "name": "CanvasAppearanceModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/vector-authoring.md#appearance, D-106): the ordered effect stack of one canvas object in AppearanceStack's record shape ({id, name, kind, enabled, supported, parameters, masked, unsupportedReason}), refreshed after every document change. Each request is one undoable document edit; a kind the reference renderer does not draw is kept with its parameters and reported unsupported.",
+      "description": "AGENT-CONTRACT (docs/vector-authoring.md#appearance, D-106): the ordered effect stack of one canvas object in AppearanceStack's record shape ({id, name, kind, enabled, supported, parameters, masked, unsupportedReason}), refreshed after every document change, and its fixed paint entries (`paints`: fill, pattern, stroke, in paint order, below the effects). Each request is one undoable document edit; a kind the reference renderer does not draw is kept with its parameters and reported unsupported. With a `selectionModel`, the object is the selection's key (first) object.",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_appearance_model.h",
@@ -47177,6 +47238,20 @@
           "type": "QString",
           "default": "",
           "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "QindaTK::CanvasSelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paints",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
           "constant": false
         },
         {
@@ -47215,6 +47290,10 @@
         },
         {
           "name": "objectIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModelChanged",
           "parameters": ""
         },
         {
@@ -48205,6 +48284,144 @@
       "bridge": false
     },
     {
+      "name": "CanvasPathEditModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/vector-authoring.md#path-editing, CAN-19): node-level editing of one path object for PathEditor. Every node of every contour has a stable id (\"n<k>\"); a segment's id is \"s\" + its start node's id. Ids survive this model's own edits (insert, delete, split, join, node type, moves), undo/redo of them and edits made elsewhere, so a selection held by id survives segment insertion. Ids are editor state, not document data: a reopened document numbers its nodes afresh. Each request is one undoable CanvasEdit validated like every other object edit; a refusal changes nothing and sets lastError. Node edits demote a parametric shape to freeform, as the document's node APIs do.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_path_edit_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "objectId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "nodes",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "segments",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contours",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedNodeIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "objectIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "nodesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "selectNode",
+          "returns": "bool",
+          "parameters": "const QString &nodeId, bool extend = false"
+        },
+        {
+          "name": "clearSelection",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "node",
+          "returns": "QVariantMap",
+          "parameters": "const QString &nodeId"
+        },
+        {
+          "name": "insertNode",
+          "returns": "QString",
+          "parameters": "const QString &segmentId, qreal t = 0.5"
+        },
+        {
+          "name": "deleteNodes",
+          "returns": "bool",
+          "parameters": "const QStringList &nodeIds = {}"
+        },
+        {
+          "name": "setNodeType",
+          "returns": "bool",
+          "parameters": "const QString &type, const QStringList &nodeIds = {}"
+        },
+        {
+          "name": "splitAt",
+          "returns": "bool",
+          "parameters": "const QString &nodeId"
+        },
+        {
+          "name": "join",
+          "returns": "bool",
+          "parameters": "const QString &firstNodeId, const QString &secondNodeId"
+        },
+        {
+          "name": "moveNodePart",
+          "returns": "bool",
+          "parameters": "const QString &nodeId, const QString &part, qreal x, qreal y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasSelectionModel",
       "kind": "cpp",
       "base": "QObject",
@@ -48259,7 +48476,7 @@
       "name": "CanvasStyleModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/vector-authoring.md#style-binding): style edits for the canvas reference document and the style of `selectedIds` for binding StrokeStyleEditor (`strokeStyle`) and FillStyleEditor (`fillStyle`). Every selected object changes in one reversible document edit; an invalid or unsupported value, or a hidden or locked object, rejects the whole edit. The published styles follow every document change, undo included.",
+      "description": "AGENT-CONTRACT (docs/vector-authoring.md#style-binding): style edits for the canvas reference document and the style of `selectedIds` for binding StrokeStyleEditor (`strokeStyle`) and FillStyleEditor (`fillStyle`). Every selected object changes in one reversible document edit; an invalid or unsupported value, or a hidden or locked object, rejects the whole edit. The published styles follow every document change, undo included. With a `selectionModel` the selection is the canvas's own (ToolController's).",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_style_model.h",
@@ -48284,6 +48501,27 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "QindaTK::CanvasSelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gradientEditor",
+          "type": "QindaTK::GradientEditorModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "strokeUnits",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
         },
         {
           "name": "selectionStyle",
@@ -48340,6 +48578,14 @@
         },
         {
           "name": "selectionStyleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "gradientEditorChanged",
           "parameters": ""
         }
       ],

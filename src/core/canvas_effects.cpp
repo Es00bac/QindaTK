@@ -100,4 +100,31 @@ void dropShadow(QImage &layer, QPoint offset, qreal sigma, const QColor &color)
     layer = std::move(shadow);
 }
 
+void colorAdjust(QImage &layer, qreal brightness, qreal contrast, qreal saturation)
+{
+    if (layer.format() != QImage::Format_ARGB32_Premultiplied)
+        layer = layer.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    const qreal s = saturation;
+    const qreal m[3][3] = {{0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s},
+                           {0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s},
+                           {0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s}};
+    const qreal intercept = 0.5 - 0.5 * contrast + brightness;
+    const auto clamp = [](qreal v) { return std::clamp(v, 0.0, 1.0); };
+    for (int y = 0; y < layer.height(); ++y) {
+        auto *line = reinterpret_cast<QRgb *>(layer.scanLine(y));
+        for (int x = 0; x < layer.width(); ++x) {
+            const QRgb straight = qUnpremultiply(line[x]);
+            const int alpha = qAlpha(straight);
+            if (alpha == 0) continue;
+            const qreal in[3] = {qRed(straight) / 255.0, qGreen(straight) / 255.0, qBlue(straight) / 255.0};
+            int out[3];
+            for (int c = 0; c < 3; ++c) {
+                const qreal saturated = clamp(m[c][0] * in[0] + m[c][1] * in[1] + m[c][2] * in[2]);
+                out[c] = int(std::lround(clamp(saturated * contrast + intercept) * 255));
+            }
+            line[x] = qPremultiply(qRgba(out[0], out[1], out[2], alpha));
+        }
+    }
+}
+
 } // namespace QindaTK::CanvasEffects

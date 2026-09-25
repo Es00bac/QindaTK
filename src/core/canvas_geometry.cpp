@@ -79,7 +79,11 @@ QRectF documentBounds(const CanvasObject &object)
         bounds = object.transform.map(QPolygonF(object.rect)).boundingRect();
     }
     const qreal pad = CanvasAppearanceRules::strokeOutset(object);
-    return bounds.adjusted(-pad, -pad, pad, pad);
+    bounds.adjust(-pad, -pad, pad, pad);
+    if (const auto tips = CanvasAppearanceRules::miterTips(object))
+        bounds = QRectF(QPointF(std::min(bounds.left(), tips->left()), std::min(bounds.top(), tips->top())),
+                        QPointF(std::max(bounds.right(), tips->right()), std::max(bounds.bottom(), tips->bottom())));
+    return bounds;
 }
 
 QRectF paintBounds(const CanvasObject &object)

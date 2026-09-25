@@ -453,6 +453,8 @@ qt_add_qml_module(qindatk
         core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
         core/canvas_style_model.cpp core/canvas_style_model_selection.cpp core/canvas_style_model.h
+        core/canvas_style_model_fill.cpp
+        core/canvas_path_edit_model.cpp core/canvas_path_edit_model.h core/canvas_path_editing.cpp
         core/canvas_appearance_model.cpp core/canvas_appearance_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
