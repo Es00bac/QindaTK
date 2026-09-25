@@ -31584,6 +31584,54 @@
           "required": false
         },
         {
+          "name": "title",
+          "type": "string",
+          "default": "qsTr(\"New message\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "actionsVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bccVisible",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyRows",
+          "type": "int",
+          "default": "5",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sendText",
+          "type": "string",
+          "default": "qsTr(\"Send\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "lastRequestId",
           "type": "string",
           "default": "\"\"",
@@ -31616,9 +31664,17 @@
           "required": false
         },
         {
+          "name": "bccField",
+          "type": "alias",
+          "default": "bccTokens",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "recipientError",
           "type": "string",
-          "default": "recipientProblem(toTokens.tokens, ccTokens.tokens)",
+          "default": "recipientProblem(toTokens.tokens, ccTokens.tokens.concat(bccTokens.tokens))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -31754,6 +31810,8 @@
         "composerAttachmentRemove",
         "composerAttachment_",
         "composerAttachments",
+        "composerBcc",
+        "composerBccRow",
         "composerBody",
         "composerCc",
         "composerFormatBar",
@@ -31762,6 +31820,7 @@
         "composerSend",
         "composerStatus",
         "composerSubject",
+        "composerTitle",
         "composerTo",
         "richMailComposer"
       ]

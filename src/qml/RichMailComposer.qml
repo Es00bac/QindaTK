@@ -18,6 +18,15 @@ Tk.Box {
     property string status: "draft" // draft, pending, accepted, rejected, offline
     property string statusMessage: ""
     property string tooltip: qsTr("Compose message")
+    // Presentation for hosts that give the composer a window of its own
+    // (QindaMail): the heading, the Save/Send row and the Bcc row are
+    // optional and the body can be given more rows.
+    property string title: qsTr("New message")
+    property bool headerVisible: true
+    property bool actionsVisible: true
+    property bool bccVisible: false
+    property int bodyRows: 5
+    property string sendText: qsTr("Send")
     property string lastRequestId: ""
     property int _requestSerial: 0
     property bool _loadingDocument: false
@@ -25,7 +34,8 @@ Tk.Box {
     property var attachmentJobs: []
     readonly property alias toField: toTokens
     readonly property alias ccField: ccTokens
-    readonly property string recipientError: recipientProblem(toTokens.tokens, ccTokens.tokens)
+    readonly property alias bccField: bccTokens
+    readonly property string recipientError: recipientProblem(toTokens.tokens, ccTokens.tokens.concat(bccTokens.tokens))
     readonly property bool hasRecipient: toTokens.tokens.some(function(token) { return token.valid !== false })
     readonly property bool validDraft: hasRecipient && recipientError.length === 0
                                        && String(workingDraft.subject || "").trim().length > 0
@@ -70,7 +80,7 @@ Tk.Box {
         return invalid.length ? qsTr("Invalid recipient: %1").arg(invalid.map(function(token) { return token.label }).join(", ")) : ""
     }
     function snapshot() {
-        return { to: String(workingDraft.to || ""), cc: String(workingDraft.cc || ""),
+        return { to: String(workingDraft.to || ""), cc: String(workingDraft.cc || ""), bcc: String(workingDraft.bcc || ""),
                  subject: String(workingDraft.subject || ""), body: bodyDocument.text(),
                  richDocumentJson: bodyDocument.toJson(), attachments: workingDraft.attachments || [] }
     }
@@ -90,7 +100,9 @@ Tk.Box {
         // objects (and the focused input) in place; only a changed list reloads.
         if (recipientText(toTokens.tokens) !== String(next.to || "")) toTokens.tokens = recipientTokens(next.to)
         if (recipientText(ccTokens.tokens) !== String(next.cc || "")) ccTokens.tokens = recipientTokens(next.cc)
-        workingDraft = { to: String(next.to || ""), cc: String(next.cc || ""),
+        if (recipientText(bccTokens.tokens) !== String(next.bcc || "")) bccTokens.tokens = recipientTokens(next.bcc)
+        if (String(next.bcc || "").length > 0) bccVisible = true
+        workingDraft = { to: String(next.to || ""), cc: String(next.cc || ""), bcc: String(next.bcc || ""),
                          subject: String(next.subject || ""), body: bodyDocument.text(),
                          richDocumentJson: bodyDocument.toJson(), attachments: next.attachments || [] }
     }
@@ -120,6 +132,7 @@ Tk.Box {
     function commitRecipientDrafts() {
         if (toTokens.draft.trim().length) toTokens.commitDraft()
         if (ccTokens.draft.trim().length) ccTokens.commitDraft()
+        if (bccTokens.draft.trim().length) bccTokens.commitDraft()
     }
     function nextId(prefix) { return prefix + "-" + Date.now() + "-" + (++_requestSerial) }
     function requestSave() { commitRecipientDrafts(); const id = nextId("draft"); lastRequestId = id; status = "pending"; saveDraftRequested(id, snapshot()); return id }
@@ -172,7 +185,7 @@ Tk.Box {
 
     Tk.Flex {
         direction: Tk.Flex.Column; gap: Tk.Theme.space.sm; width: parent.width
-        Tk.Heading { level: 2; text: qsTr("New message") }
+        Tk.Heading { objectName: "composerTitle"; visible: control.headerVisible; level: 2; text: control.title }
         Tk.Notice { visible: !control.online || control.status === "rejected"; variant: !control.online ? "warning" : "danger"; title: !control.online ? qsTr("Offline draft") : qsTr("Request failed"); text: control.statusMessage || qsTr("Drafts are kept locally until the host can deliver them.") }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center; width: parent.width
@@ -194,10 +207,22 @@ Tk.Box {
                 onTokensEdited: function(tokens) { control.editDraft("cc", control.recipientText(tokens)) }
             }
         }
+        Tk.Flex {
+            objectName: "composerBccRow"
+            visible: control.bccVisible
+            direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center; width: parent.width
+            Tk.Label { text: qsTr("Bcc"); muted: true; width: Tk.Theme.size.controlLg }
+            Tk.TokenField {
+                id: bccTokens; objectName: "composerBcc"; Tk.Flex.grow: 1; Tk.Flex.basis: 0
+                standalone: true; label: qsTr("Bcc recipients"); placeholderText: qsTr("Add Bcc recipient"); tooltip: qsTr("Blind copies: delivered, never shown to the other recipients")
+                validator: control.checkRecipient
+                onTokensEdited: function(tokens) { control.editDraft("bcc", control.recipientText(tokens)) }
+            }
+        }
         Tk.Caption { objectName: "composerRecipientError"; visible: control.recipientError.length > 0; text: control.recipientError; color: Tk.Theme.color.danger; wrapMode: Text.Wrap; width: parent.width }
         Tk.TextField { objectName: "composerSubject"; width: parent.width; placeholderText: qsTr("Subject"); text: String(control.workingDraft.subject || ""); tooltip: qsTr("Message subject"); Accessible.name: qsTr("Subject"); onTextChanged: if (activeFocus) control.editDraft("subject", text) }
         Tk.FormatBar { objectName: "composerFormatBar"; target: composerBody; compact: true; width: parent.width }
-        Tk.RichTextEditor { id: composerBody; objectName: "composerBody"; width: parent.width; rows: 5; placeholderText: qsTr("Write a message"); document: bodyDocument; tooltip: qsTr("Formatted message body"); Accessible.name: qsTr("Message body") }
+        Tk.RichTextEditor { id: composerBody; objectName: "composerBody"; width: parent.width; rows: control.bodyRows; placeholderText: qsTr("Write a message"); document: bodyDocument; tooltip: qsTr("Formatted message body"); Accessible.name: qsTr("Message body") }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center; width: parent.width
             Tk.Label { objectName: "composerAttachments"; text: qsTr("Attachments · %1").arg((control.workingDraft.attachments || []).length); muted: true; Tk.Flex.grow: 1 }
@@ -232,10 +257,11 @@ Tk.Box {
             }
         }
         Tk.Flex {
+            visible: control.actionsVisible
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
             Tk.Label { objectName: "composerStatus"; text: control.statusMessage || control.status; muted: true; Tk.Flex.grow: 1 }
-            Tk.Button { objectName: "composerSave"; text: qsTr("Save draft"); tooltip: qsTr("Request local draft save"); onClicked: control.requestSave() }
-            Tk.Button { objectName: "composerSend"; text: qsTr("Request send"); variant: "accent"; tooltip: control.recipientError || qsTr("Request host delivery after validation"); enabled: control.validDraft && control.online; onClicked: control.requestSend() }
+            Tk.Button { objectName: "composerSave"; text: qsTr("Save draft"); tooltip: qsTr("Keep this draft on this computer"); onClicked: control.requestSave() }
+            Tk.Button { objectName: "composerSend"; text: control.sendText; iconName: "send"; variant: "accent"; tooltip: control.recipientError || qsTr("Send once every recipient is valid"); enabled: control.validDraft && control.online; onClicked: control.requestSend() }
         }
     }
     Tk.ToolTip { text: control.tooltip; visible: control.activeFocus }

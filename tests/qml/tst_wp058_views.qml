@@ -138,6 +138,22 @@ TestCase {
         const sendSpy = spy(composer, "sendRequested")
         verify(composer.requestSend())
         compare(sendSpy.signalArguments[0][1].cc, "cy@example.test")
+
+        // Bcc: hidden by default, shown by a draft that carries one, sent
+        // in the snapshot, and an invalid Bcc blocks the send like To/Cc.
+        compare(findChild(composer, "composerBccRow").visible, false)
+        composer.draft = { id: "d-bcc", to: "Ada <ada@example.test>", cc: "", bcc: "boss@example.test", subject: "S", body: "b" }
+        verify(findChild(composer, "composerBccRow").visible)
+        compare(composer.snapshot().bcc, "boss@example.test")
+        composer.bccField.draft = "nope"
+        composer.commitRecipientDrafts()
+        verify(!composer.validDraft)
+        // Presentation for a composer window: no heading or action row.
+        composer.headerVisible = false
+        composer.actionsVisible = false
+        compare(findChild(composer, "composerTitle").visible, false)
+        compare(findChild(composer, "composerSend").visible, false)
+        compare(findChild(composer, "composerSend").text, "Send")
         // Reloading the same draft keeps the token objects in place.
         const tokenId = composer.toField.tokens[0].id
         composer.draft = Object.assign({}, composer.snapshot())
