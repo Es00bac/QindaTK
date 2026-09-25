@@ -121,6 +121,13 @@ void applyTransitions(const TimelineModel &timeline, const QUuid &trackId, QVect
         const auto inOffset = TimelineTime::subtract(spans.at(i).sourceOffset, transition.beforeCut);
         const auto outDuration = TimelineTime::add(spans.at(outgoing).duration, transition.afterCut);
         if (!windowStart || !inDuration || !inOffset || !outDuration || transition.duration() < 1) continue;
+        // AGENT-GUARD (D-120): render() skips a span inside its fadeOut, so a
+        // window that overlaps the outgoing span's own fadeIn would drop that
+        // span's partner mid-dissolve. The planner refuses such timelines;
+        // one loaded from elsewhere keeps this cut instead.
+        const MediaTransitionWindow &lead = spans.at(outgoing).fadeIn;
+        const auto leadEnd = lead.isNull() ? std::nullopt : TimelineTime::add(lead.start, lead.duration);
+        if (!lead.isNull() && (!leadEnd || *leadEnd > *windowStart)) continue;
         MediaTransitionWindow window{transition.type, *windowStart, transition.duration(), transition.parameters, {}};
         MediaClipSpan &in = spans[i];
         MediaClipSpan &out = spans[outgoing];

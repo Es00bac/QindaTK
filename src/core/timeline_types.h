@@ -162,11 +162,15 @@ struct TimelineEditRequest {
     std::optional<TimelineTransition> transition;
     // SwitchSource at input.pointerTicks: the part from there on shows
     // resourceId from source ticks `sourceOffset` (at the switch time) with
-    // `sourceDuration` available; linked clips of another kind take
-    // linkedResourceId (resourceId when empty).
+    // `sourceDuration` available. Linked partners take linkedResourceId from
+    // linkedSourceOffset with linkedSourceDuration available (a separately
+    // recorded sound file has its own sync position and length); each linked
+    // field falls back to its picture counterpart when unset.
     QString resourceId;
     QString linkedResourceId;
     std::optional<qint64> sourceDuration;
+    std::optional<qint64> linkedSourceOffset;
+    std::optional<qint64> linkedSourceDuration;
 };
 
 struct TimelineEditInput {

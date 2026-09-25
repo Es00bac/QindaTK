@@ -111,7 +111,7 @@ Ticks in these maps are decimal strings; a JS Number is rejected.
 | `trackProperty`, `resizeTrack`, `reorderTrack`, `addTrack`, `removeTrack` | `trackId`, `property`/`value`, input `trackHeight` or `beforeTrackId`, `track` | tracks |
 | `roll`, `slip`, `slide` | `clipIds` (roll: outgoing and incoming), `grabTicks`; input `pointerTicks` | roll, slip, slide |
 | `setTransition` | one incoming clip, `transition` map (absent removes) | transition |
-| `switchSource` | `clipIds`, `resourceId`, `linkedResourceId`, `sourceOffset`, `sourceDuration`; input `pointerTicks` | switchSource |
+| `switchSource` | `clipIds`, `resourceId`, `linkedResourceId`, `sourceOffset`, `sourceDuration`, `linkedSourceOffset`, `linkedSourceDuration`; input `pointerTicks` | switchSource |
 | `link`, `unlink` | `clipIds` | link |
 
 Any request may set `linked` (edit whole link groups) and `frameExact` (land

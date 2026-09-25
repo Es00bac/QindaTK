@@ -27,6 +27,24 @@ TestCase {
                 linkId: uid(link)}
     }
 
+    // Records the frames the trim filmstrips ask for (VID-03).
+    QtObject {
+        id: frameProvider
+        property var requests: []
+        property string lastError: ""
+        signal assetChanged(string subscriptionId)
+        function requestAsset(resourceId, kind, options, document, viewId) {
+            requests.push({resourceId: resourceId, kind: kind, timeTicks: String(options.timeTicks), viewId: viewId})
+            return "frame-" + requests.length
+        }
+        function asset(subscriptionId) { return {subscriptionId: subscriptionId, state: "loading", data: ({}), error: ""} }
+        function release(subscriptionId) { return true }
+        function asked(resourceId, viewSuffix, timeTicks) {
+            return requests.some(r => r.resourceId === resourceId && r.kind === "frame"
+                                 && r.viewId.endsWith(viewSuffix) && r.timeTicks === timeTicks)
+        }
+    }
+
     Tk.TimeMap { id: timeMap; sampleRate: 48000 }
     Tk.TimelineModel { id: timeline; timeMap: timeMap }
     Tk.TimelineModel { id: program; timeMap: timeMap }
@@ -69,6 +87,39 @@ TestCase {
         compare(findChild(trim, "trimStatus").text, "Committed to the sequence")
         verify(timeline.undo())
         compare(timeline.clipData(uid(11)).duration, frames(50))
+    }
+
+    function test_trim_filmstrips_request_the_adjacent_frames() {
+        trim.assetProvider = frameProvider
+        verify(editor.selectEditPoint(uid(11), uid(12)))
+        const outgoing = findChild(trim, "trimOutgoingFrames")
+        const incoming = findChild(trim, "trimIncomingFrames")
+        // Committed: A's last frame (source 60F) and B's first (source 20F).
+        compare(outgoing.tailTimeTicks, String(60 * 28224000 - 1))
+        compare(incoming.headTimeTicks, frames(20))
+        verify(frameProvider.asked("missing-11", ":trim-out", String(60 * 28224000 - 1)))
+        verify(frameProvider.asked("missing-12", ":trim-in", frames(20)))
+        // A 5-frame roll preview: A now ends at source 65F, B starts at 25F.
+        trim.mode = "roll"
+        trim.deltaTicks = frames(5)
+        mouseClick(findChild(trim, "trimPreview"))
+        compare(editor.trimStatus, "ready")
+        compare(outgoing.tailTimeTicks, String(65 * 28224000 - 1))
+        compare(incoming.headTimeTicks, frames(25))
+        verify(frameProvider.asked("missing-11", ":trim-out", String(65 * 28224000 - 1)))
+        verify(frameProvider.asked("missing-12", ":trim-in", frames(25)))
+        // A slip of B keeps the cut but shows B's frames from 23F.
+        mouseClick(findChild(trim, "trimCancel"))
+        trim.mode = "slip"
+        trim.side = "right"
+        trim.deltaTicks = frames(3)
+        verify(trim.requestPreview())
+        compare(outgoing.tailTimeTicks, String(60 * 28224000 - 1))
+        compare(incoming.headTimeTicks, frames(23))
+        compare(incoming.tailTimeTicks, String(73 * 28224000 - 1))
+        verify(frameProvider.asked("missing-12", ":trim-in", frames(23)))
+        verify(editor.cancelTrim())
+        trim.assetProvider = null
     }
 
     function test_trim_view_slip_side_and_cancel() {

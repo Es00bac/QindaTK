@@ -19,7 +19,9 @@ namespace QindaTK {
 // that cuts the program clip at the (frame-exact) switch time and gives the
 // part from there the angle's source at that sync position. With
 // audioFollowsVideo the linked sound is cut and switched with it; without it
-// the sound is untouched. The program angle at a time is the angle whose
+// the sound is untouched. An angle whose sound is a separate file
+// (audioResourceId) has its own sync offset and length for that file, so its
+// sound lands at (T - syncStartTicks) + a.audioSyncOffsetTicks. The program angle at a time is the angle whose
 // resource the program clip there shows, so the cuts reopen from the saved
 // timeline plus this model's angle table (contentMap/loadContent).
 class MulticamModel : public QObject {
@@ -47,6 +49,10 @@ public:
         QString audioResourceId; // empty: the picture's resource carries the sound
         qint64 syncOffset = 0;   // source ticks at sync time 0
         qint64 sourceDuration = -1;
+        // The separate sound file's own sync position and length (used only
+        // with audioResourceId; the offset defaults to syncOffset, the length to unknown).
+        qint64 audioSyncOffset = 0;
+        qint64 audioSourceDuration = -1;
     };
     static constexpr int kMaxAngles = 64;
 
@@ -76,7 +82,8 @@ public:
     QString lastError() const { return m_lastError; }
     const QVector<Angle> &angleRecords() const { return m_angles; }
 
-    // angle: {angleId, label, resourceId, audioResourceId, syncOffsetTicks, sourceDurationTicks}.
+    // angle: {angleId, label, resourceId, audioResourceId, syncOffsetTicks, sourceDurationTicks,
+    // audioSyncOffsetTicks, audioSourceDurationTicks}.
     Q_INVOKABLE bool addAngle(const QVariantMap &angle);
     Q_INVOKABLE bool removeAngle(const QString &angleId);
     Q_INVOKABLE bool setSyncOffset(const QString &angleId, const QString &syncOffsetTicks);
@@ -91,7 +98,8 @@ public:
     // Cuts to `angleId` at `atTicks` (the playhead when empty). Returns {ok,
     // transactionId, atTicks, activeAngleId, error}.
     Q_INVOKABLE QVariantMap switchAngle(const QString &angleId, const QString &atTicks = {});
-    // Program clips on trackId whose source is not where the sync map puts it.
+    // Program clips on trackId, and angle sound clips on audioTrackId, whose
+    // source is not where the sync map puts it.
     Q_INVOKABLE QStringList unsyncedClipIds() const;
     Q_INVOKABLE QVariantMap contentMap() const;
     Q_INVOKABLE bool loadContent(const QVariantMap &content);
@@ -105,7 +113,8 @@ signals:
 private:
     const Angle *angle(const QString &id) const;
     const Angle *angleForResource(const QString &resourceId) const;
-    std::optional<qint64> sourceAt(const Angle &angle, qint64 ticks) const;
+    std::optional<qint64> sourceAt(const Angle &angle, qint64 ticks, bool sound = false) const;
+    const Angle *angleForSound(const QString &resourceId) const;
     const TimelineClip *programClipAt(qint64 ticks) const;
     bool available(const Angle &angle) const;
     bool fail(const QString &message);
