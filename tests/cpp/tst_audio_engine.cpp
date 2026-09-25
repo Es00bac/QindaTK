@@ -90,6 +90,28 @@ struct Rig {
 class TestAudioEngine : public QObject {
     Q_OBJECT
 private slots:
+    // A host that starts playback from configurationApplied (examples/
+    // waveform-live) must find the transport already describing the running
+    // device; before the fix the snapshot was published after the signal and
+    // requestPlay was rejected with "No audio device is running".
+    void transportIsCurrentWhenConfigurationIsApplied()
+    {
+        Rig rig;
+        bool canPlay = false;
+        QString playId;
+        connect(&rig.engine, &AudioEngine::configurationApplied, &rig.engine,
+                [&](const QString &, const QString &state) {
+                    if (state != QStringLiteral("accepted")) return;
+                    canPlay = rig.transport->canPlay();
+                    playId = rig.transport->requestPlay();
+                });
+        QCOMPARE(rig.apply(QStringLiteral("builtin:null"), Rate, 256, QStringLiteral("None"), QStringLiteral("Stereo")),
+                 QStringLiteral("accepted"));
+        QVERIFY(canPlay);
+        QVERIFY2(!playId.isEmpty(), qPrintable(rig.transport->lastError()));
+        QTRY_VERIFY(rig.transport->playing());
+    }
+
     void loopbackRecordingIsLatencyAlignedAndLoops()
     {
         Rig rig;
