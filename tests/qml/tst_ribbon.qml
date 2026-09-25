@@ -104,6 +104,9 @@ TestCase {
         verify(button)
         compare(button.text, "&Bold")
         compare(button.Accessible.name, "Bold")
+        ribbon.bold.text = "&Bold…"
+        compare(button.plainLabel, "Bold", "ribbon labels drop a menu's trailing ellipsis")
+        ribbon.bold.text = "&Bold"
         compare(button.checked, false)
         const spy = createTemporaryObject(spyComponent, root, { target: ribbon, signalName: "itemRequested" })
         mouseClick(button)

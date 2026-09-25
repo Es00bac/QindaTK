@@ -36,7 +36,11 @@ T.AbstractButton {
     readonly property real smallWidth: Math.ceil((iconName.length > 0 ? Tk.Theme.size.icon + Tk.Theme.space.sm : 0)
         + smallMetrics.advanceWidth + Tk.Theme.space.sm * 2 + _chevron)
     readonly property real iconWidth: iconName.length > 0 ? Tk.Theme.size.control + _chevron : smallWidth
+    // A ribbon label is a name, not a menu row: the "…" that tells a menu
+    // reader a dialog follows is dropped here (the accessible description
+    // and the menus keep the full text).
     readonly property string plainLabel: String(text).replace(/&&/g, "\u0001").replace(/&/g, "").replace(/\u0001/g, "&")
+                                             .replace(/(\u2026|\.\.\.)$/, "")
 
     implicitWidth: size === "large" ? largeWidth : size === "icon" ? iconWidth : smallWidth
     implicitHeight: size === "large" ? bandHeight : Tk.Theme.size.control
