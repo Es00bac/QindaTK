@@ -10,6 +10,7 @@
 #include <QPrinterInfo>
 #include <QSaveFile>
 #include <QSet>
+#include <QFileInfo>
 #include <QTemporaryFile>
 
 #ifndef QINDATK_HAVE_CUPS
@@ -158,6 +159,13 @@ public:
 private:
     bool start(QString *error)
     {
+        // AGENT-GUARD: check the folder ourselves. Qt versions differ in how
+        // QTemporaryFile treats a missing temporary folder (Qt 6.8 still
+        // creates the file), and a job must fail the same way on all of them.
+        const QFileInfo tempDir(QDir::tempPath());
+        if (!tempDir.isDir() || !tempDir.isWritable())
+            return fail(error, tr("Cannot create a temporary file for printing: %1 is not a writable folder")
+                                   .arg(QDir::toNativeSeparators(tempDir.filePath())));
         m_temp.setFileTemplate(QDir::temp().filePath(QStringLiteral("qindatk-print-XXXXXX.pdf")));
         if (!m_temp.open())
             return fail(error, tr("Cannot create a temporary file for printing: %1").arg(m_temp.errorString()));
