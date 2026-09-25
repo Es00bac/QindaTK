@@ -7,8 +7,12 @@ import QindaTK as Tk
 // the model's domain (click the track to add at the current mapping, drag or
 // arrow-key a stop to move it, Delete or right-click to remove) plus the
 // selected stop's exact value, opacity and color. Sized to its content.
+// A drag or slider press is one undoable step (Escape cancels a drag);
+// Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo.
 // AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer
 // settings model. Voxel source data and its revision are never changed here.
+// Gestures use the model's beginEdit/commitEdit/cancelEdit transaction
+// (D-148), so previews repaint views but only the committed step is recorded.
 T.Control {
     id: control
     objectName: "transferFunctionEditor"
@@ -35,6 +39,23 @@ T.Control {
         if (pointColor) pointColor.color = selectedPoint.color || Tk.Theme.color.text
     }
     onSelectedPointChanged: _syncFields()
+    function _valueAt(position) {
+        return model.domainMin + position * (model.domainMax - model.domainMin)
+    }
+    function undo() { return !!model && model.undo() }
+    function redo() { return !!model && model.redo() }
+
+    Keys.onPressed: function(event) {
+        if (event.matches(StandardKey.Undo)) {
+            event.accepted = control.undo()
+        } else if (event.matches(StandardKey.Redo)) {
+            event.accepted = control.redo()
+        } else if (event.key === Qt.Key_Escape && control.model && control.model.editing) {
+            event.accepted = control.model.cancelEdit()
+        } else {
+            event.accepted = false
+        }
+    }
 
     implicitWidth: Math.max(Tk.Theme.size.panelMinWidth, implicitContentWidth + leftPadding + rightPadding)
     implicitHeight: implicitContentHeight + topPadding + bottomPadding
@@ -62,6 +83,24 @@ T.Control {
             align: Tk.Flex.Center
             Tk.Label { text: qsTr("Transfer function"); Tk.Flex.grow: 1 }
             Tk.Mono { text: control.model ? control.model.unit : "" }
+            Tk.IconButton {
+                objectName: "transferUndo"
+                iconName: "undo"
+                small: true
+                enabled: !!control.model && control.model.canUndo
+                tooltip: control.model && control.model.undoText.length > 0
+                    ? qsTr("Undo %1").arg(control.model.undoText) : qsTr("Undo")
+                onClicked: control.undo()
+            }
+            Tk.IconButton {
+                objectName: "transferRedo"
+                iconName: "redo"
+                small: true
+                enabled: !!control.model && control.model.canRedo
+                tooltip: control.model && control.model.redoText.length > 0
+                    ? qsTr("Redo %1").arg(control.model.redoText) : qsTr("Redo")
+                onClicked: control.redo()
+            }
         }
         Tk.GradientEditor {
             id: gradient
@@ -87,10 +126,20 @@ T.Control {
                 const id = control.model.addPoint(value, control.model.colorAt(value), control.model.opacityAt(value))
                 if (id.length > 0) control.selectedPointId = id
             }
+            // A drag, or a keyboard nudge (preview then finish), previews
+            // inside one transaction and commits it once on finish.
+            onMovePreviewRequested: function(id, position) {
+                if (!control.model) return
+                if (!control.model.editing && !control.model.beginEdit(qsTr("Move transfer point"))) return
+                control.model.movePoint(String(id), control._valueAt(position))
+            }
             onMoveFinished: function(id, position) {
                 if (!control.model) return
-                const value = control.model.domainMin + position * (control.model.domainMax - control.model.domainMin)
-                control.model.movePoint(String(id), value)
+                control.model.movePoint(String(id), control._valueAt(position))
+                if (control.model.editing) control.model.commitEdit()
+            }
+            onMoveCanceled: function(id) {
+                if (control.model && control.model.editing) control.model.cancelEdit()
             }
             onDeleteStopRequested: function(id) {
                 if (control.model && control.model.removePoint(String(id))) control.selectedPointId = ""
@@ -126,6 +175,14 @@ T.Control {
                 from: 0; to: 1; decimals: 2; showValue: true
                 value: control.selectedPoint.opacity || 0
                 tooltip: qsTr("Selected transfer opacity")
+                // One press-drag-release of the handle is one history step.
+                onPressedChanged: {
+                    if (!control.model) return
+                    if (pointOpacity.pressed && !control.model.editing)
+                        control.model.beginEdit(qsTr("Change transfer opacity"))
+                    else if (!pointOpacity.pressed && control.model.editing)
+                        control.model.commitEdit()
+                }
                 onValueModified: function(value) {
                     if (control.model && !control.model.setPointOpacity(control.selectedPointId, value))
                         control._syncFields()

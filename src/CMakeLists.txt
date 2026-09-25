@@ -314,8 +314,11 @@ qt_add_qml_module(qindatk
         core/scientific_scene3d_render.cpp
         core/voxel_volume.cpp core/voxel_volume.h
         core/volume_cursor.cpp core/volume_cursor.h
-        core/transfer_function_model.cpp core/transfer_function_model.h
-        core/image_slice_item.cpp core/image_slice_item.h
+        core/transfer_function_model.cpp core/transfer_function_history.cpp core/transfer_function_model.h
+        core/image_slice_item.cpp core/image_slice_reslice.cpp core/image_slice_item.h
+        core/volume_raycast.cpp core/volume_raycast.h
+        core/volume_view_item.cpp core/volume_view_item.h
+        core/volume_render_node.cpp core/volume_render_node.h
         core/chart_series.cpp core/chart_series.h
         core/chart_data.cpp core/chart_data.h
         core/chart_dataset.cpp core/chart_dataset.h
@@ -425,6 +428,24 @@ target_link_libraries(qindatk
     PUBLIC PkgConfig::VTERM)
 if(TARGET Qt6::Quick3D)
     target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
+endif()
+# GPU volume raycasting (D-147) is optional. Without Qt Shader Tools the
+# resources are absent, VolumeView reports "GPU volume shaders are not built"
+# and draws the reference path. 3D samplers need GLSL 300 es / 330.
+# AGENT-CONTRACT (core/volume_render_node.cpp): PREFIX + file path is the
+# resource path the node loads, ":/qindatk/shaders/volume_raycast.*.qsb".
+find_package(Qt6ShaderTools 6.8 QUIET)
+if(TARGET Qt6::ShaderTools)
+    qt_add_shaders(qindatk "qindatk_volume_shaders"
+        PREFIX "/qindatk"
+        GLSL "300es,330"
+        NOHLSL
+        NOMSL
+        FILES
+            shaders/volume_raycast.vert
+            shaders/volume_raycast.frag)
+else()
+    message(STATUS "QindaTK: GPU volume shaders unavailable (Qt Shader Tools not installed)")
 endif()
 if(QINDATK_ENABLE_POPPLER_QT6 AND POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)

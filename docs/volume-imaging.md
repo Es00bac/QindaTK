@@ -1,16 +1,21 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# Volume imaging: voxel data, slices and transfer functions
+# Volume imaging: voxel data, slices, volume rendering and transfer functions
 
 `Tk.VoxelVolume` is a typed, spatially calibrated voxel source.
 `Tk.ImageSliceView` shows one of its principal voxel planes: axial (X across,
-Y down), coronal (X across, Z down) or sagittal (Y across, Z down). Give
-related views the same `Tk.VolumeCursor` to link the crosshair and slice
-position. `Tk.TransferFunctionModel` maps measured scalar values to color and
-opacity; `Tk.TransferFunctionEditor` edits that settings model without
-changing source voxels.
+Y down), coronal (X across, Z down) or sagittal (Y across, Z down), or an
+oblique world-space reslice through the cursor. `Tk.VolumeView` renders the
+whole volume (composite or maximum intensity) on the GPU, or with the exact
+CPU reference renderer when the GPU cannot. Give related views the same
+`Tk.VolumeCursor` to link the crosshair, slice position and 3D picking.
+`Tk.TransferFunctionModel` maps measured scalar values to color and opacity;
+`Tk.TransferFunctionEditor` edits that settings model, one undoable step per
+gesture, without changing source voxels.
 [`examples/volume-imaging/Main.qml`](../examples/volume-imaging/Main.qml)
-shows a known sphere phantom with anisotropic voxels; the gallery's "Volume
-imaging" section shows two linked planes.
+shows a known sphere phantom with anisotropic voxels in three principal
+planes, an oblique plane and a volume rendering, and saves and restores the
+view and transfer settings; the gallery's "Volume imaging" section shows two
+linked planes and a volume view.
 
 ## Voxel contract
 
@@ -28,7 +33,8 @@ on the render thread while the GUI thread is blocked and must not call back
 into the volume. `maximumResidentBytes` (default 64 MiB, at least one chunk)
 bounds owned chunks plus the provider read cache. Cached provider chunks are
 evicted least recently used first; owned chunks never are. `residentBytes` is
-a snapshot: cache fills during reads do not emit `changed()`.
+a snapshot: cache fills during reads do not emit `changed()`. `copyChunk()`
+reads one whole chunk through the same cache; the GPU upload uses it.
 
 Unwritten owned voxels read as zero. With a provider, a failed read, or a
 chunk that does not fit beside the owned chunks, is missing. `setVoxel`
@@ -86,6 +92,67 @@ plane. A cursor without a volume adopts the view's volume. For overlays,
 `ImageSliceItem.voxelAt(x, y)` and `positionForVoxel(x, y, z)` convert between
 item pixels and continuous voxel indices.
 
+## Oblique reslicing
+
+`plane: Tk.ImageSliceItem.Oblique` samples the world-space plane through the
+cursor ([D-149](decisions-domains.md#d-149--oblique-reslices-are-square-world-frames-through-the-cursor)).
+`resliceOrientation` is a row-major, orthonormal 3×3 world matrix whose
+columns are the image's right, down and normal directions; the identity
+shows world X across and world Y down, whatever the volume's own
+orientation, so a rotated or reflected volume appears in world axes. The
+image is a square one volume diagonal wide, centred on the volume centre
+projected onto the plane and fitted into the item, sampled once per item
+pixel with the view's interpolation (capped at 2048 per side). Clicks,
+`voxelAt`, `positionForVoxel` and the crosshair use that frame. Page Up/Down,
+the wheel and the chevrons step the cursor by the smallest voxel spacing
+along the normal (`sliceCount` such steps span the diagonal); arrow keys move
+it by the same step within the plane. `stepSlice(n)` and `moveCrosshair(dh,
+dv)` do the same from code for every plane. A rejected orientation keeps the
+current one and sets `lastError`.
+
+## Volume rendering
+
+`Tk.VolumeView` wraps `Tk.VolumeViewItem`. The camera is orthographic and
+orbits the volume centre: `yaw` turns about world Y, `pitch` about the
+camera's right axis (yaw 0, pitch 0 looks down world −Z with +X right and +Y
+up; defaults 30° and 20°), and `zoom` 1 fits the volume diagonal to the
+shorter side. `mode` is `Composite` (front-to-back accumulation of transfer
+color and opacity) or `MaximumIntensity` (the transfer color of the largest
+sample on each ray). `samplingRate` is samples per smallest voxel spacing
+(0.25–8, default 2); opacity is corrected so the result does not depend on
+it. `clipLow`/`clipHigh` crop the volume per voxel axis (fractions 0–1).
+Without a transfer model the window ramp (`windowCenter ± windowWidth/2`)
+maps values to gray with matching opacity. `interpolation` is explicit:
+`Linear` (default) is D-086's clamped trilinear sample, `Nearest` its
+containing cell.
+
+The algorithm is specified by the CPU reference renderer
+([D-146](decisions-domains.md#d-146--one-raycasting-algorithm-specified-by-a-cpu-reference));
+the GPU shader runs the same steps. `renderPath` says which one drew the last
+frame and `fallbackReason` why the GPU did not, in this order: reference
+requested, no volume, no RHI scene graph (the software renderer), shaders not
+built, no 3D textures, voxel format not sampleable, a side over the texture
+limit (at most 2048), over `maximumTextureBytes` (256 MiB), channel or frame
+out of range, missing chunks
+([D-147](decisions-domains.md#d-147--the-gpu-volume-path-falls-back-to-the-reference-image-and-says-why)).
+The reference image is at most 192 × 192 rays, scaled to the item.
+`renderReference(w, h)` returns the exact reference image for the current
+settings.
+
+Drag to orbit, scroll to zoom, and click without dragging to pick: the ray
+under the pointer stops where accumulated opacity reaches 0.5 (or at its
+maximum sample) and moves the shared cursor there, so the slice views follow.
+Arrow keys orbit by `orbitStep`, +/- zoom, Home resets and Escape cancels an
+orbit drag back to where it started. `saveSettings()`/`restoreSettings()`
+persist the camera, mode, interpolation, sampling, clip box, channel, frame
+and window as JSON-safe values, validated atomically, apart from the voxels.
+
+GPU residency: the upload packs one channel and frame chunk by chunk through
+the volume's bounded cache and drops its staging copy once uploaded, so CPU
+memory stays within `maximumResidentBytes` plus one texture-sized transient
+copy bounded by `maximumTextureBytes`. The reference path reads through the
+cache only.
+
 ## Transfer functions
 
 `TransferFunctionModel` holds 2–256 stops with stable IDs, strictly
@@ -98,17 +165,40 @@ non-finite values are transparent. `saveSettings()` returns JSON-safe data
 (`#rrggbb` colors) that `restoreSettings()` validates atomically. These are
 view settings, kept apart from the immutable voxel data.
 
+Edits are typed history steps
+([D-148](decisions-domains.md#d-148--transfer-edits-are-typed-history-steps-gestures-are-transactions)):
+each committed edit records the stop list before and after in the model's
+`undoService`, which a document session can adopt. `undo()`, `redo()`,
+`canUndo`, `canRedo`, `undoText` and `redoText` follow it. `beginEdit(label)`
+opens a gesture: until `commitEdit()` edits are previews that update views
+but record nothing, and `cancelEdit()` restores the start without a step.
+Undo and redo are refused while a gesture is open. `configure()` and
+`restoreSettings()` are loads and reset the history. `committed()` fires after
+every recorded step, undo, redo or load, never for previews.
+
 `TransferFunctionEditor` shows a gradient over the domain. Clicking the track
 adds a stop at the current mapping, so the rendered result does not change
 until the stop is edited. Drag or arrow-key a stop to move it; Delete or a
 right-click removes it. The value field, opacity slider and color swatches
 edit the selected stop exactly, and a rejected value snaps back to the stored
-one. Hosts can connect `customColorRequested` to their color picker.
+one. Hosts can connect `customColorRequested` to their color picker. A stop
+drag, a keyboard nudge or an opacity slider press is one undo step; Escape
+cancels a drag, and Ctrl+Z / Ctrl+Shift+Z or the header buttons undo and
+redo.
+
+## Scientific 3D examples
+
+The scientific 3D family has one example per data kind: sampled volumes in
+[`examples/volume-imaging`](../examples/volume-imaging/Main.qml) (slices,
+reslice, volume rendering and saved view settings) and 3D scatter and
+surface plots in `examples/scientific-plot-3d` (WP-085). All keep their view
+settings apart from the immutable source data.
 
 ## Limits
 
-This slice provides 2D principal-plane views and an out-of-core provider
-boundary. Oblique reslicing, GPU volume raycasting (`VolumeView`), clipping,
-camera and picking, asynchronous prefetch and cancellation, overlays with
-geometry checks, undoable transfer transactions, histograms and the
-scientific 3D scatter/surface/volume examples remain WP-086 work.
+Provider reads are synchronous during a repaint; there is no asynchronous
+prefetch. The volume camera is orthographic without lighting or gradient
+shading, and one channel is rendered at a time. The transfer table has 256
+entries. There are no histograms or preset libraries, and overlays use
+`voxelAt`/`positionForVoxel` directly. Qualifying the GPU path across drivers
+and platforms and measuring its performance belong to WP-088 to WP-094.

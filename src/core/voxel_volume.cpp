@@ -269,6 +269,20 @@ bool VoxelVolume::putChunk(int cx, int cy, int cz, int channel, int frame, const
     m_blocks.insert(address, bytes);
     ++m_revision; fail({}); emit changed(); return true;
 }
+bool VoxelVolume::copyChunk(int cx, int cy, int cz, int channel, int frame, QByteArray *out) const
+{
+    out->clear();
+    if (cx < 0 || cy < 0 || cz < 0 || cx >= chunkCount(0) || cy >= chunkCount(1)
+        || cz >= chunkCount(2) || channel < 0 || channel >= m_channels || frame < 0
+        || frame >= m_frames) return false;
+    if (const QByteArray *bytes = chunkForRead(cx, cy, cz, channel, frame)) {
+        *out = *bytes;
+        return true;
+    }
+    if (m_source) return false;
+    *out = QByteArray(chunkBytes(), '\0');
+    return true;
+}
 void VoxelVolume::setSource(std::shared_ptr<VoxelChunkSource> source)
 {
     m_source = std::move(source);

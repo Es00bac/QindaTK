@@ -76,6 +76,12 @@ public:
     Q_INVOKABLE QVariantList worldFromVoxel(double x, double y, double z) const;
     Q_INVOKABLE QVariantList voxelFromWorld(double x, double y, double z) const;
     bool putChunk(int cx, int cy, int cz, int channel, int frame, const QByteArray &bytes);
+    // Copies one 32³ chunk (little-endian, X fastest) through the bounded
+    // read cache. False when it is missing; without a provider an unwritten
+    // chunk reads as zeros. Used by the GPU volume upload (D-147).
+    bool copyChunk(int cx, int cy, int cz, int channel, int frame, QByteArray *out) const;
+    int bytesPerVoxel() const { return m_kind == Kind::UInt8 ? 1 : m_kind == Kind::UInt16 ? 2 : 4; }
+    static constexpr int ChunkSide = 32;
     void setSource(std::shared_ptr<VoxelChunkSource> source);
     double valueAt(int x, int y, int z, int channel = 0, int frame = 0) const;
     double sampleValue(double x, double y, double z, int channel, int frame,
