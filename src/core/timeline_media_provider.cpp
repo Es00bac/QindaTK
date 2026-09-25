@@ -120,6 +120,7 @@ void TimelineMediaProvider::setBackend(TimelineMediaBackendPtr backend)
     m_finished.clear();
     m_backend = std::move(backend);
     m_reference = false;
+    m_decoded = false;
     clearCache();
     const QString reason = tr("The media backend changed");
     for (const auto &entry : pending) emit failed(entry.first, entry.second, reason);
@@ -134,6 +135,34 @@ void TimelineMediaProvider::setReferenceBackend(bool enabled)
     setBackend(enabled ? createSyntheticTimelineMediaBackend() : nullptr);
     m_reference = enabled;
     emit changed();
+}
+
+void TimelineMediaProvider::setDecodedBackend(bool enabled)
+{
+    if (m_decoded == enabled) return;
+    setBackend(enabled ? createDecodedTimelineMediaBackend() : nullptr);
+    m_decoded = enabled;
+    emit changed();
+}
+
+ResourceResolver *TimelineMediaProvider::resolver() const
+{
+    return m_resolver.data();
+}
+
+// A relinked or refreshed resource may now name other media: its cached
+// peaks and running requests are invalidated and owners ask again.
+void TimelineMediaProvider::setResolver(ResourceResolver *resolver)
+{
+    if (m_resolver == resolver) return;
+    disconnect(m_resolverConnection);
+    m_resolver = resolver;
+    if (resolver)
+        m_resolverConnection = connect(resolver, &ResourceResolver::resourceChanged, this,
+                                       &TimelineMediaProvider::invalidateResource);
+    clearCache();
+    emit changed();
+    emit backendChanged();
 }
 
 QString TimelineMediaProvider::backendId() const
@@ -168,6 +197,14 @@ QString TimelineMediaProvider::request(TimelineMediaRequest request)
     request.serial = ++m_serial;
     request.requestId = QStringLiteral("media-%1").arg(request.serial);
     request.resourceGeneration = m_generations.value(request.resourceId);
+    bool offline = false;
+    if (m_resolver && !request.resourceId.isEmpty()) {
+        const QVariantMap entry = m_resolver->lookup(request.resourceId);
+        request.location = entry.value(QStringLiteral("uri")).toString();
+        offline = entry.isEmpty() || entry.value(QStringLiteral("availability")).toString() == QLatin1String("missing");
+    } else {
+        request.location = request.resourceId;
+    }
     Record record;
     record.request = request;
     record.key = keyFor(request);
@@ -178,6 +215,7 @@ QString TimelineMediaProvider::request(TimelineMediaRequest request)
     else if (request.columns < 1 || request.columns > kMaxColumns) problem = tr("Invalid media column count");
     else if (request.sourceEnd <= request.sourceStart || !request.ticksPerSecond.isValid())
         problem = tr("Invalid media source range");
+    else if (offline) problem = tr("The media is offline");
     if (!problem.isEmpty() || m_cache.contains(record.key)) {
         record.state = problem.isEmpty() ? QStringLiteral("ready") : QStringLiteral("failed");
         if (problem.isEmpty()) record.result = m_cache.value(record.key);

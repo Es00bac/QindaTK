@@ -36,6 +36,9 @@ struct MediaTestSignalSettings {
     // First pop frame. A nonzero phase keeps frame 0, the frame thumbnails and
     // freshly opened monitors show, on colour bars instead of the white flash.
     qint64 popPhase = 0;
+    // Rotates the seven colour bars left by this many places (0..6), so
+    // several test signals (camera angles, shots) are told apart on sight.
+    int barRotation = 0;
 };
 
 // AGENT-CONTRACT (docs/media-playback.md "Export"): export renders the same

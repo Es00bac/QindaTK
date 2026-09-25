@@ -21326,6 +21326,14 @@
           "required": false
         },
         {
+          "name": "angleColumns",
+          "type": "int",
+          "default": "2 // cards per row; more rows scroll",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Synchronized multicamera angles\")",
@@ -21377,6 +21385,22 @@
           "name": "effectiveRateDenominator",
           "type": "string",
           "default": "root.multicamMode ? root.multicam.frameRateDenominator : root.rateDenominator",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetRateNumerator",
+          "type": "string",
+          "default": "root.multicamMode && root.multicam.timeline",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetRateDenominator",
+          "type": "string",
+          "default": "root.multicamMode && root.multicam.timeline",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -21460,6 +21484,7 @@
       "bridge": false,
       "objectNames": [
         "multicamAngleGrid",
+        "multicamAngleScroll",
         "multicamAngle_",
         "multicamFrame_",
         "multicamStatus",
@@ -41796,6 +41821,22 @@
           "name": "effectiveRateDenominator",
           "type": "string",
           "default": "root.editorMode && root.snapshotValid",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetRateNumerator",
+          "type": "string",
+          "default": "root.editorMode && root.editor.timeline",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetRateDenominator",
+          "type": "string",
+          "default": "root.editorMode && root.editor.timeline",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -74547,6 +74588,20 @@
         {
           "name": "referenceBackend",
           "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "decodedBackend",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resolver",
+          "type": "QindaTK::ResourceResolver *",
           "default": "",
           "readonly": false,
           "constant": false

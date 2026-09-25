@@ -50,6 +50,19 @@ TestCase {
         alignment: "center"
     }
 
+    // Angles beyond the rows that fit scroll; they never cover the status row.
+    function test_extra_angles_scroll_instead_of_overlapping() {
+        multicam.height = Tk.Theme.size.thumbnailHeight * 6
+        const scroll = findChild(multicam, "multicamAngleScroll")
+        const status = findChild(multicam, "multicamStatus")
+        verify(scroll && status && findChild(multicam, "multicamAngle_angle-c"))
+        tryVerify(function() { return scroll.scrollableY })
+        const scrollBottom = scroll.mapToItem(multicam, 0, scroll.height).y
+        verify(status.mapToItem(multicam, 0, 0).y >= scrollBottom - 0.5)
+        verify(scrollBottom <= multicam.height)
+        multicam.height = 500
+    }
+
     function test_requests_keep_exact_ticks_and_respect_host_snapshot() {
         verify(trim.snapshotValid)
         verify(trim.requestPreview())

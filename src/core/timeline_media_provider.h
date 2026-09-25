@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include "resource_resolver.h"
 #include "timeline_types.h"
 
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 #include <QtQml/qqmlregistration.h>
 #include <functional>
@@ -23,6 +25,7 @@ struct TimelineMediaRequest {
     TimelineRate ticksPerSecond;
     int columns = 0;       // peak columns, or the number of frames
     quint64 resourceGeneration = 0;
+    QString location;      // the media URI the resolver maps resourceId to (the ID itself without one)
 };
 
 struct TimelineMediaResult {
@@ -51,10 +54,18 @@ using TimelineMediaBackendPtr = std::shared_ptr<TimelineMediaBackend>;
 // media and reports frame requests as unsupported rather than inventing them.
 TimelineMediaBackendPtr createSyntheticTimelineMediaBackend();
 
+// Decoded backend: audio peaks read from the media file at request.location
+// (MediaDecoder, FFmpeg). Each column is the largest absolute sample of every
+// channel in its exact source span; media without sound fails the request
+// (ErrorCode::Unsupported) rather than drawing silence. No video frames.
+TimelineMediaBackendPtr createDecodedTimelineMediaBackend();
+
 class TimelineMediaProvider : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(bool referenceBackend READ referenceBackend WRITE setReferenceBackend NOTIFY changed)
+    Q_PROPERTY(bool decodedBackend READ decodedBackend WRITE setDecodedBackend NOTIFY changed)
+    Q_PROPERTY(QindaTK::ResourceResolver *resolver READ resolver WRITE setResolver NOTIFY changed)
     Q_PROPERTY(QString backendId READ backendId NOTIFY changed)
     Q_PROPERTY(int maxInFlight READ maxInFlight WRITE setMaxInFlight NOTIFY changed)
     Q_PROPERTY(int inFlightCount READ inFlightCount NOTIFY statisticsChanged)
@@ -71,6 +82,10 @@ public:
     void setBackend(TimelineMediaBackendPtr backend);
     bool referenceBackend() const { return m_reference; }
     void setReferenceBackend(bool enabled);
+    bool decodedBackend() const { return m_decoded; }
+    void setDecodedBackend(bool enabled);
+    ResourceResolver *resolver() const;
+    void setResolver(ResourceResolver *resolver);
     QString backendId() const;
     int maxInFlight() const { return m_maxInFlight; }
     void setMaxInFlight(int count);
@@ -125,6 +140,9 @@ private:
 
     TimelineMediaBackendPtr m_backend;
     bool m_reference = false;
+    bool m_decoded = false;
+    QPointer<ResourceResolver> m_resolver;
+    QMetaObject::Connection m_resolverConnection;
     int m_maxInFlight = 4;
     int m_inFlight = 0;
     bool m_pumpScheduled = false;

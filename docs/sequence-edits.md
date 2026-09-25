@@ -193,7 +193,15 @@ recording (`audioResourceId`), it plays from
   reports the result).
 
 In host mode (no backend bound) all three keep their WP-071 request
-contracts ([controls.md](controls.md)).
+contracts ([controls.md](controls.md)). Bound to a backend, `TrimView` and
+`MulticamView` request filmstrip and angle frames at timeline ticks with the
+timeline timebase as the request rate (`assetRateNumerator` /
+`assetRateDenominator`), which is what `AssetProvider` frame requests expect
+([assets-jobs.md](assets-jobs.md)).
+
+`examples/sequence-edit-live` runs all of this on generated media: a
+nine-second V1/A1 sequence with a dissolve and a three-angle multicam program,
+the program and cut monitors, decoded timeline peaks, undo/redo and export.
 
 ## Tests
 

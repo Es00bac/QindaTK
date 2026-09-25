@@ -52,6 +52,13 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 1280x740)
     set_tests_properties(example_mixer_routing PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    # qtk-preview must tear the scene down before the application: examples
+    # such as sequence-edit-live still have media jobs running at --check.
+    add_test(NAME preview_teardown_jobs
+        COMMAND qtk-preview "${PROJECT_SOURCE_DIR}/tests/fixtures/preview_teardown_jobs.qml"
+                --check --wait 300)
+    set_tests_properties(preview_teardown_jobs PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 60)
 endif()
 
 # Live render queue needs a host to prepare hashed source frames and route UI requests.

@@ -263,6 +263,16 @@ void TransportModel::offerSnapshot(TransportSnapshot snapshot) {
     }
     if (m_hasSnapshot && snapshot.revision <= m_state.revision) return;
     if (m_coalesced && snapshot.revision <= m_coalesced->revision) return;
+    // AGENT-GUARD: only position/progress updates are rate limited. A change
+    // of what the transport can do applies at once, so a caller that hears
+    // its engine became ready (MediaPlayer.state) can seek in that same turn;
+    // coalescing it left canSeek false for up to one interval and rejected
+    // the seek (examples/sequence-edit-live parks its monitors that way).
+    const bool capabilitiesChanged = !m_hasSnapshot || snapshot.canPlay != m_state.canPlay
+        || snapshot.canSeek != m_state.canSeek || snapshot.canRecord != m_state.canRecord
+        || snapshot.canLoop != m_state.canLoop || snapshot.canPunch != m_state.canPunch
+        || snapshot.deviceError != m_state.deviceError;
+    if (capabilitiesChanged) { applySnapshot(snapshot); return; }
     const int elapsed = m_publishElapsed.isValid() ? int(m_publishElapsed.elapsed()) : m_minSnapshotIntervalMs;
     if (elapsed >= m_minSnapshotIntervalMs) { applySnapshot(snapshot); return; }
     m_coalesced = std::move(snapshot);

@@ -45,6 +45,15 @@ Item {
         ? String(root.effectiveEdit.rateNumerator || root.rateNumerator) : root.rateNumerator
     readonly property string effectiveRateDenominator: root.editorMode && root.snapshotValid
         ? String(root.effectiveEdit.rateDenominator || root.rateDenominator) : root.rateDenominator
+    // AGENT-GUARD: frame requests carry timeTicks at rateNumerator/Denominator
+    // TICKS per second (docs/assets-jobs.md). The editor snapshot's times are
+    // timeline ticks, so backend mode sends the timeline timebase, never the
+    // frame rate above; with the frame rate every request fell outside the
+    // media and the filmstrips stayed empty (examples/sequence-edit-live).
+    readonly property string assetRateNumerator: root.editorMode && root.editor.timeline
+        ? root.editor.timeline.timebaseNumerator : root.effectiveRateNumerator
+    readonly property string assetRateDenominator: root.editorMode && root.editor.timeline
+        ? root.editor.timeline.timebaseDenominator : root.effectiveRateDenominator
     readonly property bool snapshotValid: root.effectiveEdit !== null && root.effectiveEdit !== undefined
         && String(root.effectiveEdit.editId || "").length > 0
         && String(root.effectiveEdit.leftClipId || "").length > 0
@@ -139,8 +148,8 @@ Item {
                     resourceId: root.effectiveEdit ? String(root.effectiveEdit.leftResourceId || "") : ""
                     headTimeTicks: root.effectiveEdit ? String(root.effectiveEdit.leftHeadTicks || "0") : "0"
                     tailTimeTicks: root.effectiveEdit ? String(root.effectiveEdit.leftTailTicks || "") : ""
-                    rateNumerator: root.effectiveRateNumerator
-                    rateDenominator: root.effectiveRateDenominator
+                    rateNumerator: root.assetRateNumerator
+                    rateDenominator: root.assetRateDenominator
                     document: root.document
                     viewId: root.viewId + ":trim-out"
                     active: root.enabled && root.snapshotValid
@@ -172,8 +181,8 @@ Item {
                     resourceId: root.effectiveEdit ? String(root.effectiveEdit.rightResourceId || "") : ""
                     headTimeTicks: root.effectiveEdit ? String(root.effectiveEdit.rightHeadTicks || "0") : "0"
                     tailTimeTicks: root.effectiveEdit ? String(root.effectiveEdit.rightTailTicks || "") : ""
-                    rateNumerator: root.effectiveRateNumerator
-                    rateDenominator: root.effectiveRateDenominator
+                    rateNumerator: root.assetRateNumerator
+                    rateDenominator: root.assetRateDenominator
                     document: root.document
                     viewId: root.viewId + ":trim-in"
                     active: root.enabled && root.snapshotValid
