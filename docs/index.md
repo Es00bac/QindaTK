@@ -17,7 +17,7 @@ pages below are the reference.
 | [script-runtime.md](script-runtime.md) | Bounded local JavaScript, explicit command allowlist, replay, semantic undo group and console UI |
 | [collaboration.md](collaboration.md) | Collaboration: operation identity, deterministic conflicts, object deletes, text merge, own-step undo, local and network transport, live permissions, presence, shared versions and restore |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
-| [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
+| [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary; the agenda and time-grid views over it |
 | [productivity-providers.md](productivity-providers.md) | SMTP delivery, IMAP mailbox sync and CalDAV event/task sync over the local store: result states, credentials, conflicts and host adapters |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |

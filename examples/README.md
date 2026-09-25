@@ -155,6 +155,9 @@ The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
 actual local payload bytes alongside a draft's stable attachment metadata.
 The [local calendar projection fixture](local-calendar-projection/Main.qml)
 expands stored recurring events into navigable seven-day ranges.
+The [calendar grid fixture](calendar-grid/Main.qml) draws the same projection
+as a day / work week / week / month `CalendarGridView` and applies its drag,
+resize, create and delete requests to the store.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
 SQLite provider, parameter-bound fields, saved design bindings and paginated
 document/PDF report output. The [motion fixture](motion-authoring/Main.qml)
