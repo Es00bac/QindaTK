@@ -3,6 +3,8 @@
 #include "notebook_document_p.h"
 #include "rich_text_graphemes.h"
 
+#include <QJsonDocument>
+
 namespace QindaTK {
 using namespace Notebook;
 
@@ -269,13 +271,20 @@ QVariantMap NotebookDocument::insertRange(const QString &pageId, const QString &
     for (const QVariant &value : records) {
         const QVariantMap record = value.toMap();
         Block block{NotebookTree::newId(), record.value(QStringLiteral("type")).toString(), {}, {}, false};
-        if (!NotebookText::isKnownType(block.type)) {
-            fail(QStringLiteral("Unsupported block type %1 in the range").arg(block.type));
-            return {};
-        }
+        const QJsonObject data = QJsonObject::fromVariantMap(record.value(QStringLiteral("data")).toMap());
         QString problem;
-        block.data = NotebookText::normalized(block.type,
-            QJsonObject::fromVariantMap(record.value(QStringLiteral("data")).toMap()), &problem);
+        if (NotebookText::isKnownType(block.type)) {
+            block.data = NotebookText::normalized(block.type, data, &problem);
+        } else {
+            // AGENT-NOTE: an unsupported block pastes verbatim, exactly as
+            // decodeNative keeps it on load (docs/notebooks.md#blocks); only
+            // the type name and the per-block data bound are checked.
+            block.data = data;
+            if (block.type.isEmpty() || block.type.size() > 64)
+                problem = QStringLiteral("A pasted block has no valid type");
+            else if (QJsonDocument(data).toJson(QJsonDocument::Compact).size() > 8 * 1024 * 1024)
+                problem = QStringLiteral("Block data exceeds 8 MiB");
+        }
         if (!problem.isEmpty()) { fail(problem); return {}; }
         const int parent = record.value(QStringLiteral("parent"), -1).toInt();
         if (parent >= 0 && parent < blocks.size()) block.parentId = blocks.at(parent).id;
@@ -299,8 +308,10 @@ QVariantMap NotebookDocument::insertText(const QString &pageId, const QString &b
     clean.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
     QVector<Block> blocks;
     for (const QString &line : clean.split(u'\n')) {
-        Block block{NotebookTree::newId(), QStringLiteral("text"), {}, {}, false};
-        block.data.insert(QStringLiteral("text"), line);
+        QString problem;
+        Block block{NotebookTree::newId(), QStringLiteral("text"), {},
+                    NotebookText::normalized(QStringLiteral("text"), QJsonObject{{"text", line}}, &problem), false};
+        if (!problem.isEmpty()) { fail(QStringLiteral("A pasted line exceeds 1 Mi characters")); return {}; }
         blocks.append(block);
     }
     return insertBlocksAt(pageId, blockId, offset, blocks, true, true, tr("Paste text"));
@@ -380,6 +391,15 @@ QVariantMap NotebookDocument::insertBlocksAt(const QString &pageId, const QStrin
             list.removeAt(indexOf(tailId));
         }
     }
+    // AGENT-GUARD: every paste path (range, text, HTML) ends here, and a
+    // joined endpoint can outgrow the per-block text limit. decodeNative
+    // rejects such a block, so committing it would leave a notebook that no
+    // session save accepts and no file reopens.
+    for (const Block &block : std::as_const(list))
+        if (textLength(block) > Limits::MaxTextLength) {
+            fail(QStringLiteral("The paste would make a block longer than 1 Mi characters"));
+            return {};
+        }
     NotebookTree::repair(&list, original);
     if (!commit(next, label)) return {};
     return caretId.isEmpty() ? QVariantMap{{"pageId", m_state.pages.at(pageAt).id}} : caret(caretId, caretOffset);

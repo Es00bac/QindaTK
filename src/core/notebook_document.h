@@ -178,6 +178,13 @@ public:
     // recorded steps are dropped, the reset generation advances and the
     // document ID is kept. A session sees an unsaved document.
     Q_INVOKABLE bool resetFromJson(const QString &json);
+    // Merges another version of this notebook (the file changed on disk, an
+    // offline copy) as one undoable step and never removes anything
+    // (docs/notebooks.md#reconcile). `baseJson`, when given, is the common
+    // ancestor: a page changed on one side only takes that side's version; a
+    // page changed on both keeps this side and gains a copy of the other.
+    Q_INVOKABLE QVariantMap reconcileJson(const QString &json, const QString &baseJson = {});
+    // Refuses to write a file that loadFromFile would refuse (64 MiB, limits).
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);
 

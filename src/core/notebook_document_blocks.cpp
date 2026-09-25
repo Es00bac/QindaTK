@@ -323,6 +323,8 @@ bool NotebookDocument::removeBlock(const QString &blockId)
     State next = m_state;
     auto &list = next.pages[at.page].blocks;
     const int end = NotebookTree::subtreeEnd(list, at.block);
+    if (NotebookTree::anyLocked(list, at.block, end))
+        return fail(QStringLiteral("Block %1 holds a read-only block").arg(blockId));
     list.remove(at.block, end - at.block);
     return commit(next, tr("Delete block"));
 }

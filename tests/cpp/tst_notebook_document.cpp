@@ -5,7 +5,11 @@
 #include "notebook_document.h"
 #include "undo_service.h"
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMimeData>
+#include <QUuid>
 #include <QtTest>
 
 using namespace QindaTK;
@@ -346,6 +350,98 @@ private slots:
         QCOMPARE(at(c, 1, "up"), b + ":0");
         QCOMPARE(at(a, 0, "end"), c + ":3");
         QCOMPARE(doc.moveCaret(a, 0, "up").value("moved").toBool(), false);
+    }
+    // Audit gap (WP-057 cf2): every paste path honours the per-block text
+    // limit, so a paste never commits a block that decodeNative rejects.
+    void pastesRespectTheBlockTextLimit()
+    {
+        NotebookDocument doc;
+        const QString page = doc.addPage(doc.addSection("S"), {}, "P");
+        const int half = Notebook::Limits::MaxTextLength / 2 + 1;
+        const QString a = doc.insertBlock(page, {}, "text", {{"text", QString(half, u'a')}});
+        QVERIFY(!a.isEmpty());
+        const QString before = doc.toJson();
+        QVERIFY(doc.insertText(page, a, 0, QString(Notebook::Limits::MaxTextLength + 1, u'x')).isEmpty());
+        QVERIFY(doc.lastError().contains(QStringLiteral("1 Mi")));
+        QVERIFY(doc.insertText(page, a, half, QString(half, u'b')).isEmpty());
+        QVERIFY(doc.insertHtml(page, a, half, QStringLiteral("<p>%1</p>").arg(QString(half, u'c'))).isEmpty());
+        const QVariantMap range{{"format", "qindatk.notebook.blocks"}, {"version", 1}, {"openStart", true},
+                                {"openEnd", true}, {"blocks", QVariantList{QVariantMap{
+                                    {"id", "r"}, {"type", "text"}, {"parent", -1},
+                                    {"data", QVariantMap{{"text", QString(half, u'd')}}}}}}};
+        QVERIFY(doc.insertRange(page, a, half, range).isEmpty());
+        QCOMPARE(doc.toJson(), before);
+        QVERIFY(!doc.insertText(page, a, half, QStringLiteral("fits\nnext")).isEmpty());
+        NotebookDocument reopened;
+        QVERIFY2(reopened.loadJson(doc.toJson()), qPrintable(reopened.lastError()));
+        QCOMPARE(reopened.blockCount(), 2);
+    }
+
+    // OFF-27: a range holding an unsupported block copies, cuts and pastes
+    // it verbatim (fresh ID, same type and data) as one undo step.
+    void rangesKeepUnsupportedBlocks()
+    {
+        MemoryClipboard clipboard;
+        ClipboardService service;
+        service.setAdapter(&clipboard);
+        auto block = [](const char *id, const char *type, const QJsonObject &data) {
+            return QJsonObject{{"id", id}, {"type", type}, {"data", data}};
+        };
+        const QJsonObject root{{"format", "QindaTK.Notebook"}, {"version", 1},
+            {"documentId", QUuid::createUuid().toString(QUuid::WithoutBraces)}, {"revision", "1"},
+            {"resetGeneration", "0"}, {"title", "T"}, {"sections", QJsonArray{QJsonObject{{"id", "s"}, {"title", "S"}}}},
+            {"pages", QJsonArray{QJsonObject{{"id", "p"}, {"sectionId", "s"}, {"title", "P"}, {"tags", QJsonArray{}},
+                {"blocks", QJsonArray{block("a", "text", {{"text", "Before"}}),
+                                      block("future", "sketch-3d", {{"mesh", "cube"}, {"version", 7}}),
+                                      block("c", "text", {{"text", "After"}})}}}}}};
+        NotebookDocument doc;
+        QVERIFY(doc.resetFromJson(QString::fromUtf8(QJsonDocument(root).toJson())));
+        const QVariantMap selection{{"anchorBlockId", "a"}, {"anchorOffset", 3}, {"focusBlockId", "c"}, {"focusOffset", 2}};
+        QVERIFY(doc.selectionRange(selection).value("blocks").toList().size() == 3);
+        const QVariantMap caret = doc.cutSelection(&service, selection);
+        QCOMPARE(caret.value("blockId").toString(), QStringLiteral("a"));
+        QCOMPARE(textOf(doc, "a"), QStringLiteral("Befter"));
+        QVERIFY(doc.block("future").isEmpty());
+
+        const QVariantMap pasted = doc.paste(&service, "p", "a", 3);
+        QVERIFY2(!pasted.isEmpty(), qPrintable(doc.lastError()));
+        const QVariantList blocks = doc.blocks("p");
+        QCOMPARE(blocks.size(), 3);
+        QCOMPARE(textOf(doc, "a"), QStringLiteral("Before"));
+        const QVariantMap restored = blocks.at(1).toMap();
+        QVERIFY(restored.value("id").toString() != QStringLiteral("future"));
+        QCOMPARE(restored.value("type").toString(), QStringLiteral("sketch-3d"));
+        QCOMPARE(restored.value("supported").toBool(), false);
+        QCOMPARE(restored.value("data").toMap(), (QVariantMap{{"mesh", "cube"}, {"version", 7}}));
+        QCOMPARE(textOf(doc, blocks.at(2).toMap().value("id").toString()), QStringLiteral("After"));
+        NotebookDocument reopened;
+        QVERIFY(reopened.loadJson(doc.toJson()));
+        QCOMPARE(reopened.block(restored.value("id").toString()).value("data"), restored.value("data"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.blocks("p").size(), 1);
+    }
+
+    // docs/notebooks.md#blocks: a read-only block refuses deletion through
+    // its parent, its page and its section, not only when targeted.
+    void lockedDescendantsRefuseSubtreePageAndSectionDeletes()
+    {
+        NotebookDocument doc;
+        const QString section = doc.addSection("S");
+        const QString page = doc.addPage(section, {}, "P");
+        const QString parent = doc.insertBlock(page, {}, "text", {{"text", "Parent"}});
+        const QString child = doc.insertBlock(page, parent, "text", {{"text", "Locked child"}});
+        QVERIFY(doc.indentBlock(child));
+        QVERIFY(doc.setBlockLocked(child, true));
+        const QString revision = doc.revision();
+        QVERIFY(!doc.removeBlock(parent));
+        QVERIFY(doc.lastError().contains(QStringLiteral("read-only")));
+        QVERIFY(!doc.removePage(page));
+        QVERIFY(!doc.removeSection(section));
+        QCOMPARE(doc.revision(), revision);
+        QCOMPARE(textOf(doc, child), QStringLiteral("Locked child"));
+        QVERIFY(doc.setBlockLocked(child, false));
+        QVERIFY(doc.removeBlock(parent));
+        QVERIFY(doc.block(child).isEmpty());
     }
 };
 

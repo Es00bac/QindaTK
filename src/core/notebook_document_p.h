@@ -27,6 +27,14 @@ int insertionPoint(const QVector<Notebook::Block> &blocks, const QString &parent
 void repair(QVector<Notebook::Block> *blocks, const QVector<Notebook::Block> &original = {});
 // Empty when the order satisfies the invariant; otherwise the problem.
 QString validate(const QVector<Notebook::Block> &blocks);
+// True when a block in [from, to) is read-only. Every deletion of more than
+// its target (a subtree, a page, a section) checks the whole span.
+inline bool anyLocked(const QVector<Notebook::Block> &blocks, int from = 0, int to = -1)
+{
+    if (to < 0) to = int(blocks.size());
+    for (int i = from; i < to; ++i) if (blocks.at(i).locked) return true;
+    return false;
+}
 
 } // namespace QindaTK::NotebookTree
 

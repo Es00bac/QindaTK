@@ -842,6 +842,14 @@ refresh.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
 
+**Amended (WP-057 cf2 audit).** A draft that waits for focus to leave is
+invisible to autosave and recovery. In notebook mode a draft now also
+commits after `Tk.Theme.motion.gestureIdle` without typing (one merged
+typing step per block), and every draft commits before the page changes or
+the editor is destroyed (`flushDrafts`). Pooled cards are hidden while in
+the pool, because `reuseItems` only culls them and a hidden-but-connected
+card could take a focus request meant for the visible one.
+
 ## D-178 — A score is written music with its own model, separate from MIDI
 
 **Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;

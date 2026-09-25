@@ -56,6 +56,16 @@ private slots:
         QCOMPARE(reopened.recordedCommands(), runtime.recordedCommands());
         QVERIFY(reopened.replayRecorded());
         QCOMPARE(calls, 6);
+
+        // Host lists stay arrays inside the frozen snapshot (a QVariantList
+        // arrives as a V4Sequence that Array.isArray rejects).
+        ScriptRuntime lists;
+        lists.setDocumentSnapshot({{QStringLiteral("rows"),
+            QVariantList{QVariantList{1, 2}, QVariantList{3, 4}}}});
+        QVERIFY(lists.execute(QStringLiteral("const rows = app.document.rows;"
+            " return [Array.isArray(rows), Array.isArray(rows[1]), rows.map(r => r[1]).join('+')].join(' ')")));
+        QTRY_VERIFY(!lists.running());
+        QCOMPARE(lists.lastResult().toString(), QStringLiteral("true true 2+4"));
     }
 
     void semanticMacroUndoAndFailureRollback()
