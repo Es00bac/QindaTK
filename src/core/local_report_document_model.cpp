@@ -2,6 +2,9 @@
 #include "local_report_document_model.h"
 
 #include "local_database_provider.h"
+#include "local_report_spec.h"
+#include "rich_text_codec.h"
+#include "sqlite_query_source.h"
 #include <QFileInfo>
 #include <QDir>
 #include <QStandardPaths>
@@ -9,17 +12,19 @@
 
 namespace QindaTK {
 namespace {
-QVariantMap failed(const QString &message)
+QString bandKind(LocalReport::Band::Kind kind)
 {
-    return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}};
-}
-
-QString cellText(const QVariant &value)
-{
-    if (!value.isValid() || value.isNull()) return QStringLiteral("∅");
-    if (value.metaType().id() == QMetaType::QByteArray)
-        return QStringLiteral("[BLOB %1 bytes]").arg(value.toByteArray().size());
-    return value.toString().replace(u'\n', u' ').replace(u'\r', u' ');
+    using Kind = LocalReport::Band::Kind;
+    switch (kind) {
+    case Kind::ReportHeader: return QStringLiteral("reportHeader");
+    case Kind::ReportInfo: return QStringLiteral("reportInfo");
+    case Kind::GroupHeader: return QStringLiteral("groupHeader");
+    case Kind::Detail: return QStringLiteral("detail");
+    case Kind::GroupFooter: return QStringLiteral("groupFooter");
+    case Kind::ReportFooter: return QStringLiteral("reportFooter");
+    case Kind::Empty: return QStringLiteral("empty");
+    }
+    return {};
 }
 }
 
@@ -34,123 +39,65 @@ QString LocalReportDocumentModel::defaultPdfPath() const
         + QStringLiteral("/qindatk-report.pdf");
 }
 
-QString LocalReportDocumentModel::quoteIdentifier(const QString &identifier)
+QVariantMap LocalReportDocumentModel::fail(const QString &stage, const QString &message)
 {
-    return QLatin1Char('"') + QString(identifier).replace(QLatin1Char('"'), QStringLiteral("\"\"")) + QLatin1Char('"');
+    m_error = message;
+    m_errorStage = stage;
+    m_status = tr("Report not rebuilt · %1").arg(message);
+    emit changed();
+    return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}, {QStringLiteral("stage"), stage}};
 }
 
-QVariantMap LocalReportDocumentModel::build(LocalDatabaseProvider *provider,
-                                             const QVariantMap &report)
+QVariantMap LocalReportDocumentModel::build(LocalDatabaseProvider *provider, const QVariantMap &report,
+                                             const QVariantMap &parameters)
 {
-    if (!provider || !provider->connected()) return failed(tr("SQLite database is not connected"));
-    const QString table = report.value(QStringLiteral("tableName")).toString();
-    const QVariantMap schema = provider->schema(table);
-    if (!schema.value(QStringLiteral("ok")).toBool()) return failed(schema.value(QStringLiteral("error")).toString());
-    QStringList fields;
-    QStringList numericFields;
-    for (const QVariant &field : schema.value(QStringLiteral("fields")).toList()) {
-        const QVariantMap entry = field.toMap();
-        const QString name = entry.value(QStringLiteral("name")).toString();
-        const QString type = entry.value(QStringLiteral("type")).toString().toUpper();
-        fields.append(name);
-        if (type.contains(QLatin1String("INT")) || type.contains(QLatin1String("REAL"))
-            || type.contains(QLatin1String("NUM")) || type.contains(QLatin1String("DEC"))
-            || type.contains(QLatin1String("FLOAT")) || type.contains(QLatin1String("DOUBLE")))
-            numericFields.append(name);
-    }
-    if (fields.isEmpty()) return failed(tr("Report source has no visible fields"));
-    const QString filter = report.value(QStringLiteral("filterField")).toString();
-    const QString group = report.value(QStringLiteral("groupField")).toString();
-    const QString sum = report.value(QStringLiteral("sumField")).toString();
-    if ((!filter.isEmpty() && !fields.contains(filter)) || (!group.isEmpty() && !fields.contains(group)))
-        return failed(tr("Report filter or grouping field no longer matches the live schema"));
-    if (!sum.isEmpty() && (group.isEmpty() || !numericFields.contains(sum)))
-        return failed(tr("Report total requires a group and a numeric field in the live schema"));
+    // AGENT-GUARD: every failure returns before the document is touched;
+    // RichTextCodec::fromJsonObject validates the whole layout before it
+    // replaces anything, so a bad row never leaves a half-built report.
+    if (!provider || !provider->connected()) return fail(QStringLiteral("query"), tr("SQLite database is not connected"));
+    QString error;
+    const auto source = SqliteTableSource::read(provider, report.value(QStringLiteral("tableName")).toString(), &error);
+    if (!source) return fail(QStringLiteral("query"), error);
+    LocalReport::Spec spec;
+    QString stage;
+    error = LocalReport::parse(report, source->schema(), parameters, &spec, &stage);
+    if (!error.isEmpty()) return fail(stage, error);
+    const LocalReport::Output output = LocalReport::evaluate(*source, spec);
+    if (!output.error.isEmpty()) return fail(output.stage, output.error);
+    OperationError decodeError;
+    const QJsonObject json = LocalReport::documentJson(output, spec, m_document->documentIdString());
+    if (!RichTextCodec::fromJsonObject(json, *m_document, &decodeError))
+        return fail(QStringLiteral("layout"), decodeError.message);
 
-    QStringList outputColumns;
-    QString sql;
-    if (group.isEmpty()) {
-        outputColumns = fields;
-        QStringList quoted;
-        for (const QString &field : fields) quoted.append(quoteIdentifier(field));
-        sql = QStringLiteral("SELECT ") + quoted.join(QStringLiteral(", "));
-    } else {
-        outputColumns = {group, QStringLiteral("rowCount")};
-        if (!sum.isEmpty()) outputColumns.append(QStringLiteral("sumValue"));
-        sql = QStringLiteral("SELECT ") + quoteIdentifier(group)
-            + QStringLiteral(", COUNT(*) AS rowCount");
-        if (!sum.isEmpty()) sql += QStringLiteral(", SUM(") + quoteIdentifier(sum)
-            + QStringLiteral(") AS sumValue");
-    }
-    sql += QStringLiteral(" FROM ") + quoteIdentifier(table);
-    QVariantList bindings;
-    if (!filter.isEmpty()) {
-        sql += QStringLiteral(" WHERE ") + quoteIdentifier(filter) + QStringLiteral(" = ?");
-        bindings.append(report.value(QStringLiteral("filterValue")));
-    }
-    if (!group.isEmpty()) sql += QStringLiteral(" GROUP BY ") + quoteIdentifier(group)
-        + QStringLiteral(" ORDER BY ") + quoteIdentifier(group);
-    else if (fields.contains(QStringLiteral("id")))
-        sql += QStringLiteral(" ORDER BY ") + quoteIdentifier(QStringLiteral("id"));
-    sql += QStringLiteral(" LIMIT ?");
-    bindings.append(2001);
-    const QVariantMap query = provider->query(sql, bindings);
-    if (!query.value(QStringLiteral("ok")).toBool()) return failed(query.value(QStringLiteral("error")).toString());
-    const QVariantList rows = query.value(QStringLiteral("rows")).toList();
-    if (rows.size() > 2000 || query.value(QStringLiteral("truncated")).toBool())
-        return failed(tr("Report exceeds the 2000-row document bound; refine the filter"));
-
-    QStringList lines;
-    qsizetype textLength = 0;
-    auto appendLine = [&lines, &textLength](const QString &line) {
-        textLength += line.size() + 1;
-        lines.append(line);
-        return textLength <= 2 * 1024 * 1024;
-    };
-    const QString title = report.value(QStringLiteral("headerText")).toString().trimmed();
-    if (!appendLine(title.isEmpty() ? tr("Data report") : title)
-        || !appendLine(tr("Source: main.%1 · %2 rows").arg(table).arg(rows.size()))
-        || !appendLine(outputColumns.join(QStringLiteral("  |  "))))
-        return failed(tr("Report text exceeds the 2 MiB document bound"));
-    for (const QVariant &row : rows) {
-        const QVariantMap values = row.toMap();
-        QStringList cells;
-        for (const QString &column : outputColumns) cells.append(cellText(values.value(column)));
-        if (!appendLine(cells.join(QStringLiteral("  |  "))))
-            return failed(tr("Report text exceeds the 2 MiB document bound"));
-    }
-    const QString footer = report.value(QStringLiteral("footerText")).toString().trimmed();
-    if (!footer.isEmpty() && (!appendLine(QString()) || !appendLine(footer)))
-        return failed(tr("Report text exceeds the 2 MiB document bound"));
-
-    auto *next = new RichTextDocument(this);
-    const auto inserted = next->insertText(next->startPosition(), lines.join(u'\n'));
-    if (!inserted) {
-        next->deleteLater();
-        return failed(next->lastError().isEmpty() ? tr("Could not build report document") : next->lastError());
-    }
-    if (m_document) m_document->deleteLater();
-    m_document = next;
-    m_rowCount = rows.size();
+    QVariantList bands;
+    for (const LocalReport::Band &band : output.bands)
+        bands.append(QVariantMap{{QStringLiteral("kind"), bandKind(band.kind)}, {QStringLiteral("level"), band.level},
+                                 {QStringLiteral("text"), band.text}, {QStringLiteral("cells"), band.cells},
+                                 {QStringLiteral("pageBreakBefore"), band.pageBreakBefore}});
+    m_bands = bands;
+    m_columns = output.columnLabels;
+    m_rowCount = output.detailRows;
+    m_groupCount = output.groupCount;
     m_built = true;
-    m_status = tr("Paginated document ready · %1 rows · %2 columns").arg(m_rowCount).arg(outputColumns.size());
+    m_error.clear();
+    m_errorStage.clear();
+    m_status = tr("Paginated document ready · %1 rows · %2 groups · %3 columns")
+                   .arg(m_rowCount).arg(m_groupCount).arg(m_columns.size());
     emit changed();
     return {{QStringLiteral("ok"), true}, {QStringLiteral("rowCount"), m_rowCount},
-            {QStringLiteral("columns"), QVariant::fromValue(outputColumns)},
+            {QStringLiteral("groupCount"), m_groupCount}, {QStringLiteral("columns"), m_columns},
+            {QStringLiteral("bandCount"), m_bands.size()},
             {QStringLiteral("documentId"), m_document->documentIdString()}};
 }
 
 QVariantMap LocalReportDocumentModel::exportPdf(const QString &path)
 {
     const QString localPath = QUrl(path).isLocalFile() ? QUrl(path).toLocalFile() : path;
-    if (localPath.trimmed().isEmpty()) return failed(tr("PDF path is empty"));
-    if (!m_document || !m_built) return failed(tr("Build a report document before exporting"));
-    if (!QDir().mkpath(QFileInfo(localPath).absolutePath())) return failed(tr("Cannot create the PDF output directory"));
-    if (!m_document->exportPdf(localPath)) {
-        m_status = m_document->lastError();
-        emit changed();
-        return failed(m_status);
-    }
+    if (localPath.trimmed().isEmpty()) return fail(QStringLiteral("output"), tr("PDF path is empty"));
+    if (!m_built) return fail(QStringLiteral("output"), tr("Build a report document before exporting"));
+    if (!QDir().mkpath(QFileInfo(localPath).absolutePath()))
+        return fail(QStringLiteral("output"), tr("Cannot create the PDF output directory"));
+    if (!m_document->exportPdf(localPath)) return fail(QStringLiteral("output"), m_document->lastError());
     const QString absolute = QFileInfo(localPath).absoluteFilePath();
     m_status = tr("PDF written · %1").arg(absolute);
     emit changed();

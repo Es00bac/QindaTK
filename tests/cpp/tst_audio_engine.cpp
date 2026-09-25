@@ -272,6 +272,34 @@ private slots:
 #endif
     }
 
+    // WP-088 / D-203: an omitted optional backend is reported, not hidden.
+    void backendsReportOptionalAlsaWithAReason()
+    {
+        AudioEngine engine;
+        const auto entry = [&engine](const QString &id) {
+            for (const QVariant &backend : engine.backends())
+                if (backend.toMap().value(QStringLiteral("id")) == id) return backend.toMap();
+            return QVariantMap();
+        };
+        QCOMPARE(engine.backends().size(), 2);
+        QCOMPARE(entry(QStringLiteral("builtin")).value(QStringLiteral("available")).toBool(), true);
+        QCOMPARE(entry(QStringLiteral("builtin")).value(QStringLiteral("reason")).toString(), QString());
+        const bool alsaBuilt = bool(createAlsaAudioBackend());
+        const QVariantMap alsa = entry(QStringLiteral("alsa"));
+        QCOMPARE(alsa.value(QStringLiteral("available")).toBool(), alsaBuilt);
+        QCOMPARE(alsa.value(QStringLiteral("reason")).toString(),
+                 alsaBuilt ? QString() : QStringLiteral("QindaTK was built without the ALSA backend"));
+
+        // An application that installs only the built-in devices sees why ALSA is absent.
+        QSignalSpy changed(&engine, &AudioEngine::backendsChanged);
+        engine.setBackends({std::make_shared<BuiltinAudioBackend>()});
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(entry(QStringLiteral("alsa")).value(QStringLiteral("available")).toBool(), false);
+        QCOMPARE(entry(QStringLiteral("alsa")).value(QStringLiteral("reason")).toString(),
+                 alsaBuilt ? QStringLiteral("The application did not enable the ALSA backend")
+                           : QStringLiteral("QindaTK was built without the ALSA backend"));
+    }
+
     void alsaFixturePcmsCarryExactSamples()
     {
         QTemporaryDir fixtures;
@@ -307,7 +335,18 @@ private slots:
         QTRY_COMPARE(rig.engine.stateName(), QStringLiteral("stopped"));
         qInfo().noquote() << "alsa null/file stats:"
                           << QJsonDocument::fromVariant(rig.engine.statistics()).toJson(QJsonDocument::Compact);
-        QCOMPARE(rig.engine.statistics().value(QStringLiteral("xruns")).toDouble(), 0.0);
+        // WP-088 qualification: without SCHED_FIFO a loaded host can wake the
+        // paced thread more than two periods late (70 ms was seen), which the
+        // engine rightly counts as an xrun and re-anchors. That is scheduling,
+        // not data loss: an xrun is accepted only when a late wake explains
+        // it, and the samples below must still match exactly.
+        const QVariantMap stats = rig.engine.statistics();
+        if (stats.value(QStringLiteral("xruns")).toDouble() > 0) {
+            QVERIFY(!stats.value(QStringLiteral("realtimePriority")).toBool());
+            QVERIFY2(stats.value(QStringLiteral("maxWakeLatenessUs")).toDouble()
+                         > 2 * stats.value(QStringLiteral("budgetUs")).toDouble(),
+                     "an xrun without a late wake");
+        }
         QFile played(out);
         QVERIFY(played.open(QIODevice::ReadOnly));
         const QByteArray bytes = played.readAll();

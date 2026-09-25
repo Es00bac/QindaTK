@@ -546,6 +546,85 @@ notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
 
+## D-182 — Reports evaluate in the query engine over a bounded snapshot
+
+**Context.** The first report cut built SQL for one group and a SUM. That SQL
+followed SQLite's own rules for nulls and mixed types, while FilterBar, pivots
+and the grid follow the WP-029 rules. Nested groups, averages, typed
+parameters and data errors would each have needed more hand-built SQL.
+
+**Decision.** `SqliteTableSource` reads a table's reportable columns in one
+bound read, at most 4,000 rows. It maps each declared type to a `QueryType`
+by SQLite affinity and turns a stored value of the wrong kind into an error
+value. Reports run through `QueryEngine`: a detail run for order and cells,
+and a grouped run for every total. Filters and parameters are WP-029 query
+JSON.
+
+**Consequences.** A report total equals a pivot over the same data, nulls
+included. Text stored in a numeric column stops the report, and the error
+names the column. A table larger than the bound cannot be reported yet, even
+with a narrow filter: pushing filters down into SQL is later provider work
+(docs/query-pivot.md#bounds-refresh-and-providers).
+
+## D-183 — A report is a rich-text document with band paragraphs and tables
+
+**Context.** Reports need preview, PDF and printers to agree page for page.
+WP-053 already gives rich-text documents one page geometry and one painter.
+
+**Decision.** A report run writes a `qindatk.richtext` document. Headers and
+totals are paragraphs, and detail rows are tables whose first row is the
+column labels, which the paginator repeats on every continuation page.
+The page header and page footer bands are the document's running page
+regions: `PageSetup::headerText` and `footerText`, one line each, centred in
+the top and bottom margins, with `{page}` and `{pages}` expanded when the
+page is painted. A report without `pageFooterText` prints
+"Page {page} of {pages}". Group page breaks are `pageBreakBefore` on the
+outermost group header that changed. The model decodes each run into one
+stable document, and only after the whole run succeeded.
+
+**Consequences.** `PrintAdapter`, `PrintPreview`, `RichDocumentView` and
+`exportPdf` need no report-specific code: `RichTextLayout::paintPage` paints
+the regions for tiles, sheets and PDF pages alike. The regions sit outside
+the content box, so they never change pagination; they are plain text, not
+bands with fields or totals. A document that sets them is written as
+rich-text version 2. When a completed page count changes, every page's
+revision is stamped again so tiles never keep a stale "of N". A failed run
+leaves the last good pages on screen.
+
+## D-184 — A design is a session document of whole-design steps
+
+**Context.** Form and report designs were loose JSON files. Edits had no undo,
+and the files had no autosave or recovery.
+
+**Decision.** `LocalDataDesignDocument` implements `DocumentModel`. Each edit
+records the whole design before and after as one step (`QJsonObject` is
+implicitly shared, and designs are small), and `LocalDataDesignStore::checkStructure`
+checks it first. The built-in codec `qindatk.local-data-design.v1` writes the
+design map plus a `session` header, so the store's own reader still accepts
+the file. Version 1 files get an identity derived from their `designId`.
+
+**Consequences.** `DocumentManager` sessions, the shared `UndoService`,
+macros, autosave and recovery apply to designs unchanged. A refused edit
+changes nothing. The designers must go through the document to be undoable;
+without one they keep their host request signals.
+
+## D-185 — Saved designs are qualified against the live schema
+
+**Context.** A design outlives schema changes. A column can be renamed,
+dropped or retyped by a table rebuild, and a saved report must not print
+wrong totals or fail silently.
+
+**Decision.** A design records the bound column types. `validate(provider)`
+reports each bound field as `ok`, `missing`, `typeChanged` or `unsupported`,
+and runs the report definition through the report parser against the live
+schema. A missing field or a report that no longer parses is fatal. A type
+change on its own is a warning. Every report run parses again and keeps the
+previous document when parsing fails.
+
+**Consequences.** Reverting a schema change makes the same design valid again
+and gives an identical report, which the tests check for a rename and for a
+retype. Hosts show the non-fatal issues to the user; nothing rewrites a
+design automatically.
 ## D-162 — Project dependency scans read off-thread and yield to newer answers
 
 **Context.** WP-087 needs real dependency extraction for a whole project and
@@ -762,6 +841,80 @@ refresh.
 **Consequences.** Only the visible cards and the cache buffer exist.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
+
+## D-178 — A score is written music with its own model, separate from MIDI
+
+**Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;
+piano-roll timing cannot represent them (F sharp and G flat are one MIDI
+pitch, a triplet is not a rounded tick grid, two tied notes are one sound).
+WP-064 already owns MIDI patterns (D-150).
+
+**Decision.** `ScoreModel` owns a score of measures, parts, staves, voices,
+events and notes with UUIDs, spelled pitches and note values at exact ticks
+(960 PPQ). Every change is validated whole (complete voice 1, no overlap,
+complete tuplet groups inside one measure, ties onto the same pitch) and is
+one step of the model's own history. Entry overwrites the span it covers and
+fills the remainder with aligned rests, so the rhythm always adds up.
+
+**Consequences.** The score and the MIDI pattern never share records; the
+only bridge is the conversion of D-180. Notation that the model does not
+declare (grace notes, slurs, lyrics, repeats) is refused or reported, not
+approximated. Files keep 960 PPQ.
+
+## D-179 — One layout for view, PDF and images; the view never places anything
+
+**Context.** ScoreView (integrated earlier) draws host coordinates. Page
+output and the on-screen score must agree, and multi-voice measures need
+shared columns across staves.
+
+**Decision.** `Score::layoutScore` decides every position in page points:
+shared time columns with logarithmic widths, greedy system breaking with
+forced breaks, justification, pages, then accidentals, stems, beams, ties
+and tuplets per staff. `pageSnapshot` normalizes it for ScoreView;
+`paintPage` paints it for PDF and images. ScorePaint.js and paintPage only
+choose glyph shapes.
+
+**Consequences.** A PDF page matches the view's page geometry. Two painters
+exist (QML Canvas and QPainter), so glyph shapes can differ in detail;
+positions cannot. The engraving is plain (no SMuFL font); fidelity against
+other programs is qualification work (WP-088 to WP-094).
+
+## D-180 — Playback is a derived MIDI pattern with stable note IDs
+
+**Context.** Playback must use WP-064's model and scheduling and the tempo
+map, while expressive notation stays in the score.
+
+**Decision.** `Score::toMidi` converts the score (tie chains merged,
+staccato halves and staccatissimo quarters the last value, dynamics and
+accents set velocity, exact PPQ rescale or failure). MIDI note IDs are
+UUIDv5 of the chain's first score note. `ScorePlayback` writes the result
+as one whole pattern of `session.midi` (one MIDI undo step) and keeps one
+beat-locked clip of it on a MIDI track, so the engine and tempo map time it
+like any pattern; audition uses the engine's cue voices.
+
+**Consequences.** Editing the pattern in a PianoRoll is overwritten by the
+next sync; the score is the source. Re-syncs keep note IDs, so controller
+lanes attached to a note survive unrelated edits only until that note's
+chain changes. MIDI files of a score go through the pattern
+(`session.exportMidi`).
+
+## D-181 — MusicXML carries native IDs in `id` attributes and processing instructions
+
+**Context.** AUD-27 requires a semantic round trip; MusicXML has no voice,
+staff or chord-event IDs.
+
+**Decision.** Export writes MusicXML 4.0 partwise with divisions 960, note,
+measure and part UUIDs as prefixed `id` attributes, and score, staff, voice
+and event UUIDs as `qindatk-*` processing instructions, which conforming
+readers ignore. Import reads the declared feature set, maps voices as
+`staff × 4 + voice`, derives values from `type`, dots and time-modification,
+and reports every other element by name (`unsupported`), duration
+mismatches, rounded positions and filled rests.
+
+**Consequences.** A QindaTK file re-imports equal to the original, IDs
+included. Files from other programs import with new IDs and a report of
+what was not kept; tuplet groups follow from ratios, not from `<tuplet>`
+brackets.
 
 ## D-260 — Linked views check geometry; saved views name their dataset
 
