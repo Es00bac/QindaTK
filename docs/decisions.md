@@ -1092,8 +1092,6 @@ thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
 
-## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
-
 ## D-126 — Grade and captions are a finishing stage of the media program
 
 **Context.** VID-06/08 require a grade and burned-in captions that the
@@ -1130,21 +1128,6 @@ limited range describes the legal-range encoding of the decoded frame, not the
 file's original codes; linear-light and HDR nit scopes are not provided.
 
 ## D-128 — Captions interchange as plain text with BCP 47 languages
-
-## D-121 — Make a multicam cut a source switch positioned by the sync map
-
-**Context.** VID-04 needs angle switching during playback with stable sync
-after reopen, and an explicit audio policy. **Decision.** `MulticamModel`
-holds the angle table (resource, sync offset, available length) over one
-program track of ordinary clips. A switch is one frame-exact `switchSource`
-transaction: the program clip is cut at the switch time and the part after
-it shows the new angle at `(T − syncStart) + syncOffset`, computed from the
-sync map rather than from the clip being cut; `audioFollowsVideo` decides
-whether the linked sound is cut and switched too. **Consequences.** Switches
-never accumulate drift, undo removes one cut at a time, the saved timeline
-plus the angle table reopens the same cuts (the angle is recovered from each
-clip's resource), and program playback and export need no multicam-specific
-rendering.
 
 **Context.** VID-06's completion check round-trips a supported format with
 timing and language preserved; WebVTT and SRT carry language differently and
