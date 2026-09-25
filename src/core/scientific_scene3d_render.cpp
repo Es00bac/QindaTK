@@ -29,7 +29,6 @@ QString interpolationName(ScientificGrid::Interpolation mode)
 
 void ScientificScene3D::drawScene(QPainter *p, const QSizeF &size) const
 {
-    using ScientificSampling::tickLabel;
     p->fillRect(QRectF(QPointF(), size), m_background);
     p->setRenderHint(QPainter::Antialiasing, true);
     QFont font = p->font();
@@ -98,7 +97,40 @@ void ScientificScene3D::drawScene(QPainter *p, const QSizeF &size) const
             p->setPen(QPen(m_selection, line * 2)); p->setBrush(Qt::NoBrush);
             p->drawEllipse(d.at, radius * 2, radius * 2);
         }
-    // Axis end labels at the domain corners, with units.
+    // AGENT-GUARD: axis labels are drawn last, on chips of the background
+    // colour, and clamped inside the view, so a surface never hides or cuts
+    // them (round cf1 visual defect).
+    const double pad = metric("labelPadding");
+    // Inside the view, below the title and above the footer line.
+    const QRectF bounds(pad, m_title.isEmpty() ? pad : fm.height() * 1.5, size.width() - pad * 2,
+                        size.height() - fm.height() * 1.5 - pad - (m_title.isEmpty() ? pad : fm.height() * 1.5));
+    for (const QVariant &entry : axisLabels(size.width(), size.height())) {
+        const QVariantMap l = entry.toMap();
+        if (!l.value(QStringLiteral("visible")).toBool()) continue;
+        const QString text = l.value(QStringLiteral("text")).toString();
+        QRectF chip(0, 0, fm.horizontalAdvance(text) + pad * 2, fm.height() + pad);
+        chip.moveTopLeft(QPointF(l.value(QStringLiteral("x")).toDouble() + radius,
+                                 l.value(QStringLiteral("y")).toDouble() - radius - chip.height()));
+        chip.moveLeft(std::clamp(chip.left(), bounds.left(), std::max(bounds.left(), bounds.right() - chip.width())));
+        chip.moveTop(std::clamp(chip.top(), bounds.top(), std::max(bounds.top(), bounds.bottom() - chip.height())));
+        p->setPen(QPen(m_frameColor, line)); p->setBrush(m_background);
+        p->drawRect(chip);
+        p->setPen(m_text);
+        p->drawText(chip, Qt::AlignCenter, text);
+    }
+    p->setBrush(Qt::NoBrush);
+    p->setPen(m_text);
+    const QString footer = tr("%1 interpolation, %2 × %3 lattice · %4 triangles · %5 holes · %6 points")
+        .arg(interpolationName(m_interpolation)).arg(m_resolutionX).arg(m_resolutionY)
+        .arg(m_mesh.indices.size() / 3).arg(m_holes).arg(m_pointPositions.size());
+    p->drawText(QRectF(0, size.height() - fm.height() * 1.5, size.width(), fm.height() * 1.5), Qt::AlignCenter, footer);
+}
+
+QVariantList ScientificScene3D::axisLabels(double width, double height) const
+{
+    using ScientificSampling::tickLabel;
+    QVariantList out;
+    if (!(width > 0) || !(height > 0) || !problem().isEmpty()) return out;
     const QString xu = m_grid ? m_grid->xUnit() : m_points ? m_points->xUnit() : QString();
     const QString yu = m_grid ? m_grid->yUnit() : m_points ? m_points->yUnit() : QString();
     const QString zu = m_grid ? m_grid->zUnit() : m_points ? m_points->zUnit() : QString();
@@ -107,16 +139,13 @@ void ScientificScene3D::drawScene(QPainter *p, const QSizeF &size) const
         {m_domain[1], m_domain[2], m_domain[4], QStringLiteral("x %1 %2").arg(tickLabel(m_domain[1]), xu)},
         {m_domain[0], m_domain[3], m_domain[4], QStringLiteral("y %1 %2").arg(tickLabel(m_domain[3]), yu)},
         {m_domain[0], m_domain[2], m_domain[5], QStringLiteral("z %1 %2").arg(tickLabel(m_domain[5]), zu)}};
-    p->setPen(m_text);
     for (const auto &l : labels) {
-        bool ok = false;
-        const QVector3D s = projectScene(toScene(l.x, l.y, l.z), size, &ok);
-        if (ok) p->drawText(s.toPointF() + QPointF(radius, -radius), l.text);
+        bool visible = false;
+        const QVector3D s = projectScene(toScene(l.x, l.y, l.z), QSizeF(width, height), &visible);
+        out.append(QVariantMap{{QStringLiteral("text"), l.text.trimmed()}, {QStringLiteral("x"), s.x()},
+                               {QStringLiteral("y"), s.y()}, {QStringLiteral("visible"), visible}});
     }
-    const QString footer = tr("%1 interpolation, %2 × %3 lattice · %4 triangles · %5 holes · %6 points")
-        .arg(interpolationName(m_interpolation)).arg(m_resolutionX).arg(m_resolutionY)
-        .arg(m_mesh.indices.size() / 3).arg(m_holes).arg(m_pointPositions.size());
-    p->drawText(QRectF(0, size.height() - fm.height() * 1.5, size.width(), fm.height() * 1.5), Qt::AlignCenter, footer);
+    return out;
 }
 
 QString ScientificScene3D::csvData() const

@@ -15,6 +15,9 @@ double normalized(double v, double lo, double hi) { return 2 * (v - lo) / (hi - 
 ScientificScene3D::ScientificScene3D(QObject *parent) : QObject(parent)
 {
     connect(this, &ScientificScene3D::styleChanged, this, [this] { invalidate(); });
+    for (auto signal : {&ScientificScene3D::changed, &ScientificScene3D::cameraChanged,
+                        &ScientificScene3D::meshChanged})
+        connect(this, signal, this, &ScientificScene3D::summaryChanged);
 }
 
 void ScientificScene3D::invalidate()

@@ -41,10 +41,7 @@ T.Control {
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Graphic
     Accessible.name: title || tooltip
-    Accessible.description: {
-        plotScene.meshRevision; plotScene.azimuth; plotScene.elevation
-        return plotScene.textSummary()
-    }
+    Accessible.description: plotScene.summary
 
     Tk.ScientificScene3D {
         id: plotScene
@@ -62,7 +59,7 @@ T.Control {
         selectionColor: Tk.Theme.color.focus
         metrics: ({ fontFamily: Tk.Theme.font.family, fontSize: Tk.Theme.font.caption,
                     pointRadius: Tk.Theme.size.iconSm / 3, lineWidth: Tk.Theme.size.border,
-                    hitRadius: Tk.Theme.size.controlSm / 2 })
+                    hitRadius: Tk.Theme.size.controlSm / 2, labelPadding: Tk.Theme.space.xs })
         onPointSelected: function(id) { control.pointSelected(id) }
     }
 
@@ -89,31 +86,37 @@ T.Control {
             visible: !control.gpuRenderer && !control.showDataTable
             scene: plotScene
         }
-        // Axis labels over the GPU view (the software view paints its own).
+        // Axis labels over the GPU view (the software view paints its own
+        // chips). Same anchors, chip style and clamping as the painter.
         Repeater {
-            model: control.gpuRenderer && !control.showDataTable ? 4 : 0
-            delegate: Tk.Label {
+            model: {
+                plotScene.azimuth; plotScene.elevation; plotScene.distance; plotScene.fieldOfView
+                plotScene.meshRevision
+                return control.gpuRenderer && !control.showDataTable
+                    ? plotScene.axisLabels(stage.width, stage.height) : []
+            }
+            delegate: Rectangle {
+                id: chip
+                required property var modelData
                 required property int index
-                readonly property var corner: {
-                    const s = plotScene
-                    const x = index === 1 ? s.xMaximum : s.xMinimum
-                    const y = index === 2 ? s.yMaximum : s.yMinimum
-                    const z = index === 3 ? s.zMaximum : s.zMinimum
-                    return { x: x, y: y, z: z }
-                }
-                readonly property var at: {
-                    plotScene.azimuth; plotScene.elevation; plotScene.distance; plotScene.fieldOfView
-                    return plotScene.project(corner.x, corner.y, corner.z, stage.width, stage.height)
-                }
+                readonly property real pad: Tk.Theme.space.xs
                 objectName: "scientificPlot3DAxisLabel" + index
-                x: at.x
-                y: at.y
-                visible: at.visible === true
-                muted: true
-                font.pixelSize: Tk.Theme.font.caption
-                text: index === 0 ? qsTr("x %1, y %2, z %3").arg(corner.x).arg(corner.y).arg(corner.z)
-                    : index === 1 ? qsTr("x %1").arg(corner.x)
-                    : index === 2 ? qsTr("y %1").arg(corner.y) : qsTr("z %1").arg(corner.z)
+                visible: modelData.visible === true
+                width: chipText.implicitWidth + pad * 2
+                height: chipText.implicitHeight + pad
+                x: Math.max(pad, Math.min(stage.width - width - pad, modelData.x + Tk.Theme.size.iconSm / 3))
+                y: Math.max(pad, Math.min(stage.height - height - pad, modelData.y - Tk.Theme.size.iconSm / 3 - height))
+                z: 1
+                color: Tk.Theme.color.canvas
+                border.color: Tk.Theme.color.border
+                border.width: Tk.Theme.size.border
+                Tk.Label {
+                    id: chipText
+                    anchors.centerIn: parent
+                    muted: true
+                    font.pixelSize: Tk.Theme.font.caption
+                    text: chip.modelData.text
+                }
             }
         }
         MouseArea {

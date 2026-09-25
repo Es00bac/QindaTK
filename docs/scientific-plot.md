@@ -127,6 +127,9 @@ as the accessible description. `csvData()` is a long table of every series.
   frame from `ScientificGeometry3D` with a camera bound to the scene's
   camera properties; otherwise (and with `forceSoftware`) the software view
   draws the same scene with the export painter.
+- **Labels.** Corner labels (`axisLabels()`) name the domain limits with
+  units. They are drawn last on background chips and clamped inside the
+  view, so the surface never hides or cuts them.
 
 ## Export and provenance
 

@@ -159,6 +159,12 @@ void ScientificScene3DTest::pointsSelectionAndReproducibleExport()
     QCOMPARE(meta.value("surface").toObject().value("valuesSha256").toString().size(), 64);
     QCOMPARE(meta.value("points").toObject().value("samplesSha256").toString().size(), 64);
     QCOMPARE(meta.value("domain").toArray().at(5).toDouble(), 4.0);
+    const QVariantList labels = scene.axisLabels(640, 480);
+    QCOMPARE(labels.size(), 4);
+    QCOMPARE(labels.at(1).toMap().value("text").toString(), QStringLiteral("x 2 m"));
+    QCOMPARE(labels.at(3).toMap().value("text").toString(), QStringLiteral("z 4 K"));
+    const QVariantMap corner = scene.project(2, 0, 0, 640, 480);
+    QCOMPARE(labels.at(1).toMap().value("x").toDouble(), corner.value("x").toDouble());
     points.setZUnit("mK");
     QVERIFY(!scene.problem().isEmpty());
     QCOMPARE(scene.triangleCount(), 0);
