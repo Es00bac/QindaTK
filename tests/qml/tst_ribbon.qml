@@ -141,6 +141,29 @@ TestCase {
         tryCompare(ribbon, "squeezeLevel", 0)
     }
 
+    function test_squeeze_goes_group_by_group_from_the_right() {
+        // D-305: a tab slightly too wide squeezes its LAST group only; no
+        // group goes icon-only before every group has dropped to level 1.
+        const ribbon = makeRibbon(1280)
+        compare(ribbon.squeezeLevel, 0)
+        let sawPartial = false
+        for (let width = 1280; width >= 300; width -= 10) {
+            ribbon.width = width
+            const levels = ribbon.squeezePlan.levels
+            const deepest = Math.max.apply(null, levels)
+            if (deepest === 1 && !sawPartial) {
+                sawPartial = true
+                compare(levels[levels.length - 1], 1, "the rightmost group squeezes first")
+                compare(levels[0], 0, "the first group keeps its labels at first")
+            }
+            if (ribbon.squeezeLevel === 2)
+                verify(Math.min.apply(null, levels) >= 1, "icon-only only after every group is small")
+        }
+        verify(sawPartial)
+        waitForRendering(ribbon)
+        allItemsInside(ribbon)
+    }
+
     function test_compact_mode() {
         const ribbon = makeRibbon()
         const expanded = ribbon.implicitHeight

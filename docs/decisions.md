@@ -2055,3 +2055,17 @@ handle touch keep it) adds a one-finger `DragHandler` pan. **Consequences.**
 Consumers opt in per surface and drop the canceled finger stroke; pen and
 mouse grabs keep their permissions. Tests: `tst_viewport_touch.qml`,
 `tst_stylus_handler` (touch ignored by default).
+
+## D-305 — The ribbon squeezes group by group, from the right
+
+**Context.** One `squeezeLevel` applied to every group: a tab a few pixels
+too wide for level 0 whose level 1 still did not fit went icon-only
+everywhere, leaving a third of the band empty (QindaNote's Home tab at
+1280 px with one more item). **Decision.** `planSqueeze()` steps groups up
+one level at a time from the rightmost group, finishing level 1 in every
+group before any group goes icon-only, and stops as soon as the tab fits;
+level 3 (wrap) remains the last resort. `squeezePlan.levels` carries the
+per-group levels; `squeezeLevel` reports the deepest, so its 0–3 contract
+and monotonic shrink behaviour hold. **Consequences.** The first groups
+(most-used commands) keep their labels longest. Tests:
+`tst_ribbon.qml::test_squeeze_goes_group_by_group_from_the_right`.

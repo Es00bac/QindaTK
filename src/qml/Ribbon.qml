@@ -24,7 +24,10 @@ import QindaTK as Tk
 // never hides a command. As the width shrinks, `squeezeLevel` steps 0 → 1
 // (large items become small) → 2 (items with an icon become icon-only) →
 // 3 (the groups wrap onto further lines). Levels are planned from
-// RibbonGroup.widthAt(), never from drawn geometry.
+// RibbonGroup.widthAt(), never from drawn geometry, and PER GROUP: groups
+// step up one at a time from the right, just enough to fit, so a tab a few
+// pixels too wide loses the labels of its last group, not of every group
+// (D-305). `squeezeLevel` is the deepest level any group uses.
 Item {
     id: ribbon
     property var tabs: []
@@ -44,7 +47,8 @@ Item {
     readonly property var currentTab: tabForId(currentTabId)
     readonly property bool compact: mode === "compact"
     readonly property real bandHeight: stackRows * Tk.Theme.size.control + (stackRows - 1) * Tk.Theme.space.xs
-    readonly property int squeezeLevel: planLevel()
+    readonly property var squeezePlan: planSqueeze()
+    readonly property int squeezeLevel: squeezePlan.level
     signal tabChanged(string tabId)
     signal itemRequested(string tabId, string groupId, string itemId)
     signal collapseToggled(bool collapsed)
@@ -123,20 +127,34 @@ Item {
         itemMenu.x = 0
         itemMenu.open()
     }
-    function planLevel() {
-        if (!autoSqueeze || compact) return 0
-        const available = groupScroll.width - Tk.Theme.space.sm * 2
+    function planSqueeze() {
         const count = groupRepeater.count
-        if (count === 0 || available <= 0) return 0
-        for (let level = 0; level <= 2; ++level) {
-            let total = (count - 1) * Tk.Theme.space.sm
-            for (let g = 0; g < count; ++g) {
-                const group = groupRepeater.itemAt(g) as Tk.RibbonGroup
-                if (group !== null) total += group.widthAt(level)
-            }
-            if (total <= available) return level
+        const levels = []
+        for (let g = 0; g < count; ++g) levels.push(0)
+        if (!autoSqueeze || compact) return { level: 0, levels: levels }
+        const available = groupScroll.width - Tk.Theme.space.sm * 2
+        if (count === 0 || available <= 0) return { level: 0, levels: levels }
+        const widths = []
+        for (let g = 0; g < count; ++g) {
+            const group = groupRepeater.itemAt(g) as Tk.RibbonGroup
+            widths.push(group !== null ? [group.widthAt(0), group.widthAt(1), group.widthAt(2)] : [0, 0, 0])
         }
-        return 3
+        let total = (count - 1) * Tk.Theme.space.sm
+        for (let g = 0; g < count; ++g) total += widths[g][0]
+        // AGENT-GUARD: step groups up one level at a time from the RIGHT
+        // (the first groups hold the most-used commands), finishing level 1
+        // everywhere before any group goes icon-only. Stepping every group
+        // together turned "12 px too wide" into an icon-only tab with a
+        // third of the band empty.
+        for (let target = 1; target <= 2; ++target) {
+            for (let g = count - 1; g >= 0; --g) {
+                if (total <= available) return { level: Math.max.apply(null, levels), levels: levels }
+                total += widths[g][target] - widths[g][levels[g]]
+                levels[g] = target
+            }
+        }
+        if (total <= available) return { level: Math.max.apply(null, levels), levels: levels }
+        return { level: 3, levels: levels }
     }
     function onKey(event) {
         if (event.key === Qt.Key_Alt) { keyTipsVisible = !keyTipsVisible; return true }
@@ -300,9 +318,10 @@ Item {
                     model: ribbon.currentTab && ribbon.currentTab.groups ? ribbon.currentTab.groups : []
                     delegate: Tk.RibbonGroup {
                         required property var modelData
+                        required property int index
                         groupData: modelData
                         ribbon: ribbon
-                        level: Math.min(2, ribbon.squeezeLevel)
+                        level: ribbon.squeezePlan.levels[index] ?? Math.min(2, ribbon.squeezeLevel)
                         compact: ribbon.compact
                     }
                 }

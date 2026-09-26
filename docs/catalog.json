@@ -31301,7 +31301,7 @@
       "name": "Ribbon",
       "kind": "qml",
       "base": "Item",
-      "description": "Model-driven contextual command ribbon (D-297). Tabs declare groups and items by stable ID; contextual tabs appear only for matching context IDs.  tabs: [{ id, label, keyTip, contextual, contextId, visible, groups: [{ id, label, items: [item…] | rows: [[item…], …] }] }] item: { id, label, iconName, tooltip, shortcut, keyTip, visible, enabled, size: \"large\"|\"small\"|\"icon\", checkable, checked, action (Action-shaped QObject, see RibbonSlot.qml) | commandId (with commandRegistry) | component (a host Component), menu: [item… | \"|\"], split }  Layout: a row of pill tabs with the host's `trailing` item (a command search, say) and the collapse toggle at the right; below it the current tab's groups as soft cards. `mode: \"compact\"` draws one row of small buttons per group without captions.  AGENT-CONTRACT (squeeze, QindaOffice AGENTS.md \"Squeeze\"): the ribbon never hides a command. As the width shrinks, `squeezeLevel` steps 0 → 1 (large items become small) → 2 (items with an icon become icon-only) → 3 (the groups wrap onto further lines). Levels are planned from RibbonGroup.widthAt(), never from drawn geometry.",
+      "description": "Model-driven contextual command ribbon (D-297). Tabs declare groups and items by stable ID; contextual tabs appear only for matching context IDs.  tabs: [{ id, label, keyTip, contextual, contextId, visible, groups: [{ id, label, items: [item…] | rows: [[item…], …] }] }] item: { id, label, iconName, tooltip, shortcut, keyTip, visible, enabled, size: \"large\"|\"small\"|\"icon\", checkable, checked, action (Action-shaped QObject, see RibbonSlot.qml) | commandId (with commandRegistry) | component (a host Component), menu: [item… | \"|\"], split }  Layout: a row of pill tabs with the host's `trailing` item (a command search, say) and the collapse toggle at the right; below it the current tab's groups as soft cards. `mode: \"compact\"` draws one row of small buttons per group without captions.  AGENT-CONTRACT (squeeze, QindaOffice AGENTS.md \"Squeeze\"): the ribbon never hides a command. As the width shrinks, `squeezeLevel` steps 0 → 1 (large items become small) → 2 (items with an icon become icon-only) → 3 (the groups wrap onto further lines). Levels are planned from RibbonGroup.widthAt(), never from drawn geometry, and PER GROUP: groups step up one at a time from the right, just enough to fit, so a tab a few pixels too wide loses the labels of its last group, not of every group (D-305). `squeezeLevel` is the deepest level any group uses.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Ribbon.qml",
@@ -31443,9 +31443,17 @@
           "required": false
         },
         {
+          "name": "squeezePlan",
+          "type": "var",
+          "default": "planSqueeze()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "squeezeLevel",
           "type": "int",
-          "default": "planLevel()",
+          "default": "squeezePlan.level",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -31503,7 +31511,7 @@
           "parameters": "item, anchor"
         },
         {
-          "name": "planLevel",
+          "name": "planSqueeze",
           "parameters": ""
         },
         {
