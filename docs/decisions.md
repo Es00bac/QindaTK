@@ -2036,3 +2036,22 @@ draws its own preview in document space and inserts — the same split as
 insertion path for click and drag. A drag never also clicks (the handler
 takes the grab). Existing hosts are unchanged (defaults: segmented,
 category-scoped search, no drag). Tests: `tst_vector_authoring.qml`.
+
+## D-304 — Touch: a finger may ink, two fingers are the viewport's
+
+**Context.** `StylusHandler` dropped touch outright (a resting palm) and
+`Viewport` had no touch gestures, so a touchscreen could not draw, zoom or
+scroll a canvas; QindaNote asked for all three. **Decision.**
+`StylusHandler` inks with ONE finger when the consumer lists `TouchScreen`
+in `acceptedDevices` (default unchanged: never touch); the sample's
+`pointerType` is `"touch"` and its pressure is `mousePressure`. When a
+second finger lands during a finger stroke the handler cancels
+(`canceled`, grab released) and never resumes that stroke; a finger's grab
+always approves takeover, so a pinch or pan may steal it. `Viewport` gains
+a `PinchHandler` (touchscreen and touchpad): the document point under the
+fingers' centroid at the start stays under the centroid, so spreading
+zooms and moving together pans. `touchPan` (default off, so children that
+handle touch keep it) adds a one-finger `DragHandler` pan. **Consequences.**
+Consumers opt in per surface and drop the canceled finger stroke; pen and
+mouse grabs keep their permissions. Tests: `tst_viewport_touch.qml`,
+`tst_stylus_handler` (touch ignored by default).

@@ -5,6 +5,7 @@
 
 #include <QMouseEvent>
 #include <QTabletEvent>
+#include <QTouchEvent>
 
 namespace QindaTK {
 
@@ -28,6 +29,18 @@ bool isMouse(const QPointerEvent *event)
     case QEvent::MouseButtonPress:
     case QEvent::MouseMove:
     case QEvent::MouseButtonRelease:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool isTouch(const QPointerEvent *event)
+{
+    switch (event->type()) {
+    case QEvent::TouchBegin:
+    case QEvent::TouchUpdate:
+    case QEvent::TouchEnd:
         return true;
     default:
         return false;
@@ -58,6 +71,8 @@ QString StylusSample::pointerTypeName() const
         return QStringLiteral("eraser");
     case QPointingDevice::PointerType::Generic:
         return QStringLiteral("mouse");
+    case QPointingDevice::PointerType::Finger:
+        return QStringLiteral("touch");
     default:
         return QStringLiteral("other");
     }
@@ -75,8 +90,13 @@ public:
 protected:
     bool wantsPointerEvent(QPointerEvent *event) override
     {
-        if (!QQuickPointerDeviceHandler::wantsPointerEvent(event)
-            || event->pointCount() != 1) {
+        if (!QQuickPointerDeviceHandler::wantsPointerEvent(event)) {
+            return false;
+        }
+        if (isTouch(event)) {
+            return wantsTouch(event);
+        }
+        if (event->pointCount() != 1) {
             return false;
         }
         const bool tablet = isTablet(event);
@@ -105,6 +125,18 @@ protected:
 
     void handlePointerEventImpl(QPointerEvent *event) override
     {
+        if (isTouch(event) && event->pointCount() != 1) {
+            // A second finger joined an inking finger: that is a gesture
+            // (pinch, two-finger pan), not ink. Cancel — the consumer drops
+            // the stroke on `canceled` — and let the event travel on to the
+            // gesture handler with our finger released.
+            if (QEventPoint *own = event->pointById(m_touchId)) {
+                cancelAllGrabs(event, *own);
+            }
+            setActive(false);
+            event->setAccepted(false);
+            return;
+        }
         QEventPoint &point = event->point(0);
         if (event->isBeginEvent()) {
             if (!setExclusiveGrab(event, point, true)) {
@@ -116,6 +148,7 @@ protected:
                 }
                 return;
             }
+            m_touchId = point.id();
             const StylusSample sample = sampleFrom(event, point);
             m_facade->m_last = sample;
             setActive(true);
@@ -136,6 +169,19 @@ protected:
         event->setAccepted(true);
     }
 
+    // AGENT-GUARD: a finger's grab may always be taken over by another
+    // handler or item — that is how a pinch or pan steals the point from a
+    // finger that started inking (the stroke is then canceled). Pen and
+    // mouse grabs keep the facade's grabPermissions unchanged.
+    bool approveGrabTransition(QPointerEvent *event, const QEventPoint &point,
+                               QObject *proposedGrabber) override
+    {
+        if (proposedGrabber != this && isTouch(event)) {
+            return true;
+        }
+        return QQuickPointerDeviceHandler::approveGrabTransition(event, point, proposedGrabber);
+    }
+
     void onActiveChanged() override
     {
         if (m_facade) {
@@ -144,6 +190,22 @@ protected:
     }
 
 private:
+    // Touch reaches us only when the consumer lists TouchScreen in
+    // acceptedDevices (the base check above). One finger inks; a touch
+    // event with more points is taken only while inking, so the handler can
+    // cancel (handlePointerEventImpl) and hand the fingers on.
+    bool wantsTouch(QPointerEvent *event)
+    {
+        if (active()) {
+            return event->pointById(m_touchId) != nullptr;
+        }
+        if (event->pointCount() != 1) {
+            return false;
+        }
+        const QEventPoint &point = event->point(0);
+        return point.state() == QEventPoint::Pressed && parentContains(point);
+    }
+
     [[nodiscard]] StylusSample sampleFrom(QPointerEvent *event, const QEventPoint &point) const
     {
         StylusSample sample;
@@ -168,12 +230,19 @@ private:
             return sample;
         }
         sample.pressure = m_facade ? m_facade->mousePressure() : 0.6;
+        if (isTouch(event)) {
+            // Finger contact pressure is not a pen pressure (many screens
+            // report 0 or 1); a finger inks with the mouse's fixed pressure.
+            sample.type = QPointingDevice::PointerType::Finger;
+            return sample;
+        }
         sample.type = QPointingDevice::PointerType::Generic;
         sample.synthesizedFromMouse = true;
         return sample;
     }
 
     QPointer<StylusHandler> m_facade;
+    int m_touchId = -1;
 };
 
 StylusHandler::StylusHandler(QQuickItem *parent)

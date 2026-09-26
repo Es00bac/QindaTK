@@ -8,7 +8,9 @@ import QindaTK as Tk
 // scales it by `zoom`, centres it when it is narrower than the view, pads
 // it by `contentPadding`, scrolls both axes, and paints the canvas role
 // behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls
-// horizontally, a middle-button drag pans. `fitMode` "width" / "page"
+// horizontally, a middle-button drag pans. On a touchscreen two fingers
+// pinch-zoom and pan together (a touchpad pinch zooms too); with
+// `touchPan` one finger drags the view. `fitMode` "width" / "page"
 // re-fits on every resize until the user zooms by hand. At a pan edge,
 // ordinary wheel input reaches an ancestor Scroll (D-021).
 //
@@ -28,6 +30,11 @@ Item {
     property real contentPadding: Tk.Theme.space.xl
     property real wheelZoomStep: 1.25
     property bool interactive: true
+    // One-finger touch drag pans. Off by default: a finger on a child that
+    // handles touch itself (a drawing surface, a draggable shape) must not
+    // be stolen. Children that grab the finger first keep it either way.
+    property bool touchPan: false
+    readonly property bool gestureActive: pinch.active || touchDrag.active
     property string accessibleName: qsTr("Document viewport")
     readonly property real contentWidth: contentHost.implicitWidth
     readonly property real contentHeight: contentHost.implicitHeight
@@ -294,6 +301,66 @@ Item {
             // canvas views and breaks D-021's hard-bound handoff.
             event.accepted = Math.abs(scroll.contentX - beforeX) > 0.5
                           || Math.abs(scroll.contentY - beforeY) > 0.5
+        }
+    }
+
+    // Two-finger pinch: the document point under the fingers' centroid at
+    // the start stays under the centroid, so spreading zooms about the
+    // fingers and moving them together pans — one formula for both.
+    PinchHandler {
+        id: pinch
+        objectName: "viewportPinch"
+        enabled: viewport.interactive
+        target: null
+        minimumPointCount: 2
+        maximumPointCount: 5
+        acceptedDevices: PointerDevice.TouchScreen | PointerDevice.TouchPad
+        property real startZoom: 1
+        property point anchorDoc: Qt.point(0, 0)
+        onActiveChanged: {
+            if (active) {
+                startZoom = viewport.zoom
+                anchorDoc = viewport.toContent(centroid.position)
+                viewport.fitMode = "none"
+            } else {
+                viewport.zoomModified(viewport.zoom)
+            }
+        }
+        onActiveScaleChanged: pinch.follow()
+        onCentroidChanged: pinch.follow()
+        function follow() {
+            if (!active) return
+            const next = viewport.clampZoom(startZoom * activeScale)
+            viewport.zoom = next
+            const origin = Qt.point(viewport.contentOriginX(), viewport.contentOriginY())
+            scroll.contentX = Math.max(0, Math.min(scroll.contentWidth - scroll.viewportWidth,
+                                                   anchorDoc.x * next + origin.x - centroid.position.x))
+            scroll.contentY = Math.max(0, Math.min(scroll.contentHeight - scroll.viewportHeight,
+                                                   anchorDoc.y * next + origin.y - centroid.position.y))
+        }
+    }
+
+    DragHandler {
+        id: touchDrag
+        objectName: "viewportTouchPan"
+        enabled: viewport.interactive && viewport.touchPan
+        acceptedDevices: PointerDevice.TouchScreen
+        maximumPointCount: 1
+        target: null
+        property real startX: 0
+        property real startY: 0
+        onActiveChanged: {
+            if (active) {
+                startX = scroll.contentX
+                startY = scroll.contentY
+            }
+        }
+        onTranslationChanged: {
+            if (!active) return
+            scroll.contentX = Math.max(0, Math.min(scroll.contentWidth - scroll.viewportWidth,
+                                                   startX - translation.x))
+            scroll.contentY = Math.max(0, Math.min(scroll.contentHeight - scroll.viewportHeight,
+                                                   startY - translation.y))
         }
     }
 
