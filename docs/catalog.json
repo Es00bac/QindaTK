@@ -10655,6 +10655,7 @@
       "bridge": false,
       "objectNames": [
         "databaseSchemaView",
+        "schemaDatabase",
         "schemaField_",
         "schemaMigrationFailed",
         "schemaMigrationSql",
@@ -16998,7 +16999,9 @@
         "formSaveDesign",
         "formSaveRecord",
         "formShown_",
+        "formStatus",
         "formTitle",
+        "formType_",
         "formUndo",
         "formValue_"
       ]

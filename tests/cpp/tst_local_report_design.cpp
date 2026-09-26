@@ -183,6 +183,49 @@ private slots:
         QVERIFY(output.document()->text().contains(QStringLiteral("1\t10.50")));
     }
 
+    // A column's number format prints money as money — detail cells and
+    // the totals that inherit it — and leaves counts and text alone.
+    void numberFormatsPrintMoneyAsMoney()
+    {
+        LocalDatabaseProvider db;
+        QVERIFY(seedSales(db));
+        QVERIFY(db.execute(QStringLiteral("INSERT INTO sales(id, region, rep, amount, units) VALUES(7, 'South', 'Cy', 1250, 2)"))
+                    .value("ok").toBool());
+        const QVariantMap money{{"decimals", 2}, {"grouping", true}, {"prefix", "$"}};
+        const QVariantMap report{
+            {"tableName", "sales"},
+            {"columns", QVariantList{QStringLiteral("id"), QVariantMap{{"field", "amount"}, {"label", "Amount"}, {"format", money}},
+                                     QVariantMap{{"field", "units"}, {"format", QVariantMap{{"suffix", " u"}}}}}},
+            {"groups", QVariantList{QVariantMap{{"field", "region"}, {"totals", QVariantList{total("amount", "sum")}}}}},
+            {"totals", QVariantList{total("amount", "sum"), total("amount", "countValues"),
+                                    QVariantMap{{"field", "units"}, {"function", "sum"},
+                                                {"format", QVariantMap{{"decimals", 1}}}}}}};
+        LocalReportDocumentModel output;
+        const QVariantMap built = output.build(&db, report);
+        QVERIFY2(built.value("ok").toBool(), qPrintable(built.value("error").toString()));
+        QStringList details;
+        for (const QVariant &band : output.bands())
+            if (band.toMap().value("kind") == QStringLiteral("detail"))
+                details.append(band.toMap().value("cells").toStringList().join(u'|'));
+        QCOMPARE(details.first(), QStringLiteral("1|$10.50|1 u"));
+        QVERIFY(details.contains(QStringLiteral("2|$20.00|2 u")));
+        QVERIFY(details.contains(QStringLiteral("3|—|3 u")));
+        QVERIFY(details.contains(QStringLiteral("7|$1,250.00|2 u")));
+        QCOMPARE(bandTexts(output, {"groupFooter"}).first(), QStringLiteral("region North total · Count 3 · Sum of amount $30.50"));
+        QCOMPARE(bandTexts(output, {"reportFooter"}).first(),
+                 QStringLiteral("Report total · Count 7 · Sum of amount $1,293.75 · Count of amount 6 · Sum of units 13.0"));
+        // A bad format is a definition error naming the column.
+        QVariantMap bad = report;
+        bad.insert("columns", QVariantList{QVariantMap{{"field", "amount"}, {"format", QVariantMap{{"decimals", 9}}}}});
+        const QVariantMap refused = output.build(&db, bad);
+        QVERIFY(!refused.value("ok").toBool());
+        QVERIFY(refused.value("error").toString().contains(QStringLiteral("amount")));
+        QCOMPARE(LocalReport::displayValue(QueryValue::number(-0.001), LocalReport::NumberFormat{2, true, "$", ""}),
+                 QStringLiteral("$0.00"));
+        QCOMPARE(LocalReport::displayValue(QueryValue::number(-1234.5), LocalReport::NumberFormat{2, true, "$", ""}),
+                 QStringLiteral("-$1,234.50"));
+    }
+
     void summaryAndLegacyDefinitions()
     {
         LocalDatabaseProvider db;

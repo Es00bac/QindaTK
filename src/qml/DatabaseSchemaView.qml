@@ -76,7 +76,15 @@ Tk.Box {
         Tk.Flex {
             direction: Tk.Flex.Row; align: Tk.Flex.Center; gap: Tk.Theme.space.sm
             Tk.Heading { level: 2; text: qsTr("Database schema"); Tk.Flex.grow: 1 }
-            Tk.Badge { text: control.provider && control.provider.connected ? control.provider.filePath : qsTr("Disconnected"); variant: control.provider && control.provider.connected ? "success" : "warning" }
+            // The file's name; the full path is its tooltip (a long path pushed
+            // the table picker out of a narrow pane).
+            Tk.Badge {
+                objectName: "schemaDatabase"
+                text: control.provider && control.provider.connected
+                      ? String(control.provider.filePath).replace(/^.*[\\/]/, "") : qsTr("Disconnected")
+                tooltip: control.provider && control.provider.connected ? control.provider.filePath : ""
+                variant: control.provider && control.provider.connected ? "success" : "warning"
+            }
             Tk.ComboBox {
                 objectName: "schemaTablePicker"; model: control.provider ? control.provider.tables : []
                 currentIndex: control.provider ? model.indexOf(control.selectedTable) : -1

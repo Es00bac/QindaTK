@@ -57,7 +57,8 @@ QString totalsText(const QString &lead, const QueryResult &sums, const QString &
                                                                                 : QStringLiteral("0"))};
     for (const Total &total : totals)
         if (total.function != QueryMeasure::Function::CountRows)
-            parts.append(total.label + QLatin1Char(' ') + displayValue(sums.cell(rowId, measureColumn(total.id))));
+            parts.append(total.label + QLatin1Char(' ')
+                         + displayValue(sums.cell(rowId, measureColumn(total.id)), total.format));
     return parts.join(QStringLiteral(" · "));
 }
 
@@ -200,7 +201,7 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
         if (spec.detail) {
             QStringList cells;
             for (const Column &column : spec.columns)
-                cells.append(displayValue(rows.cell(rowId, QStringLiteral("field:") + column.field)));
+                cells.append(displayValue(rows.cell(rowId, QStringLiteral("field:") + column.field), column.format));
             out.bands.append({Band::Kind::Detail, levels - 1, {}, cells, false, false});
         }
         previous = key;

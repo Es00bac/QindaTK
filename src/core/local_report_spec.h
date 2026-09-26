@@ -16,15 +16,31 @@ class SqliteTableSource;
 // as a qindatk.richtext document that preview, PDF and printers share.
 namespace LocalReport {
 
+// How a number prints (docs/forms-reports.md#number-formats): fixed
+// decimal places, thousands separators and a prefix/suffix ("$", " kg").
+// The default keeps the first-cut look: whole numbers bare, others to two
+// places. Only numbers are formatted; text, dates and nulls print as ever.
+struct NumberFormat {
+    int decimals = -1;   // 0..6; -1 = the default
+    bool grouping = false;
+    QString prefix;
+    QString suffix;
+    [[nodiscard]] bool isDefault() const
+    {
+        return decimals < 0 && !grouping && prefix.isEmpty() && suffix.isEmpty();
+    }
+};
 struct Total {
     QString id;       // QueryMeasure id: "<function>:<field>" or "countRows"
     QString field;    // empty for countRows
     QueryMeasure::Function function = QueryMeasure::Function::CountRows;
     QString label;    // "Sum of amount"
+    NumberFormat format; // its own, else the column's of the same field (sum/average/min/max)
 };
 struct Column {
     QString field;
     QString label;
+    NumberFormat format;
 };
 struct Group {
     QString field;
@@ -91,6 +107,9 @@ QString defaultPageFooter();
 bool functionFromName(const QString &name, QueryMeasure::Function *function);
 QString functionName(QueryMeasure::Function function);
 QString displayValue(const QueryValue &value);
+QString displayValue(const QueryValue &value, const NumberFormat &format);
+// A column or total map's "format" member; false with `error` when invalid.
+bool parseNumberFormat(const QVariant &value, NumberFormat *format, QString *error);
 // A plain host value as `type`: numbers from numeric strings, booleans from
 // true/false/1/0, text from anything; false when it cannot be converted.
 bool convert(const QVariant &value, QueryType type, QueryValue *out);

@@ -98,6 +98,27 @@ TestCase {
         compare(saved.signalArguments[0][3].active, 0)
     }
 
+    // Data entry lines its values up in one column and shows no type
+    // labels (design information); design mode shows them. The schema
+    // view names the database file, with the path as the tooltip.
+    function test_form_columns_align_and_types_show_in_design() {
+        const form = createTemporaryObject(formComponent, root, { width: 600 })
+        verify(form)
+        waitForRendering(form)
+        const labelA = findChild(form, "formLabel_id"), labelB = findChild(form, "formLabel_active")
+        compare(labelA.width, labelB.width)
+        compare(findChild(form, "formValue_name").x, findChild(form, "formValue_active").x)
+        verify(!findChild(form, "formType_name").visible)
+        compare(findChild(form, "formStatus").text, "")
+        form.mode = "design"
+        waitForRendering(form)
+        verify(findChild(form, "formType_name").visible)
+        verify(findChild(form, "formType_name").text.indexOf("REQUIRED") > 0)
+        const view = createTemporaryObject(schemaComponent, root, { width: 600 })
+        verify(view)
+        compare(findChild(view, "schemaDatabase").text, ":memory:")
+    }
+
     // OFF-34: a relationship change previews as a plan listing the foreign
     // key; a failed commit leaves the view on the schema the database has.
     function test_schema_view_relationship_plan_and_failed_commit() {
