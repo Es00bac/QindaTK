@@ -10,6 +10,7 @@
 #include <QCoreApplication>
 #include <QJsonArray>
 #include <QMetaType>
+#include <QRegularExpression>
 #include <QSet>
 #include <cmath>
 #include <optional>
@@ -75,6 +76,7 @@ bool parseTotals(const QVariantList &list, const QHash<QString, QueryField> &fie
                                          : functionName(total.function) + QLatin1Char(':') + total.field;
         total.label = map.value(QStringLiteral("label")).toString().trimmed();
         if (total.label.isEmpty()) total.label = totalLabel(total.function, total.field);
+        if (!parseNumberFormat(map.value(QStringLiteral("format")), &total.format, error)) return false;
         if (seen.contains(total.id)) continue;
         seen.insert(total.id);
         out->append(total);
@@ -116,6 +118,47 @@ QString displayValue(const QueryValue &value)
     case QueryType::Error: break;
     }
     return QStringLiteral("#ERR");
+}
+
+QString displayValue(const QueryValue &value, const NumberFormat &format)
+{
+    if (format.isDefault() || (value.type != QueryType::Number && value.type != QueryType::Integer))
+        return displayValue(value);
+    const double number = value.type == QueryType::Integer ? double(value.data.toLongLong()) : value.data.toDouble();
+    if (!std::isfinite(number)) return displayValue(value);
+    const bool whole = std::floor(number) == number;
+    const int decimals = format.decimals >= 0 ? format.decimals : (whole ? 0 : 2);
+    QString digits = QString::number(std::fabs(number), 'f', decimals);
+    if (format.grouping) {
+        const int point = digits.indexOf(QLatin1Char('.'));
+        for (int i = (point < 0 ? int(digits.size()) : point) - 3; i > 0; i -= 3) digits.insert(i, QLatin1Char(','));
+    }
+    // A value that rounds to zero prints without a sign ("-0.00" helps nobody).
+    const bool negative = number < 0 && digits.contains(QRegularExpression(QStringLiteral("[1-9]")));
+    return (negative ? QStringLiteral("-") : QString()) + format.prefix + digits + format.suffix;
+}
+
+bool parseNumberFormat(const QVariant &value, NumberFormat *format, QString *error)
+{
+    *format = {};
+    if (!value.isValid() || value.isNull()) return true;
+    const QVariantMap map = value.toMap();
+    bool ok = true;
+    if (map.contains(QStringLiteral("decimals"))) {
+        format->decimals = map.value(QStringLiteral("decimals")).toInt(&ok);
+        if (!ok || format->decimals < 0 || format->decimals > 6) {
+            if (error) *error = tr("A number format has 0 to 6 decimal places");
+            return false;
+        }
+    }
+    format->grouping = map.value(QStringLiteral("grouping")).toBool();
+    format->prefix = map.value(QStringLiteral("prefix")).toString();
+    format->suffix = map.value(QStringLiteral("suffix")).toString();
+    if (format->prefix.size() > 8 || format->suffix.size() > 8) {
+        if (error) *error = tr("A number format's prefix and suffix are at most 8 characters");
+        return false;
+    }
+    return true;
 }
 
 bool convert(const QVariant &value, QueryType type, QueryValue *out)
@@ -197,7 +240,10 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
     for (const QVariant &entry : columns) {
         const bool plain = entry.metaType().id() == QMetaType::QString;
         const QVariantMap map = plain ? QVariantMap{{QStringLiteral("field"), entry}} : entry.toMap();
-        Column column{map.value(QStringLiteral("field")).toString(), map.value(QStringLiteral("label")).toString().trimmed()};
+        Column column{map.value(QStringLiteral("field")).toString(), map.value(QStringLiteral("label")).toString().trimmed(), {}};
+        QString formatError;
+        if (!parseNumberFormat(map.value(QStringLiteral("format")), &column.format, &formatError))
+            return tr("Report column %1: %2").arg(column.field, formatError);
         if (!fields.contains(column.field)) return tr("Report column %1 is not in the live schema").arg(column.field);
         if (seen.contains(column.field)) return tr("Report column %1 is listed twice").arg(column.field);
         seen.insert(column.field);
@@ -205,7 +251,7 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
         spec.columns.append(column);
     }
     if (spec.columns.isEmpty())
-        for (const QueryField &field : schema.fields) spec.columns.append({field.id, field.id});
+        for (const QueryField &field : schema.fields) spec.columns.append({field.id, field.id, {}});
     if (spec.columns.isEmpty()) return tr("Report table has no reportable columns");
 
     // Groups. The WP-059 first cut stored one groupField and a SUM field and
@@ -239,6 +285,19 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
     QString error;
     if (!parseTotals(legacy ? legacyTotals : report.value(QStringLiteral("totals")).toList(), fields, &spec.totals, &error))
         return error;
+    // A total prints like its column (money as money) unless it has its own
+    // format; counts never take a column's prefix.
+    const auto inherit = [&spec](QVector<Total> &totals) {
+        for (Total &total : totals) {
+            if (!total.format.isDefault() || total.function == QueryMeasure::Function::CountRows
+                || total.function == QueryMeasure::Function::CountValues)
+                continue;
+            for (const Column &column : std::as_const(spec.columns))
+                if (column.field == total.field) total.format = column.format;
+        }
+    };
+    for (Group &group : spec.groups) inherit(group.totals);
+    inherit(spec.totals);
 
     // Filter, parameters and sort: the WP-029 query JSON.
     const QVariantMap query = report.value(QStringLiteral("query")).toMap();

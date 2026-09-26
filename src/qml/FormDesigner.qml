@@ -208,8 +208,20 @@ Tk.Box {
                 objectName: "formField_" + fieldName
                 direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
                 opacity: control.isHidden(fieldName) ? Tk.Theme.opacity.disabled : 1
-                Tk.Caption { objectName: "formLabel_" + fieldRow.fieldName; text: control.caption(fieldRow.fieldName); width: Tk.Theme.size.labelWidth; wrapMode: Text.Wrap }
-                Tk.Label { text: String(fieldRow.modelData.type || "").toUpperCase() + (fieldRow.modelData.notNull ? " · REQUIRED" : ""); muted: true; Tk.Flex.basis: Tk.Theme.size.fieldWidth / 2 }
+                // AGENT-NOTE: a Label's implicit width is read-only, so the label
+                // column is sized by its flex basis (one column for every row).
+                Tk.Caption {
+                    objectName: "formLabel_" + fieldRow.fieldName; text: control.caption(fieldRow.fieldName)
+                    wrapMode: Text.Wrap; Tk.Flex.basis: Tk.Theme.size.labelWidth; Tk.Flex.shrink: 0
+                }
+                // The column's type is design information; data entry shows only
+                // whether the field is required.
+                Tk.Label {
+                    objectName: "formType_" + fieldRow.fieldName
+                    visible: control.mode === "design"
+                    text: String(fieldRow.modelData.type || "").toUpperCase() + (fieldRow.modelData.notNull ? " · REQUIRED" : "")
+                    muted: true; Tk.Flex.basis: Tk.Theme.size.fieldWidth / 2; Tk.Flex.shrink: 0
+                }
                 Tk.TextField {
                     objectName: "formValue_" + fieldRow.fieldName; visible: control.mode !== "design" && !String(fieldRow.modelData.type).toLowerCase().includes("bool")
                     enabled: control.mode === "edit"; readOnly: control.mode !== "edit"; text: String(control.workingRecord[fieldRow.fieldName] ?? "")
@@ -248,7 +260,11 @@ Tk.Box {
         }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
-            Tk.Label { text: control.requestMessage || control.requestState; muted: true; Tk.Flex.grow: 1 }
+            Tk.Label {
+                objectName: "formStatus"
+                text: control.requestMessage || (control.requestState === "idle" ? "" : control.requestState)
+                muted: true; Tk.Flex.grow: 1
+            }
             Tk.Button { objectName: "formSaveDesign"; visible: control.mode === "design"; text: qsTr("Save form design"); tooltip: qsTr("Request host to persist form design"); onClicked: control.requestDesignSave() }
             Tk.Button { objectName: "formSaveRecord"; visible: control.mode === "edit"; text: qsTr("Save record"); variant: "accent"; tooltip: qsTr("Request a validated record update"); onClicked: control.requestRecordSave() }
         }

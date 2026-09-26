@@ -49,8 +49,8 @@ open such a file.
 | `tableName` | The bound table. `LocalDataDesignDocument.report` fills it in |
 | `headerText`, `footerText` | The report header (a level 1 heading) and the closing paragraph |
 | `pageHeaderText`, `pageFooterText` | The page header and page footer bands, one line in every page's top and bottom margin. `{page}` and `{pages}` expand to the page number and count. Without `pageFooterText` a report prints "Page {page} of {pages}"; `""` turns a band off. At most 500 characters |
-| `columns` | The detail band: field names or `{field, label}`. When the list is empty, every column is shown (every bound field, through the document) |
-| `groups` | Up to 3 levels, outermost first: `{field, label, pageBreakBefore, totals: [{field, function}]}` |
+| `columns` | The detail band: field names or `{field, label, format}`. When the list is empty, every column is shown (every bound field, through the document). `format` is a [number format](#number-formats) |
+| `groups` | Up to 3 levels, outermost first: `{field, label, pageBreakBefore, totals: [{field, function, label, format}]}` |
 | `totals` | Report-footer totals, `[{field, function}]` |
 | `detail` | `false` prints only the group headers and totals (a summary) |
 | `query.filter` | A WP-029 predicate, in the JSON that `FilterBar` emits (`compare`, `and`, `or`, `not`, `isNull`, `isNotNull`) |
@@ -62,6 +62,16 @@ The `function` names are the WP-029 aggregate names: `countRows`,
 `countValues`, `sum`, `average`, `minimum` and `maximum`. Every group footer
 and the report footer print the row count first. `sum` and `average` need a
 numeric column.
+
+<a id="number-formats"></a>
+**Number formats.** A column or total may carry `format: {decimals,
+grouping, prefix, suffix}` — `decimals` 0 to 6, `grouping` adds thousands
+separators, `prefix`/`suffix` at most 8 characters each (`{decimals: 2,
+grouping: true, prefix: "$"}` prints `$1,250.00`, `-$3.50`). A sum,
+average, minimum or maximum without its own format prints like the column
+of the same field; counts never take a column's prefix. Only numbers are
+formatted. Without a format a whole number prints bare and any other
+number to two places.
 
 The first-cut keys `groupField`, `sumField`, `filterField` and `filterValue`
 still work. They read as one group level with a SUM, a summary report and an
