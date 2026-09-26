@@ -1165,7 +1165,10 @@ milestones (diamond), critical rows and links (`danger`), inactive rows
 (outline), baselines (a lane under the bar) and a solid progress fill.
 The reference `GanttSimpleScheduleAdapter` stays FS-only and drops
 `finishUtc` from rows it moves. `GridCellDelegate` gains a `cellStyle.indent`
-key so a task table's name column can show the outline.
+key so a task table's name column can show the outline, and `muted`/`accent`
+icon tones. `ResourceTable` gains `showZeros` and `summaryMode` so the same
+matrix reads as a project's resource-usage sheet (blank unallocated days,
+work totals without a per-row capacity).
 
 **Consequences.** Existing rows and the `"working"` scale behave as before
 (the one visible change: the bar is a subtle fill with a solid progress, so

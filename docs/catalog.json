@@ -30924,6 +30924,22 @@
           "required": false
         },
         {
+          "name": "showZeros",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summaryMode",
+          "type": "string",
+          "default": "\"capacity\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "editing",
           "type": "bool",
           "default": "false",
@@ -31133,11 +31149,13 @@
         "resourceAllocationEditor",
         "resourceBucketHeader_",
         "resourceBucketHeaders",
+        "resourceCellValue",
         "resourceCellViewport",
         "resourceCell_",
         "resourceCornerHeader",
         "resourceRowHeader_",
         "resourceRowHeaders",
+        "resourceRowSummary",
         "resourceTable",
         "resourceTableWheel"
       ]

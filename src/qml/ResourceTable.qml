@@ -18,6 +18,11 @@ T.Control {
     property real resourceColumnWidth: Tk.Theme.size.tableColumn * 2.5
     property real bucketColumnWidth: Tk.Theme.size.tableColumn
     property real headerHeight: Tk.Theme.size.header
+    // false leaves unallocated (zero) cells blank, as usage sheets do.
+    property bool showZeros: true
+    // The row header's figure: "capacity" = usage/capacity unit (default),
+    // "usage" = usage and unit only, "none" = the name alone.
+    property string summaryMode: "capacity"
     property bool editing: false
     property string editText: ""
     property string editingResourceId: ""
@@ -108,6 +113,8 @@ T.Control {
 
     function resourceSummaryText(id) {
         const epoch = dataEpoch
+        if (summaryMode === "none") return ""
+        if (summaryMode === "usage") return qsTr("%1 %2").arg(model.resourceUsage(id)).arg(model.unit(id))
         return qsTr("%1/%2 %3")
                 .arg(model.resourceUsage(id)).arg(model.resourceCapacity(id)).arg(model.unit(id))
     }
@@ -324,6 +331,7 @@ T.Control {
                     }
                     Tk.Label {
                         id: summary
+                        objectName: "resourceRowSummary"
                         anchors.right: parent.right
                         anchors.rightMargin: Tk.Theme.space.xs
                         anchors.verticalCenter: parent.verticalCenter
@@ -386,12 +394,14 @@ T.Control {
                                                                : Tk.Theme.color.divider
                     }
                     Tk.Label {
+                        objectName: "resourceCellValue"
                         anchors.fill: parent
                         anchors.leftMargin: Tk.Theme.space.sm
                         anchors.rightMargin: Tk.Theme.space.sm
                         visible: !(table.editing && table.editingResourceId === cell.modelData.resourceId
                                    && table.editingBucketId === cell.modelData.bucketId)
-                        text: String(cell.modelData.allocation)
+                        text: !table.showZeros && Number(cell.modelData.allocation) === 0
+                              ? "" : String(cell.modelData.allocation)
                         color: cell.modelData.conflict ? Tk.Theme.color.danger
                                                        : Tk.Theme.color.text
                         font.pixelSize: Tk.Theme.font.body
