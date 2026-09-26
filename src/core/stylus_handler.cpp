@@ -169,14 +169,17 @@ protected:
         event->setAccepted(true);
     }
 
-    // AGENT-GUARD: a finger's grab may always be taken over by another
-    // handler or item — that is how a pinch or pan steals the point from a
-    // finger that started inking (the stroke is then canceled). Pen and
+    // AGENT-GUARD: a finger's grab may be taken over only while more than
+    // one finger is down — that is how a pinch steals the point from a
+    // finger that started inking (the stroke is then canceled). With ONE
+    // finger, refuse: Qt still gives ancestors' handlers a passive grab on
+    // an accepted press, and a one-finger pan (Viewport.touchPan) would
+    // otherwise take every finger stroke at its drag threshold. Pen and
     // mouse grabs keep the facade's grabPermissions unchanged.
     bool approveGrabTransition(QPointerEvent *event, const QEventPoint &point,
                                QObject *proposedGrabber) override
     {
-        if (proposedGrabber != this && isTouch(event)) {
+        if (proposedGrabber != this && isTouch(event) && event->pointCount() > 1) {
             return true;
         }
         return QQuickPointerDeviceHandler::approveGrabTransition(event, point, proposedGrabber);

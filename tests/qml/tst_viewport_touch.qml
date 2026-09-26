@@ -95,6 +95,9 @@ TestCase {
 
     function test_a_finger_inks_and_a_second_finger_takes_over() {
         const viewport = make()
+        // With one-finger pan on too: the inking finger must stay ink (the
+        // pan's passive grab must not take it at the drag threshold).
+        viewport.touchPan = true
         const ink = findChild(viewport, "ink")
         verify(ink !== null)
         ink.enabled = true
@@ -106,14 +109,19 @@ TestCase {
         let touch = touchEvent(root)
         touch.press(0, root, 100, 100)
         touch.commit()
-        touch.move(0, root, 140, 120)
-        touch.commit()
-        touch.release(0, root, 140, 120)
+        for (let i = 1; i <= 8; ++i) {
+            touch.move(0, root, 100 + i * 10, 100 + i * 5)
+            touch.commit()
+            wait(10)
+        }
+        touch.release(0, root, 180, 140)
         touch.commit()
         compare(began.count, 1)
         compare(began.signalArguments[0][0].pointerType, "touch")
         compare(ended.count, 1)
+        compare(canceled.count, 0)
         compare(viewport.zoom, 1)
+        compare(viewport.scrollItem.contentY, 0)
 
         // A second finger cancels the stroke and the pinch zooms.
         touch = touchEvent(root)
