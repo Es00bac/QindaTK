@@ -4,7 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
-// Internal part of GanttView (D-302): one recycled task row — the label
+// Internal part of GanttView (D-303): one recycled task row — the label
 // column, the baseline, the bar (task, summary bracket or milestone
 // diamond), progress, allocation overlay and the bar text. Stripes are the
 // backdrop's; a row paints only its selection wash.

@@ -1133,7 +1133,7 @@ so fixtures and tests are stable and need no clock. Hosts widen the civil
 visible range by a day for the UTC projection and implement resize
 themselves (`upsert` of `endLocal`, or an occurrence override).
 
-## D-302 — The Gantt view draws a host engine's schedule on a calendar time scale
+## D-303 — The Gantt view draws a host engine's schedule on a calendar time scale
 
 **Context.** QindaOffice M51 (QindaPlan, a Microsoft Project equivalent)
 builds on `GanttView`, whose rows carried only a start and a duration in
@@ -1145,8 +1145,7 @@ shifts, exceptions with their own hours, resource calendars), summary
 rollups, milestones, a critical path, typed links with lag, baselines and a
 status date, and people read schedules on elapsed-time rulers with weekends
 shaded, not on a working-time axis where a weekend has no width.
-(Numbering: taken as the next free number after D-301 on 2026-09-25 while
-other lanes branched in parallel; the lead renumbers on a collision.)
+(Numbering: first taken as D-302; renumbered D-303 because the QindaDiagram lane's ShapePalette entry merged to main as D-302.)
 
 **Decision.** The view stays a view; the host's engine stays the scheduler.
 Rows gain optional, validated presentation fields — `finishUtc` and

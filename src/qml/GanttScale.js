@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 .pragma library
 
-// Ruler cells and link routes for GanttView (D-302).
+// Ruler cells and link routes for GanttView (D-303).
 // AGENT-NOTE: dates here are zone-less ISO civil dates; Date.UTC is only a
 // proleptic Gregorian day counter (as in CalendarGridLayout.js). The view's
 // GanttCalendar turns a civil date into its UTC instant (dayStartUtc), so a

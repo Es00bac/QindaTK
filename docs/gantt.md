@@ -22,7 +22,7 @@ anything. `get(index)` returns committed data; `displayGet(index)` returns
 preview data while a preview is active. `baselineStartUtc` and duration remain
 unchanged during rescheduling. A zero-duration task is a milestone.
 
-### Host-scheduled rows (D-302)
+### Host-scheduled rows (D-303)
 
 A host whose engine owns the schedule adds optional presentation fields.
 Each is validated with the rest of the row; one bad value rejects the whole

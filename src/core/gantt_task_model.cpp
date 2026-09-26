@@ -200,7 +200,7 @@ namespace {
 bool isBoolean(const QVariant &value) { return value.metaType().id() == QMetaType::Bool; }
 } // namespace
 
-// Optional presentation fields a host scheduling engine supplies (D-302).
+// Optional presentation fields a host scheduling engine supplies (D-303).
 bool GanttTaskModel::validateOptional(const QVariantMap &row, qint64 start, QString *error)
 {
     const auto finishOk = [&](const char *key, qint64 from) {

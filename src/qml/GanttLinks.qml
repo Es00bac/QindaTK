@@ -5,7 +5,7 @@ import QtQuick
 import QindaTK as Tk
 import "GanttScale.js" as GanttScale
 
-// Internal part of GanttView (D-302): dependency links for the successors
+// Internal part of GanttView (D-303): dependency links for the successors
 // in view. `linkTypes` picks the anchors — FS end→start, SS start→start,
 // FF end→end, SF start→end — and each link ends in an arrowhead at the
 // successor; a link joining two critical tasks is drawn in `danger`.

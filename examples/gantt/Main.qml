@@ -2,7 +2,7 @@
 import QtQuick
 import QindaTK as Tk
 
-// A small launch plan on the calendar time scale (D-302): outline levels,
+// A small launch plan on the calendar time scale (D-303): outline levels,
 // summary brackets, milestones, a critical path in the danger role,
 // baselines under slipped tasks, SS/FS/FF links, an inactive task, resource
 // names beside the bars, and today/status markers. Demo data only.

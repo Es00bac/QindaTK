@@ -5,7 +5,7 @@ import QtQuick
 import QindaTK as Tk
 import "GanttScale.js" as GanttScale
 
-// Internal part of GanttView (D-302): the header. On the working scale it is
+// Internal part of GanttView (D-303): the header. On the working scale it is
 // the original single row of local instants; on the calendar scale it is a
 // two-tier ruler (weeks over days, months over weeks, or years over months
 // as pixelsPerDay shrinks) when the header is at least 1.5 rows tall, else

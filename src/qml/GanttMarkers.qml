@@ -4,7 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
-// Internal part of GanttView (D-302): vertical marker lines over the rows
+// Internal part of GanttView (D-303): vertical marker lines over the rows
 // (a host's today, status date or deadline). `view.markers` is
 // [{utc, label, role}]; role names a Tk.Theme.color role (default accent).
 // Labels are drawn by GanttRuler in the header.

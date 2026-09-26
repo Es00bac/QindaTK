@@ -178,7 +178,7 @@ TestCase {
         verify(view.activeRow > 0)
     }
 
-    // cellStyle.indent (D-302): outline levels push the icon and text right
+    // cellStyle.indent (D-303): outline levels push the icon and text right
     // by indent × space.lg; no indent keeps the original margins.
     Component {
         id: indentedCell

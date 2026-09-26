@@ -64,7 +64,7 @@ TestCase {
         compare(gantt.taskModel.displayGet(0).startUtc, before)
     }
 
-    // Calendar time scale (D-302): 24 px per day from Monday 2 March 2026
+    // Calendar time scale (D-303): 24 px per day from Monday 2 March 2026
     // 00:00 UTC, no label column, a two-tier ruler, host-owned finishes.
     Component {
         id: calendarFixture

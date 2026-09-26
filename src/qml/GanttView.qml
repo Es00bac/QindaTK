@@ -10,7 +10,7 @@ import QindaTK as Tk
 // shares a SelectionModel with its DataTable and applies any grid sort to a
 // source/proxy model before handing it to both views.
 //
-// AGENT-NOTE (D-302): parts live in GanttBackdrop (stripes, non-working
+// AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working
 // days, markers), GanttRuler (header), GanttRow (one task) and GanttLinks
 // (dependency canvas); all of them map instants through this root's xFor()
 // so the "working" and "calendar" time scales stay one code path.

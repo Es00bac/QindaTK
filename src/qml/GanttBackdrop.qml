@@ -5,7 +5,7 @@ import QtQuick
 import QindaTK as Tk
 import "GanttScale.js" as GanttScale
 
-// Internal part of GanttView (D-302): the row stripes and, on the calendar
+// Internal part of GanttView (D-303): the row stripes and, on the calendar
 // time scale, the non-working day columns — drawn once under the rows so a
 // weekend is one continuous band instead of a fill repeated per delegate.
 // Only the rows and days in view exist (the day list is bounded by
