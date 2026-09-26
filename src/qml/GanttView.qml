@@ -9,6 +9,11 @@ import QindaTK as Tk
 // timeline and grid identity both come from GanttTaskModel.taskId. The owner
 // shares a SelectionModel with its DataTable and applies any grid sort to a
 // source/proxy model before handing it to both views.
+//
+// AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working
+// days, markers), GanttRuler (header), GanttRow (one task) and GanttLinks
+// (dependency canvas); all of them map instants through this root's xFor()
+// so the "working" and "calendar" time scales stay one code path.
 T.Control {
     id: root
     objectName: "ganttView"
@@ -18,9 +23,26 @@ T.Control {
     // Provider contract: valueForTask(taskId) -> [0,1] or -1 for missing.
     property var allocationProvider: null
     property string visibleStartUtc: "0"
+    // "working": x counts working minutes (non-working time has no width).
+    // "calendar": x is elapsed time at pixelsPerDay; non-working days shaded.
+    property string timeScale: "working"
     property real pixelsPerWorkingMinute: Tk.Theme.size.row / 60
+    property real pixelsPerDay: Tk.Theme.size.control
     property real labelWidth: Tk.Theme.size.labelWidth
+    property real rowHeight: Tk.Theme.size.row
+    property real headerHeight: Tk.Theme.size.timeRuler
+    // Vertical lines such as today or a status date: [{utc, label, role}],
+    // role = a Tk.Theme.color role name (default "accent").
+    property var markers: []
     property string tooltip: ""
+    property alias contentY: rows.contentY
+    readonly property real contentHeight: rows.contentHeight
+    readonly property bool calendarScale: timeScale === "calendar"
+    readonly property real trackWidth: Math.max(0, width - labelWidth)
+    readonly property string visibleEndUtc: calendarScale
+        ? String(Math.round(Number(visibleStartUtc) + trackWidth / Math.max(0.0001, pixelsPerDay) * 86400000))
+        : (calendar ? calendar.addWorkingMinutes(visibleStartUtc,
+              Math.round(trackWidth / Math.max(0.0001, pixelsPerWorkingMinute))) : visibleStartUtc)
     readonly property real tickStepMinutes: {
         const minuteWidth = Math.max(0.0001, pixelsPerWorkingMinute)
         const wanted = Tk.Theme.size.fieldWidth * 1.5 / minuteWidth
@@ -28,6 +50,8 @@ T.Control {
     }
     readonly property int count: taskModel ? taskModel.count : 0
     readonly property bool previewActive: taskModel && taskModel.previewActive
+    // Bumped when the calendar's rules change so mapped geometry re-reads it.
+    property int calendarRevision: 0
     signal taskActivated(string taskId)
     signal previewRequested(string taskId, string startUtc)
 
@@ -47,13 +71,37 @@ T.Control {
         border.width: Tk.Theme.size.border
     }
 
+    Connections {
+        target: root.calendar
+        function onChanged() { root.calendarRevision++ }
+    }
+
+    // Track x of an instant, 0 at visibleStartUtc.
     function xFor(utc) {
-        return calendar && utc ? calendar.workingMinutesBetween(visibleStartUtc, utc)
-                                  * pixelsPerWorkingMinute : 0
+        if (!utc) return 0
+        if (calendarScale)
+            return (Number(utc) - Number(visibleStartUtc)) / 86400000 * pixelsPerDay
+        return calendar ? calendar.workingMinutesBetween(visibleStartUtc, utc)
+                          * pixelsPerWorkingMinute : 0
     }
     function endFor(record) {
+        if (record && record.finishUtc) return record.finishUtc
         return calendar && record && record.startUtc ? calendar.addWorkingMinutes(
             record.startUtc, record.durationMinutes) : ""
+    }
+    function baselineEndFor(record) {
+        if (!record || !record.baselineStartUtc) return ""
+        if (record.baselineFinishUtc) return record.baselineFinishUtc
+        return calendar ? calendar.addWorkingMinutes(record.baselineStartUtc,
+            record.baselineDurationMinutes !== undefined ? record.baselineDurationMinutes
+                                                         : record.durationMinutes) : ""
+    }
+    function kindOf(record) {
+        if (!record) return "task"
+        if (record.kind === "summary" || record.kind === "milestone") return record.kind
+        const zero = Number(record.durationMinutes || 0) === 0
+            && (!record.finishUtc || record.finishUtc === record.startUtc)
+        return zero ? "milestone" : "task"
     }
     function allocationFor(taskId) {
         if (!allocationProvider || typeof allocationProvider.valueForTask !== "function") return -1
@@ -73,6 +121,19 @@ T.Control {
     function commitPreview() { return taskModel ? taskModel.commitPreview() : false }
     function cancelPreview() { if (taskModel) taskModel.cancelPreview() }
     function undo() { return taskModel ? taskModel.undo() : false }
+    // Shifts the visible window by `minutes` (elapsed on the calendar scale,
+    // working minutes on the working scale).
+    function scrollBy(minutes) {
+        const step = Math.round(Number(minutes))
+        if (!isFinite(step) || step === 0) return
+        if (calendarScale) {
+            visibleStartUtc = String(Math.round(Number(visibleStartUtc) + step * 60000))
+        } else if (calendar) {
+            const next = calendar.addWorkingMinutes(visibleStartUtc, step)
+            if (next.length) visibleStartUtc = next
+        }
+    }
+    function wheelStep() { return calendarScale ? 1440 : tickStepMinutes }
 
     Keys.onPressed: function(event) {
         if (!root.taskModel || !root.enabled) return
@@ -99,203 +160,64 @@ T.Control {
     }
 
     contentItem: Item {
-        Rectangle {
-            id: header
-            objectName: "ganttHeader"
+        Tk.GanttBackdrop {
+            id: backdrop
+            view: root
+            y: root.headerHeight
             width: parent.width
-            height: Tk.Theme.size.timeRuler
-            color: Tk.Theme.color.headerBg
-            Tk.Label {
-                x: Tk.Theme.space.sm
-                width: root.labelWidth - Tk.Theme.space.sm * 2
-                anchors.verticalCenter: parent.verticalCenter
-                text: qsTr("Task")
-                color: Tk.Theme.color.headerText
-            }
-            Repeater {
-                model: Math.min(100, Math.ceil((header.width - root.labelWidth)
-                                               / (root.tickStepMinutes
-                                                  * Math.max(0.0001, root.pixelsPerWorkingMinute))) + 1)
-                delegate: Tk.Label {
-                    required property int index
-                    x: root.labelWidth + index * root.tickStepMinutes
-                       * root.pixelsPerWorkingMinute
-                    anchors.verticalCenter: header.verticalCenter
-                    text: root.calendar ? root.calendar.formatLocal(root.calendar.addWorkingMinutes(
-                          root.visibleStartUtc, index * root.tickStepMinutes)) : ""
-                    color: Tk.Theme.color.headerText
-                    font.pixelSize: Tk.Theme.font.caption
-                }
-            }
+            height: Math.max(0, parent.height - root.headerHeight)
+            contentY: rows.contentY
         }
         ListView {
             id: rows
             objectName: "ganttRows"
             x: 0
-            y: header.height
+            y: root.headerHeight
             width: parent.width
-            height: Math.max(0, parent.height - header.height)
+            height: Math.max(0, parent.height - root.headerHeight)
             model: root.taskModel
             clip: true
             reuseItems: true
             boundsBehavior: Flickable.StopAtBounds
             keyNavigationEnabled: false
-            delegate: Item {
-                id: rowItem
-                required property int index
-                property var record: root.taskModel ? root.taskModel.displayGet(index) : ({})
-                readonly property string taskId: String(record.taskId || "")
-                readonly property string endUtc: root.endFor(record)
-                readonly property real barX: root.xFor(record.startUtc)
-                readonly property real barWidth: Math.max(Tk.Theme.size.border,
-                    root.xFor(endUtc) - barX)
-                objectName: "ganttRow"
-                width: rows.width
-                height: Tk.Theme.size.row
-                Accessible.role: Accessible.ListItem
-                Accessible.name: (record.label || taskId) + ", "
-                    + (root.calendar && record.startUtc ? root.calendar.formatLocal(record.startUtc) : "")
-                Accessible.description: qsTr("%1 percent complete; %2 dependencies")
-                    .arg(Math.round(Number(record.progress || 0) * 100))
-                    .arg(record.dependencies ? record.dependencies.length : 0)
-                Accessible.selected: root.selectionModel && root.selectionModel.currentId === taskId
-                Connections {
-                    target: root.taskModel
-                    function onPreviewChanged() { rowItem.record = root.taskModel.displayGet(rowItem.index) }
+            delegate: Tk.GanttRow { view: root; width: rows.width }
+            WheelHandler {
+                orientation: Qt.Horizontal
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                target: null
+                onWheel: function(event) {
+                    root.scrollBy(-event.angleDelta.x / 120 * root.wheelStep())
                 }
-                Rectangle {
-                    anchors.fill: parent
-                    color: rowItem.index % 2 ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
-                    border.color: Tk.Theme.color.divider
-                    border.width: Tk.Theme.size.border
-                }
-                Tk.Label {
-                    objectName: "ganttTaskLabel"
-                    x: Tk.Theme.space.sm
-                    width: root.labelWidth - Tk.Theme.space.sm * 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: rowItem.record.label || rowItem.taskId
-                    color: root.selectionModel && root.selectionModel.currentId === rowItem.taskId
-                           ? Tk.Theme.color.accentText : Tk.Theme.color.text
-                }
-                Item {
-                    id: track
-                    objectName: "ganttTrack"
-                    x: root.labelWidth
-                    width: Math.max(0, parent.width - x)
-                    height: parent.height
-                    clip: true
-                    Rectangle {
-                        objectName: "ganttBaseline"
-                        visible: !!rowItem.record.baselineStartUtc
-                        x: root.xFor(rowItem.record.baselineStartUtc)
-                        y: parent.height - Tk.Theme.size.border * 3
-                        width: !rowItem.record.baselineStartUtc ? 0 : Math.max(
-                            Tk.Theme.size.border,
-                            root.xFor(root.calendar ? root.calendar.addWorkingMinutes(
-                                rowItem.record.baselineStartUtc,
-                                rowItem.record.baselineDurationMinutes !== undefined
-                                    ? rowItem.record.baselineDurationMinutes
-                                    : rowItem.record.durationMinutes) : "") - x)
-                        height: Tk.Theme.size.border * 2
-                        color: Tk.Theme.color.textMuted
-                    }
-                    Rectangle {
-                        objectName: "ganttAllocation"
-                        visible: root.allocationFor(rowItem.taskId) >= 0
-                        x: rowItem.barX
-                        y: Tk.Theme.size.border
-                        width: rowItem.barWidth * root.allocationFor(rowItem.taskId)
-                        height: Tk.Theme.size.border * 2
-                        color: Tk.Theme.color.warning
-                    }
-                    Rectangle {
-                        id: bar
-                        objectName: "ganttTaskBar"
-                        x: rowItem.barX
-                        y: Tk.Theme.space.xs
-                        width: rowItem.barWidth
-                        height: parent.height - Tk.Theme.space.xs * 2
-                        radius: Tk.Theme.radius.sm
-                        color: root.previewActive ? Tk.Theme.color.accentSubtle : Tk.Theme.color.accent
-                        border.color: Tk.Theme.color.accent
-                        border.width: Tk.Theme.size.border
-                        Rectangle {
-                            objectName: "ganttProgress"
-                            width: parent.width * Math.max(0, Math.min(1, Number(rowItem.record.progress || 0)))
-                            height: parent.height
-                            radius: parent.radius
-                            color: Tk.Theme.color.accent
-                        }
-                        TapHandler {
-                            onTapped: {
-                                root.selectId(rowItem.taskId)
-                                root.forceActiveFocus()
-                            }
-                            onDoubleTapped: root.taskActivated(rowItem.taskId)
-                        }
-                        DragHandler {
-                            id: mover
-                            target: null
-                            xAxis.enabled: true
-                            yAxis.enabled: false
-                            onTranslationChanged: {
-                                if (!active || !root.calendar || !root.taskModel) return
-                                const original = root.taskModel.get(rowItem.index)
-                                const minutes = Math.round(translation.x / root.pixelsPerWorkingMinute)
-                                root.previewMove(rowItem.taskId,
-                                    root.calendar.addWorkingMinutes(original.startUtc, minutes))
-                            }
-                        }
-                    }
+            }
+            WheelHandler {
+                orientation: Qt.Vertical
+                acceptedModifiers: Qt.ShiftModifier
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                target: null
+                onWheel: function(event) {
+                    root.scrollBy(-event.angleDelta.y / 120 * root.wheelStep())
                 }
             }
         }
-        Canvas {
-            id: links
-            objectName: "ganttDependencies"
+        Tk.GanttLinks {
+            view: root
             x: root.labelWidth
-            y: header.height
-            width: Math.max(0, parent.width - x)
+            y: root.headerHeight
+            width: root.trackWidth
             height: rows.height
-            visible: root.count > 0
-            onPaint: {
-                const ctx = getContext("2d")
-                ctx.reset()
-                if (!root.taskModel) return
-                ctx.strokeStyle = Tk.Theme.color.textMuted
-                ctx.lineWidth = Tk.Theme.size.border
-                const first = Math.max(0, Math.floor(rows.contentY / Tk.Theme.size.row))
-                const last = Math.min(root.count, Math.ceil((rows.contentY + rows.height)
-                                                         / Tk.Theme.size.row))
-                for (let i = first; i < last; ++i) {
-                    const task = root.taskModel.displayGet(i)
-                    const deps = task.dependencies || []
-                    const y2 = i * Tk.Theme.size.row - rows.contentY + Tk.Theme.size.row / 2
-                    for (const id of deps) {
-                        const p = root.taskModel.indexOfId(String(id))
-                        if (p < 0) continue
-                        const predecessor = root.taskModel.displayGet(p)
-                        const x1 = root.xFor(root.endFor(predecessor))
-                        const x2 = root.xFor(task.startUtc)
-                        const y1 = p * Tk.Theme.size.row - rows.contentY + Tk.Theme.size.row / 2
-                        const elbow = Math.max(x1, x2) + Tk.Theme.space.sm
-                        ctx.beginPath()
-                        ctx.moveTo(x1, y1)
-                        ctx.lineTo(elbow, y1)
-                        ctx.lineTo(elbow, y2)
-                        ctx.lineTo(x2, y2)
-                        ctx.stroke()
-                    }
-                }
-            }
-            Connections {
-                target: root.taskModel
-                function onPreviewChanged() { links.requestPaint() }
-                function onRowsChanged() { links.requestPaint() }
-            }
-            Connections { target: rows; function onContentYChanged() { links.requestPaint() } }
-            Connections { target: root; function onVisibleStartUtcChanged() { links.requestPaint() } }
+            contentY: rows.contentY
+        }
+        Tk.GanttMarkers {
+            view: root
+            x: root.labelWidth
+            y: root.headerHeight
+            width: root.trackWidth
+            height: rows.height
+        }
+        Tk.GanttRuler {
+            view: root
+            width: parent.width
+            height: root.headerHeight
         }
     }
 }

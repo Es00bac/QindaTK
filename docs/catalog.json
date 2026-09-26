@@ -17484,10 +17484,383 @@
       ]
     },
     {
+      "name": "GanttBackdrop",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of GanttView (D-303): the row stripes and, on the calendar time scale, the non-working day columns — drawn once under the rows so a weekend is one continuous band instead of a fill repeated per delegate. Only the rows and days in view exist (the day list is bounded by GanttScale.MAX_DAYS).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttBackdrop.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "Tk.GanttView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "contentY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "Math.max(1, view.rowHeight)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "firstRow",
+          "type": "int",
+          "default": "Math.max(0, Math.floor(contentY / rowHeight))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownRows",
+          "type": "int",
+          "default": "Math.min(Math.max(0, view.count - firstRow),",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttLabelDivider",
+        "ganttNonWorking",
+        "ganttStripe"
+      ]
+    },
+    {
+      "name": "GanttLinks",
+      "kind": "qml",
+      "base": "Canvas",
+      "description": "Internal part of GanttView (D-303): dependency links for the successors in view. `linkTypes` picks the anchors — FS end→start, SS start→start, FF end→end, SF start→end — and each link ends in an arrowhead at the successor; a link joining two critical tasks is drawn in `danger`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttLinks.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "Tk.GanttView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "contentY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "endpoints",
+          "parameters": "record"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttDependencies"
+      ]
+    },
+    {
+      "name": "GanttMarkers",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of GanttView (D-303): vertical marker lines over the rows (a host's today, status date or deadline). `view.markers` is [{utc, label, role}]; role names a Tk.Theme.color role (default accent). Labels are drawn by GanttRuler in the header.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttMarkers.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "Tk.GanttView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttMarker_"
+      ]
+    },
+    {
+      "name": "GanttRow",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of GanttView (D-303): one recycled task row — the label column, the baseline, the bar (task, summary bracket or milestone diamond), progress, allocation overlay and the bar text. Stripes are the backdrop's; a row paints only its selection wash.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttRow.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "Tk.GanttView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "index",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "previewRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "record",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "taskId",
+          "type": "string",
+          "default": "String(record.taskId || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "view.kindOf(record)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "critical",
+          "type": "bool",
+          "default": "record.critical === true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inactive",
+          "type": "bool",
+          "default": "record.inactive === true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "view.selectionModel !== null && view.selectionModel.currentId === taskId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasBaseline",
+          "type": "bool",
+          "default": "!!record.baselineStartUtc",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "endUtc",
+          "type": "string",
+          "default": "{ void view.calendarRevision; return view.endFor(record) }",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barX",
+          "type": "real",
+          "default": "{ void view.calendarRevision; return view.xFor(record.startUtc) }",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barWidth",
+          "type": "real",
+          "default": "Math.max(Tk.Theme.size.border, view.xFor(endUtc) - barX)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barHeight",
+          "type": "real",
+          "default": "Math.round(height * (hasBaseline ? 0.42 : 0.5))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barY",
+          "type": "real",
+          "default": "hasBaseline ? Math.round(height * 0.14) : Math.round((height - barHeight) / 2)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "diamond",
+          "type": "real",
+          "default": "Math.round(height * (hasBaseline ? 0.5 : 0.58))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barEnd",
+          "type": "real",
+          "default": "kind === \"milestone\" ? barX + diamond / 2 : barX + barWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttAllocation",
+        "ganttBarText",
+        "ganttBaseline",
+        "ganttMilestone",
+        "ganttProgress",
+        "ganttRow",
+        "ganttRowSelection",
+        "ganttSummaryBar",
+        "ganttSummaryProgress",
+        "ganttTaskBar",
+        "ganttTaskLabel",
+        "ganttTrack"
+      ]
+    },
+    {
+      "name": "GanttRuler",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "Internal part of GanttView (D-303): the header. On the working scale it is the original single row of local instants; on the calendar scale it is a two-tier ruler (weeks over days, months over weeks, or years over months as pixelsPerDay shrinks) when the header is at least 1.5 rows tall, else the lower tier alone. Marker labels (today, status date) sit on top.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttRuler.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "Tk.GanttView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "twoTier",
+          "type": "bool",
+          "default": "view.calendarScale && height >= Tk.Theme.size.row * 1.5",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tierHeight",
+          "type": "real",
+          "default": "twoTier ? height / 2 : height",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tiers",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttHeader",
+        "ganttMarkerLabel_",
+        "ganttRulerMajor",
+        "ganttRulerMinor"
+      ]
+    },
+    {
       "name": "GanttView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: one recycled row carries the task label and interval, so timeline and grid identity both come from GanttTaskModel.taskId. The owner shares a SelectionModel with its DataTable and applies any grid sort to a source/proxy model before handing it to both views.",
+      "description": "AGENT-CONTRACT: one recycled row carries the task label and interval, so timeline and grid identity both come from GanttTaskModel.taskId. The owner shares a SelectionModel with its DataTable and applies any grid sort to a source/proxy model before handing it to both views.  AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working days, markers), GanttRuler (header), GanttRow (one task) and GanttLinks (dependency canvas); all of them map instants through this root's xFor() so the \"working\" and \"calendar\" time scales stay one code path.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/GanttView.qml",
@@ -17533,9 +17906,25 @@
           "required": false
         },
         {
+          "name": "timeScale",
+          "type": "string",
+          "default": "\"working\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "pixelsPerWorkingMinute",
           "type": "real",
           "default": "Tk.Theme.size.row / 60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pixelsPerDay",
+          "type": "real",
+          "default": "Tk.Theme.size.control",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -17549,10 +17938,74 @@
           "required": false
         },
         {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.row",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.timeRuler",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "markers",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "\"\"",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentY",
+          "type": "alias",
+          "default": "rows.contentY",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "real",
+          "default": "rows.contentHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "calendarScale",
+          "type": "bool",
+          "default": "timeScale === \"calendar\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackWidth",
+          "type": "real",
+          "default": "Math.max(0, width - labelWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleEndUtc",
+          "type": "string",
+          "default": "calendarScale",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -17579,6 +18032,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "calendarRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -17598,6 +18059,14 @@
         },
         {
           "name": "endFor",
+          "parameters": "record"
+        },
+        {
+          "name": "baselineEndFor",
+          "parameters": "record"
+        },
+        {
+          "name": "kindOf",
           "parameters": "record"
         },
         {
@@ -17623,6 +18092,14 @@
         {
           "name": "undo",
           "parameters": ""
+        },
+        {
+          "name": "scrollBy",
+          "parameters": "minutes"
+        },
+        {
+          "name": "wheelStep",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -17634,16 +18111,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "ganttAllocation",
-        "ganttBaseline",
-        "ganttDependencies",
-        "ganttHeader",
-        "ganttProgress",
-        "ganttRow",
         "ganttRows",
-        "ganttTaskBar",
-        "ganttTaskLabel",
-        "ganttTrack",
         "ganttView"
       ]
     },
@@ -17870,6 +18338,14 @@
           "name": "hasIcon",
           "type": "bool",
           "default": "String(cellStyle.icon || \"\").length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "indentWidth",
+          "type": "real",
+          "default": "Math.max(0, Math.floor(Number(cellStyle.indent || 0))) * Tk.Theme.space.lg",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -30448,6 +30924,22 @@
           "required": false
         },
         {
+          "name": "showZeros",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summaryMode",
+          "type": "string",
+          "default": "\"capacity\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "editing",
           "type": "bool",
           "default": "false",
@@ -30657,11 +31149,13 @@
         "resourceAllocationEditor",
         "resourceBucketHeader_",
         "resourceBucketHeaders",
+        "resourceCellValue",
         "resourceCellViewport",
         "resourceCell_",
         "resourceCornerHeader",
         "resourceRowHeader_",
         "resourceRowHeaders",
+        "resourceRowSummary",
         "resourceTable",
         "resourceTableWheel"
       ]
@@ -58297,6 +58791,21 @@
           "name": "isWorkingDay",
           "returns": "bool",
           "parameters": "const QDate &date"
+        },
+        {
+          "name": "localDate",
+          "returns": "QString",
+          "parameters": "const QString &utc"
+        },
+        {
+          "name": "dayStartUtc",
+          "returns": "QString",
+          "parameters": "const QString &isoDate"
+        },
+        {
+          "name": "isWorkingDate",
+          "returns": "bool",
+          "parameters": "const QString &isoDate"
         }
       ],
       "enums": {},
@@ -58313,7 +58822,7 @@
       "name": "GanttSimpleScheduleAdapter",
       "kind": "cpp",
       "base": "GanttTransactionAdapter",
-      "description": "Reference finish-to-start scheduler. A production host can subclass the adapter and supply richer constraints while retaining the view contract.",
+      "description": "Reference finish-to-start scheduler. A production host can subclass the adapter and supply richer constraints while retaining the view contract. AGENT-NOTE: it treats every link as FS whatever `linkTypes` says, and drops `finishUtc` from the rows it moves so the view falls back to the duration; hosts that own exact finishes (several shifts, exceptions) subclass it.",
       "singleton": false,
       "attached": null,
       "file": "src/core/gantt_task_model.h",

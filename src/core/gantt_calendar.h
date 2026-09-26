@@ -42,6 +42,13 @@ public:
     Q_INVOKABLE QString snapForward(const QString &utc) const;
     Q_INVOKABLE QString formatLocal(const QString &utc) const;
     Q_INVOKABLE bool isWorkingDay(const QDate &date) const;
+    // Local-date helpers for calendar-time rulers (docs/gantt.md): the ISO
+    // local date of an instant, and the UTC instant of a local midnight
+    // (the first valid local time of that day when midnight is skipped).
+    Q_INVOKABLE QString localDate(const QString &utc) const;
+    Q_INVOKABLE QString dayStartUtc(const QString &isoDate) const;
+    // isWorkingDay for an ISO date string (QML passes strings, not QDate).
+    Q_INVOKABLE bool isWorkingDate(const QString &isoDate) const;
     static bool parseUtc(const QString &value, qint64 *milliseconds);
 private:
     bool interval(QDate date, qint64 *start, qint64 *end) const;

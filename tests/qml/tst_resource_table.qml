@@ -87,6 +87,22 @@ TestCase {
         compare(table.Accessible.name, "Weekly resource allocation")
     }
 
+    function test_blank_zeros_and_summary_modes() {
+        const host = createTemporaryObject(tableComponent, root)
+        const table = findChild(host, "resourceTable")
+        const value = function(cell) { return findChild(findChild(table, cell), "resourceCellValue").text }
+        const summary = function() { return findChild(findChild(table, "resourceRowHeader_artist"), "resourceRowSummary").text }
+        compare(value("resourceCell_artist_wed"), "0")
+        compare(summary(), "14/56 hours")
+        table.showZeros = false
+        compare(value("resourceCell_artist_wed"), "")
+        compare(value("resourceCell_artist_mon"), "5")
+        table.summaryMode = "usage"
+        compare(summary(), "14 hours")
+        table.summaryMode = "none"
+        compare(summary(), "")
+    }
+
     function test_keyboard_edit_conflict_totals_and_undo() {
         const host = createTemporaryObject(tableComponent, root)
         const table = findChild(host, "resourceTable")

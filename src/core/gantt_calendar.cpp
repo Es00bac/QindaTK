@@ -60,6 +60,27 @@ bool GanttCalendar::isWorkingDay(const QDate &date) const
 { return date.isValid() && (m_workingDays & (1 << (date.dayOfWeek() - 1)))
          && !m_holidays.contains(date.toString(Qt::ISODate)); }
 
+QString GanttCalendar::localDate(const QString &utc) const
+{
+    qint64 instant = 0;
+    if (!parseUtc(utc, &instant)) { error(QStringLiteral("Invalid UTC instant")); return {}; }
+    return QDateTime::fromMSecsSinceEpoch(instant, m_zone).date().toString(Qt::ISODate);
+}
+
+QString GanttCalendar::dayStartUtc(const QString &isoDate) const
+{
+    const QDate date = QDate::fromString(isoDate, Qt::ISODate);
+    if (!date.isValid()) { error(QStringLiteral("Invalid ISO date")); return {}; }
+    // AGENT-NOTE: a zone that skips midnight (e.g. a DST jump at 00:00) has
+    // no local 00:00; Qt's forward resolution picks the first valid instant.
+    const QDateTime start = date.startOfDay(m_zone);
+    if (!start.isValid()) { error(QStringLiteral("No local start of day")); return {}; }
+    return QString::number(start.toMSecsSinceEpoch());
+}
+
+bool GanttCalendar::isWorkingDate(const QString &isoDate) const
+{ return isWorkingDay(QDate::fromString(isoDate, Qt::ISODate)); }
+
 bool GanttCalendar::interval(QDate date, qint64 *start, qint64 *end) const
 {
     if (!isWorkingDay(date)) return false;

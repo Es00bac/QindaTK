@@ -60,6 +60,13 @@ inserting source records keeps the selection on the same identities and clamps
 the pixel scroll positions. If an active identity is removed, selection moves
 to the first valid cell.
 
+`showZeros: false` leaves cells without an allocation blank (a usage sheet
+reads better that way); the accessible name still states zero.
+`summaryMode` picks the figure beside each row name: `capacity` (default,
+“usage/capacity unit”), `usage` (“usage unit”, for rows whose capacity is
+not meaningful on its own, such as the assignment rows of a project's
+resource usage view) or `none`.
+
 The table exposes a Table accessible role and describes the focused cell with
 resource, bucket, allocation, capacity, unit, and conflict status. Arrow keys
 move by cell; Home and End move to the first or last bucket in the current

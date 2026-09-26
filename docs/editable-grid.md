@@ -142,7 +142,7 @@ the reference implementation ([workbook.md](workbook.md#views-and-adapter)).
 | Member | Contract |
 | --- | --- |
 | `editValue(rowId, columnId)` | The text an editor starts from, when the displayed `value` is computed (a formula shows `4900`, edits `=SUM(B2:E2)`). `EditableGridModel.editValue` returns an override, else this, else `cellValue`. |
-| `cellStyle(rowId, columnId)` | Optional presentation: `horizontalAlignment` (`left`, `center`, `right`), `bold`, `italic`, `underline`, `strikeout`, document `textColor`/`fillColor` (`#rrggbb`), and extra keys a delegate understands (`dataBar`, `dataBarColor`, `icon`, `iconTone`, `error`, and `numeric`: a number too wide for its cell shows `###` instead of being cut). Empty means theme defaults. |
+| `cellStyle(rowId, columnId)` | Optional presentation: `horizontalAlignment` (`left`, `center`, `right`), `bold`, `italic`, `underline`, `strikeout`, document `textColor`/`fillColor` (`#rrggbb`), and extra keys a delegate understands (`dataBar`, `dataBarColor`, `icon`, `iconTone` — `positive` success, `negative` danger, `muted` textMuted, `accent` accent, anything else warning — `error`, `numeric`: a number too wide for its cell shows `###` instead of being cut, and `indent`: outline levels, a non-negative integer that moves the icon and text right by `indent × space.lg` — a task tree's name column, D-303). Empty means theme defaults. |
 | `mergedRanges(window)` | Merged areas intersecting an index window (x = first column, y = first row). Areas never overlap; the top-left cell is the anchor. |
 | `commitChanges(label, changes, error)` | Applies one validated change set (the `committed` payload shape) atomically. Used when `sourceCommits` is true; returning false with an error keeps the edit open. |
 | `fillCells(source, target, error)` | A domain fill of `target` from the repeating `source` block. Returning false with an empty error means unsupported, and the grid copies values instead. |
@@ -202,7 +202,7 @@ The delegate draws the source's `cellStyle`: alignment, weight, slant,
 underline, strike-out, document text and fill colors (text over a document
 fill switches to a contrasting theme color), a data bar
 (`gridCellDataBar`), a trend icon (`gridCellIcon`) and the danger color for
-error values; a merged record spans its area. A `numeric` value that does not
+error values, and indents icon and text together by `indent` levels (icon first, then text); a merged record spans its area. A `numeric` value that does not
 fit shows whole `#` glyphs (`gridCellHashes`) while its accessible name keeps
 the value; other text elides. The `gridCellViewport` clip
 keeps scrolling content below frozen rows and columns. Cells stack by pane:

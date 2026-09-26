@@ -177,4 +177,56 @@ TestCase {
         keyClick(Qt.Key_PageDown)
         verify(view.activeRow > 0)
     }
+
+    // cellStyle.indent (D-303): outline levels push the icon and text right
+    // by indent × space.lg; no indent keeps the original margins.
+    Component {
+        id: indentedCell
+        Tk.GridCellDelegate {
+            index: 0
+            modelData: ({ x: 0, y: 0, width: 240, height: 22, row: 0, column: 0, rowId: "r:1",
+                          columnId: "c:1", value: "Book the venue", style: { indent: 2 } })
+        }
+    }
+    Component {
+        id: plainCell
+        Tk.GridCellDelegate {
+            index: 0
+            modelData: ({ x: 0, y: 0, width: 240, height: 22, row: 0, column: 0, rowId: "r:1",
+                          columnId: "c:1", value: "Book the venue", style: { indent: 1, icon: "flag", iconTone: "muted" } })
+        }
+    }
+
+    function test_cell_indent() {
+        const cell = createTemporaryObject(indentedCell, root)
+        verify(cell !== null)
+        const text = findChild(cell, "gridCellText")
+        compare(text.x, Tk.Theme.space.xs + 2 * Tk.Theme.space.lg)
+        const iconCell = createTemporaryObject(plainCell, root)
+        const icon = findChild(iconCell, "gridCellIcon")
+        compare(icon.x, Tk.Theme.space.xs + Tk.Theme.space.lg)
+        compare(findChild(iconCell, "gridCellText").x,
+                Tk.Theme.space.lg + Tk.Theme.space.xs * 2 + Tk.Theme.size.iconSm)
+        compare(String(icon.color), String(Tk.Theme.color.textMuted))
+    }
+
+    Component {
+        id: toneCell
+        Tk.GridCellDelegate {
+            property string tone: ""
+            index: 0
+            modelData: ({ x: 0, y: 0, width: 240, height: 22, row: 0, column: 0, rowId: "r:1",
+                          columnId: "c:1", value: "x", style: { icon: "flag", iconTone: tone } })
+        }
+    }
+
+    function test_cell_icon_tones() {
+        const expected = { positive: Tk.Theme.color.success, negative: Tk.Theme.color.danger,
+                           muted: Tk.Theme.color.textMuted, accent: Tk.Theme.color.accent,
+                           "": Tk.Theme.color.warning, other: Tk.Theme.color.warning }
+        for (const tone in expected) {
+            const cell = createTemporaryObject(toneCell, root, { tone: tone })
+            compare(String(findChild(cell, "gridCellIcon").color), String(expected[tone]), tone)
+        }
+    }
 }

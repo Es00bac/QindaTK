@@ -28,6 +28,9 @@ public:
 
 // Reference finish-to-start scheduler. A production host can subclass the
 // adapter and supply richer constraints while retaining the view contract.
+// AGENT-NOTE: it treats every link as FS whatever `linkTypes` says, and drops
+// `finishUtc` from the rows it moves so the view falls back to the duration;
+// hosts that own exact finishes (several shifts, exceptions) subclass it.
 class GanttSimpleScheduleAdapter : public GanttTransactionAdapter {
     Q_OBJECT
     QML_ELEMENT
@@ -55,7 +58,10 @@ class GanttTaskModel : public QAbstractListModel {
 public:
     enum Role { TaskIdRole = Qt::UserRole + 1, LabelRole, StartUtcRole,
                 DurationMinutesRole, ProgressRole, BaselineStartUtcRole,
-                BaselineDurationMinutesRole, DependenciesRole };
+                BaselineDurationMinutesRole, DependenciesRole,
+                // Optional presentation fields (docs/gantt.md "Host-scheduled rows").
+                FinishUtcRole, BaselineFinishUtcRole, KindRole, CriticalRole,
+                InactiveRole, OutlineLevelRole, BarTextRole, LinkTypesRole };
     Q_ENUM(Role)
     explicit GanttTaskModel(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = {}) const override;
@@ -85,6 +91,7 @@ signals:
     void committed();
 private:
     bool validate(const QVariantList &rows, QString *error) const;
+    static bool validateOptional(const QVariantMap &row, qint64 start, QString *error);
     void setError(const QString &message);
     QVariantList m_tasks;
     QHash<QString, int> m_index;

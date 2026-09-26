@@ -62,7 +62,10 @@ QVariantMap GanttSimpleScheduleAdapter::previewMove(const QString &taskId,
                 return {{QStringLiteral("error"), calendar->lastError()}};
             startMs = std::max(startMs, endMs);
         }
-        row.insert(QStringLiteral("startUtc"), calendar->snapForward(QString::number(startMs)));
+        const QString newStart = calendar->snapForward(QString::number(startMs));
+        if (newStart != row.value(QStringLiteral("startUtc")).toString())
+            row.remove(QStringLiteral("finishUtc")); // the reference planner owns no exact finish
+        row.insert(QStringLiteral("startUtc"), newStart);
         result[i] = row;
         ++visited;
         for (const QString &next : successors.value(id))
@@ -94,7 +97,11 @@ QHash<int, QByteArray> GanttTaskModel::roleNames() const
         {DurationMinutesRole, "durationMinutes"}, {ProgressRole, "progress"},
         {BaselineStartUtcRole, "baselineStartUtc"},
         {BaselineDurationMinutesRole, "baselineDurationMinutes"},
-        {DependenciesRole, "dependencies"}};
+        {DependenciesRole, "dependencies"}, {FinishUtcRole, "finishUtc"},
+        {BaselineFinishUtcRole, "baselineFinishUtc"}, {KindRole, "kind"},
+        {CriticalRole, "critical"}, {InactiveRole, "inactive"},
+        {OutlineLevelRole, "outlineLevel"}, {BarTextRole, "barText"},
+        {LinkTypesRole, "linkTypes"}};
 }
 QVariant GanttTaskModel::data(const QModelIndex &index, int role) const
 {
@@ -153,6 +160,7 @@ bool GanttTaskModel::validate(const QVariantList &rows, QString *error) const
             && row.value(QStringLiteral("dependencies")).metaType().id() != QMetaType::QVariantList) {
             *error = QStringLiteral("dependencies must be an array of task IDs"); return false;
         }
+        if (!validateOptional(row, instant, error)) return false;
         ids.insert(id);
     }
     QHash<QString, QStringList> links;
@@ -185,6 +193,74 @@ bool GanttTaskModel::validate(const QVariantList &rows, QString *error) const
         }
     }
     if (visited != ids.size()) { *error = QStringLiteral("Dependency cycle"); return false; }
+    return true;
+}
+
+namespace {
+bool isBoolean(const QVariant &value) { return value.metaType().id() == QMetaType::Bool; }
+} // namespace
+
+// Optional presentation fields a host scheduling engine supplies (D-303).
+bool GanttTaskModel::validateOptional(const QVariantMap &row, qint64 start, QString *error)
+{
+    const auto finishOk = [&](const char *key, qint64 from) {
+        const QString name = QString::fromLatin1(key);
+        if (!row.contains(name)) return true;
+        qint64 finish = 0;
+        if (row.value(name).metaType().id() != QMetaType::QString
+            || !GanttCalendar::parseUtc(row.value(name).toString(), &finish) || finish < from) {
+            *error = QStringLiteral("%1 must be an exact UTC string not before its start").arg(name);
+            return false;
+        }
+        return true;
+    };
+    if (!finishOk("finishUtc", start)) return false;
+    if (row.contains(QStringLiteral("baselineFinishUtc"))) {
+        qint64 baselineStart = start;
+        if (row.contains(QStringLiteral("baselineStartUtc")))
+            GanttCalendar::parseUtc(row.value(QStringLiteral("baselineStartUtc")).toString(), &baselineStart);
+        if (!finishOk("baselineFinishUtc", baselineStart)) return false;
+    }
+    if (row.contains(QStringLiteral("kind"))) {
+        const QVariant kind = row.value(QStringLiteral("kind"));
+        if (kind.metaType().id() != QMetaType::QString
+            || !QStringList{QStringLiteral("task"), QStringLiteral("summary"), QStringLiteral("milestone")}
+                    .contains(kind.toString())) {
+            *error = QStringLiteral("kind must be task, summary or milestone"); return false;
+        }
+    }
+    for (const char *key : {"critical", "inactive"}) {
+        const QString name = QString::fromLatin1(key);
+        if (row.contains(name) && !isBoolean(row.value(name))) {
+            *error = QStringLiteral("%1 must be a boolean").arg(name); return false;
+        }
+    }
+    if (row.contains(QStringLiteral("outlineLevel"))) {
+        const QVariant level = row.value(QStringLiteral("outlineLevel"));
+        bool ok = false;
+        const int value = level.toInt(&ok);
+        if (!ok || level.toDouble() != double(value) || value < 0 || value > 64) {
+            *error = QStringLiteral("outlineLevel must be an integer from 0 to 64"); return false;
+        }
+    }
+    if (row.contains(QStringLiteral("barText"))
+        && row.value(QStringLiteral("barText")).metaType().id() != QMetaType::QString) {
+        *error = QStringLiteral("barText must be a string"); return false;
+    }
+    if (row.contains(QStringLiteral("linkTypes"))) {
+        const QVariant types = row.value(QStringLiteral("linkTypes"));
+        if (types.metaType().id() != QMetaType::QVariantList
+            || types.toList().size() != row.value(QStringLiteral("dependencies")).toList().size()) {
+            *error = QStringLiteral("linkTypes must be an array parallel to dependencies"); return false;
+        }
+        static const QStringList kTypes{QStringLiteral("FS"), QStringLiteral("SS"),
+                                        QStringLiteral("FF"), QStringLiteral("SF")};
+        for (const QVariant &type : types.toList()) {
+            if (type.metaType().id() != QMetaType::QString || !kTypes.contains(type.toString())) {
+                *error = QStringLiteral("linkTypes entries must be FS, SS, FF or SF"); return false;
+            }
+        }
+    }
     return true;
 }
 

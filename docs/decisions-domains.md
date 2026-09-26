@@ -1133,6 +1133,49 @@ so fixtures and tests are stable and need no clock. Hosts widen the civil
 visible range by a day for the UTC projection and implement resize
 themselves (`upsert` of `endLocal`, or an occurrence override).
 
+## D-303 — The Gantt view draws a host engine's schedule on a calendar time scale
+
+**Context.** QindaOffice M51 (QindaPlan, a Microsoft Project equivalent)
+builds on `GanttView`, whose rows carried only a start and a duration in
+working minutes of one `GanttCalendar` (one shift a day, a weekday mask,
+holidays), drew every row as the same accent bar (progress invisible on
+it), treated every link as finish-to-start and could not sit beside a task
+table. A project engine owns calendars the view cannot express (several
+shifts, exceptions with their own hours, resource calendars), summary
+rollups, milestones, a critical path, typed links with lag, baselines and a
+status date, and people read schedules on elapsed-time rulers with weekends
+shaded, not on a working-time axis where a weekend has no width.
+(Numbering: first taken as D-302; renumbered D-303 because the QindaDiagram lane's ShapePalette entry merged to main as D-302.)
+
+**Decision.** The view stays a view; the host's engine stays the scheduler.
+Rows gain optional, validated presentation fields — `finishUtc` and
+`baselineFinishUtc` (exact intervals the engine computed, drawn instead of
+`start + duration`), `kind` (`task`/`summary`/`milestone`), `critical`,
+`inactive`, `outlineLevel`, `barText` and `linkTypes` (FS/SS/FF/SF, parallel
+to `dependencies`); a bad value rejects the whole replacement like every
+other field. `GanttView` gains `timeScale: "calendar"` (x linear in elapsed
+time at `pixelsPerDay`, non-working days from the calendar shaded once under
+the rows, a two-tier civil ruler through the calendar's new
+`localDate`/`dayStartUtc`), `markers` (host-named vertical lines such as
+today and a status date — the view never reads the clock, as in D-301),
+`rowHeight`/`headerHeight`/`labelWidth: 0`/`contentY` so a host can align and
+scroll it with a table, and distinct drawings for summaries (bracket),
+milestones (diamond), critical rows and links (`danger`), inactive rows
+(outline), baselines (a lane under the bar) and a solid progress fill.
+The reference `GanttSimpleScheduleAdapter` stays FS-only and drops
+`finishUtc` from rows it moves. `GridCellDelegate` gains a `cellStyle.indent`
+key so a task table's name column can show the outline, and `muted`/`accent`
+icon tones. `ResourceTable` gains `showZeros` and `summaryMode` so the same
+matrix reads as a project's resource-usage sheet (blank unallocated days,
+work totals without a per-row capacity).
+
+**Consequences.** Existing rows and the `"working"` scale behave as before
+(the one visible change: the bar is a subtle fill with a solid progress, so
+progress shows). A host shows exactly the dates its engine computed, with no
+second calendar model in QML. Resource levelling, lag, constraints and
+critical-path analysis remain host concerns; the view only paints their
+results.
+
 ## D-178 — A score is written music with its own model, separate from MIDI
 
 **Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;
