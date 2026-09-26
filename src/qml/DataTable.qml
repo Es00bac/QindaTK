@@ -61,6 +61,20 @@ Item {
         }
         return out
     }
+    // A narrow pane must scroll its columns instead of squeezing them below
+    // their declared minimums and letting adjacent cell text overlap.
+    readonly property real gridWidth: {
+        let fixed = 0
+        let flexMinimum = 0
+        for (const column of visibleColumns) {
+            if (column.flex > 0)
+                flexMinimum += column.minWidth
+            else
+                fixed += Math.max(column.minWidth, widthOf(column))
+        }
+        const gaps = Tk.Theme.space.sm * Math.max(0, visibleColumns.length - 1)
+        return Math.max(width, fixed + flexMinimum + gaps + Tk.Theme.space.md * 2)
+    }
 
     signal sortRequested(string key, int order)
     signal activated(int index)
@@ -80,23 +94,26 @@ Item {
         return override !== undefined ? override : column.width
     }
 
-    // Fixed columns keep their width; elastic ones share the remainder.
+    // Fixed columns keep their width; elastic ones share space left after
+    // every column receives its minimum width.
     function resolvedWidth(column, available) {
         if (column.flex <= 0) {
             return Math.max(column.minWidth, table.widthOf(column))
         }
         let fixed = 0
+        let flexMinimum = 0
         let flexTotal = 0
         for (const c of table.visibleColumns) {
             if (c.flex > 0) {
                 flexTotal += c.flex
+                flexMinimum += c.minWidth
             } else {
                 fixed += Math.max(c.minWidth, table.widthOf(c))
             }
         }
         const gaps = Tk.Theme.space.sm * Math.max(0, table.visibleColumns.length - 1)
-        const spare = Math.max(0, available - fixed - gaps)
-        return Math.max(column.minWidth, spare * (column.flex / Math.max(1, flexTotal)))
+        const spare = Math.max(0, available - fixed - gaps - flexMinimum)
+        return column.minWidth + spare * (column.flex / Math.max(1, flexTotal))
     }
 
     function toggleSort(column) {
@@ -187,16 +204,27 @@ Item {
         return undefined
     }
 
-    Tk.Flex {
+    Tk.Scroll {
+        id: horizontal
+        objectName: "tableHorizontal"
         anchors.fill: parent
-        direction: Tk.Flex.Column
-        gap: 0
+        overflowX: Tk.Scroll.Auto
+        overflowY: Tk.Scroll.Hidden
+
+        Item {
+            implicitWidth: table.gridWidth
+            implicitHeight: table.height
+
+            Tk.Flex {
+                anchors.fill: parent
+                direction: Tk.Flex.Column
+                gap: 0
 
         Tk.Box {
             objectName: "tableHeader"
             visible: table.showHeader
             Tk.Flex.shrink: 0
-            implicitWidth: table.width
+            implicitWidth: table.gridWidth
             implicitHeight: Tk.Theme.size.header
             color: Tk.Theme.color.headerBg
             borderBottom: Tk.Theme.size.border
@@ -217,8 +245,9 @@ Item {
                         required property int index
                         objectName: "headerCell_" + headerCell.modelData.key
                         implicitWidth: table.resolvedWidth(headerCell.modelData,
-                                                           table.width - Tk.Theme.space.md)
+                                                           table.gridWidth - Tk.Theme.space.md)
                         implicitHeight: Tk.Theme.size.header
+                        clip: true
                         readonly property bool active: table.sortKey === headerCell.modelData.key
                         readonly property bool canResize: headerCell.modelData.resizable
                                                           && headerCell.modelData.flex <= 0
@@ -358,12 +387,12 @@ Item {
             objectName: "tableBody"
             Tk.Flex.grow: 1
             Tk.Flex.basis: 0
-            implicitWidth: table.width
+            implicitWidth: table.gridWidth
             overflowX: Tk.Scroll.Hidden
 
             ListView {
                 id: rows
-                width: table.width
+                width: table.gridWidth
                 height: Math.max(0, table.height
                                  - (table.showHeader ? Tk.Theme.size.header : 0))
                 model: table.model
@@ -429,8 +458,9 @@ Item {
                                 readonly property var value:
                                     table.cellOf(rowItem.record, cell.column.key)
                                 implicitWidth: table.resolvedWidth(
-                                    cell.column, table.width - Tk.Theme.space.md)
+                                    cell.column, table.gridWidth - Tk.Theme.space.md)
                                 implicitHeight: table.rowHeight
+                                clip: true
 
                                 // AGENT-CONTRACT: a cell delegate reads its
                                 // data from its PARENT -- parent.value,
@@ -455,6 +485,7 @@ Item {
                                     visible: cell.column.delegate === null
                                     verticalAlignment: Text.AlignVCenter
                                     horizontalAlignment: cell.column.align
+                                    elide: Text.ElideRight
                                     text: cell.column.display(cell.value, rowItem.record)
                                     mono: cell.column.mono
                                     muted: cell.column.muted && !rowItem.selected
@@ -470,6 +501,8 @@ Item {
                         }
                     }
                 }
+            }
+        }
             }
         }
     }

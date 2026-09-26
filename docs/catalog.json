@@ -10139,6 +10139,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "gridWidth",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -10214,6 +10222,7 @@
         "headerFocusRing_",
         "tableBody",
         "tableHeader",
+        "tableHorizontal",
         "tableRow"
       ]
     },

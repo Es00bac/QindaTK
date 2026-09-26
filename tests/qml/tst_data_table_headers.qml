@@ -23,7 +23,39 @@ TestCase {
             ]
         }
     }
+    Component {
+        id: narrowTableComponent
+        Tk.DataTable {
+            width: 260
+            height: 120
+            model: [{ first: "First client", status: "Checked in", owner: "Case manager" }]
+            columns: [
+                Tk.TableColumn { key: "first"; title: "Client"; flex: 2; minWidth: 160 },
+                Tk.TableColumn { key: "status"; title: "Status"; width: 120 },
+                Tk.TableColumn { key: "owner"; title: "With"; flex: 1; minWidth: 150 }
+            ]
+        }
+    }
     Component { id: spyComponent; SignalSpy {} }
+
+    function test_narrow_table_scrolls_columns_without_squeezing() {
+        const table = createTemporaryObject(narrowTableComponent, root)
+        verify(table)
+        const horizontal = findChild(table, "tableHorizontal")
+        verify(horizontal)
+        tryVerify(() => horizontal.scrollableX)
+        verify(table.gridWidth > table.width)
+        for (const column of table.visibleColumns)
+            verify(table.resolvedWidth(column, table.gridWidth - Tk.Theme.space.md) >= column.minWidth)
+        const header = findChild(table, "tableHeader")
+        verify(header)
+        tryVerify(() => !!findChild(table, "tableRow"))
+        const row = findChild(table, "tableRow")
+        horizontal.contentX = 100
+        tryCompare(horizontal, "contentX", 100)
+        compare(Math.round(header.mapToItem(table, 0, 0).x),
+                Math.round(row.mapToItem(table, 0, 0).x))
+    }
 
     function test_header_keyboard_and_accessible_sort_resize() {
         const table = createTemporaryObject(tableComponent, root)
