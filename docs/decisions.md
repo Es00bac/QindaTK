@@ -2011,3 +2011,28 @@ at any width. `ribbonGroupViewport` is no longer a `Scroll` (it has no
 `scrollableX`). `compact` mode is a host preference, not a squeeze level.
 Tests: `tst_ribbon.qml`, `tst_navigation_models.qml`.
 
+## D-302 — ShapePalette tiles carry host thumbnails and report drags, never drops
+
+**Context.** QindaDiagram (QindaOffice M50, D-050 there) needs a Visio-style
+stencil panel: ~50 drawn shapes in seven stencils, previews that look like
+the shapes they insert, drag from the panel onto the page, and search
+across stencils in a panel ~240 px wide. `ShapePalette` offered Lucide icon
+buttons, a `Segmented` category row (seven segments do not fit) and click
+only.
+
+**Decision.** Backward-compatible additions. A definition may carry an
+`imageSource`; such definitions draw as tiles (thumbnail over a two-line
+caption) while icon definitions keep the button. `categoryPicker: "menu"`
+swaps the segmented row for a `ComboBox`; `searchAllCategories` lets typed
+text search every category. `dragEnabled` adds a `DragHandler` (target
+null) to every tile and button that reports `shapeDragStarted`,
+`shapeDragMoved` and `shapeDragFinished` (or `shapeDragCanceled`) with the
+pointer in scene coordinates. The palette does not move a ghost, accept
+drops or know about canvases: the host maps the scene point into its view,
+draws its own preview in document space and inserts — the same split as
+`shapeRequested`, where the host owns creation and undo.
+
+**Consequences.** Hosts need no `DropArea`/MIME plumbing and keep one
+insertion path for click and drag. A drag never also clicks (the handler
+takes the grab). Existing hosts are unchanged (defaults: segmented,
+category-scoped search, no drag). Tests: `tst_vector_authoring.qml`.
