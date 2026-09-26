@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-25",
+  "generated": "2026-09-26",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -45056,7 +45056,7 @@
       "name": "Viewport",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/controls.md): a zoomable, scrollable document viewport. The single child is the document surface (a page, a slide, an artboard) sized by ITS implicit size in document units; the viewport scales it by `zoom`, centres it when it is narrower than the view, pads it by `contentPadding`, scrolls both axes, and paints the canvas role behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls horizontally, a middle-button drag pans. `fitMode` \"width\" / \"page\" re-fits on every resize until the user zooms by hand. At a pan edge, ordinary wheel input reaches an ancestor Scroll (D-021).  AGENT-GUARD: zoom is a view transform only. The child keeps its own coordinate space; map pointer positions with `toContent(point)`.",
+      "description": "AGENT-CONTRACT (docs/controls.md): a zoomable, scrollable document viewport. The single child is the document surface (a page, a slide, an artboard) sized by ITS implicit size in document units; the viewport scales it by `zoom`, centres it when it is narrower than the view, pads it by `contentPadding`, scrolls both axes, and paints the canvas role behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls horizontally, a middle-button drag pans. On a touchscreen two fingers pinch-zoom and pan together (a touchpad pinch zooms too); with `touchPan` one finger drags the view. `fitMode` \"width\" / \"page\" re-fits on every resize until the user zooms by hand. At a pan edge, ordinary wheel input reaches an ancestor Scroll (D-021).  AGENT-GUARD: zoom is a view transform only. The child keeps its own coordinate space; map pointer positions with `toContent(point)`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Viewport.qml",
@@ -45138,6 +45138,22 @@
           "type": "bool",
           "default": "true",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "touchPan",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gestureActive",
+          "type": "bool",
+          "default": "pinch.active || touchDrag.active",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -45258,8 +45274,10 @@
         "viewportContent",
         "viewportFocusRing",
         "viewportPan",
+        "viewportPinch",
         "viewportScroll",
         "viewportSurface",
+        "viewportTouchPan",
         "viewportWheel"
       ]
     },
