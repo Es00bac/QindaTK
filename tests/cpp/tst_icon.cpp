@@ -70,6 +70,16 @@ private slots:
             QVERIFY2(registry->has(QString::fromLatin1(name)), name);
         }
     }
+    void officeCommandIconsAreBuiltIn()
+    {
+        // AGENT-CONTRACT: QindaOffice's shared ribbon names these for its
+        // standard commands (office_quick standard_actions.cpp); without them
+        // a ribbon button falls back to its text label.
+        IconRegistry *registry = IconRegistry::instance();
+        for (const char *name : {"replace", "search", "text-select"}) {
+            QVERIFY2(registry->has(QString::fromLatin1(name)), name);
+        }
+    }
     void builtinNamesAreUnique()
     {
         QSet<QString> seen;

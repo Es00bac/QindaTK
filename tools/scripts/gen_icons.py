@@ -40,7 +40,7 @@ link link-2 list list-ordered list-tree loader loader-circle lock lock-open magn
 minimize-2 minus monitor moon mouse-pointer mouse-pointer-2 move move-diagonal-2 move-horizontal move-vertical music navigation
 package paint-bucket paintbrush palette panel-bottom panel-bottom-close panel-left panel-left-close panel-right
 panel-right-close panel-top panel-top-close panels-top-left pause pen pen-tool pencil percent pilcrow pin pin-off
-pipette play plus printer puzzle quote redo redo-2 refresh-cw repeat rotate-ccw rotate-cw route rows-2 rows-3 ruler
+pipette play plus printer puzzle quote redo redo-2 refresh-cw repeat replace rotate-ccw rotate-cw route rows-2 rows-3 ruler
 save scaling scan scissors search send separator-horizontal separator-vertical settings settings-2 share-2 shrink shuffle
 sidebar sigma skip-back skip-forward sliders-horizontal sliders-vertical smartphone sparkles spline square
 square-check square-dashed square-pen stamp star step-back step-forward strikethrough subscript sun superscript
