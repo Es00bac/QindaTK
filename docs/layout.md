@@ -446,6 +446,7 @@ size on a scrolling axis and to the viewport on a hidden axis.
 | `overflowX` | `Tk.Scroll.Hidden` | `Auto`, `Hidden`, `Always` |
 | `overflowY` | `Tk.Scroll.Auto` | |
 | `padding` | 0 | around the viewport |
+| `contentRightInset` | 0 | reserves content width beside an overlay scrollbar, without moving the scrollbar |
 | `interactive` | true | drag/flick and keyboard movement |
 | `accessibleName` | `""` | name for a focusable scroll viewport |
 | `contentX`, `contentY` | | scroll position |
@@ -457,7 +458,8 @@ Functions: `ensureVisible(item)`, `scrollToTop()`, `scrollToBottom()`.
 The default (`overflowX: Hidden`) is the panel case: a column of rows wraps
 to the width and scrolls vertically. A timeline or table sets `overflowX:
 Tk.Scroll.Auto`. Scrollbars are overlays (`Tk.ScrollBar`) and take no
-layout space. The single child is seated like in `Box` unless it has
+layout space by default. Set `contentRightInset` when controls reach the
+right edge; `Dialog` reserves this space for its form body. The single child is seated like in `Box` unless it has
 anchors.
 
 Nested Scroll viewports use hard bounds (`Flickable.StopAtBounds`). Wheel

@@ -35069,6 +35069,14 @@
           "required": false
         },
         {
+          "name": "contentRightInset",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "contentX",
           "type": "alias",
           "default": "flick.contentX",

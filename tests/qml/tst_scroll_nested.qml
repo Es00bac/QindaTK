@@ -53,6 +53,15 @@ TestCase {
         }
     }
     Component {
+        id: insetScene
+        Tk.Scroll {
+            width: 180
+            height: 80
+            contentRightInset: 16
+            Item { objectName: "insetChild"; implicitWidth: 180; implicitHeight: 240 }
+        }
+    }
+    Component {
         id: canvasScene
         Item {
             width: 220
@@ -97,6 +106,16 @@ TestCase {
                 }
             }
         }
+    }
+
+    function test_rightInsetKeepsContentClearOfOverlayScrollbar() {
+        const scroll = createTemporaryObject(insetScene, root)
+        const child = findChild(scroll, "insetChild")
+        verify(child)
+        tryVerify(() => scroll.scrollableY)
+        compare(scroll.contentItem.width, scroll.viewportWidth - scroll.contentRightInset)
+        compare(child.width, scroll.contentItem.width)
+        compare(scroll.contentWidth, scroll.viewportWidth)
     }
 
     function test_wheelUsesInnerThenChainsAtEdge() {

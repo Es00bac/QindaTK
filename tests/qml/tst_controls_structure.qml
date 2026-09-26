@@ -63,6 +63,13 @@ TestCase {
         }
     }
     Component { id: dialogComponent; Tk.Dialog { title: "Discard?"; Tk.Label { text: "Body" } } }
+    Component {
+        id: scrollingDialogComponent
+        Tk.Dialog {
+            title: "Edit"
+            Item { implicitWidth: 400; implicitHeight: 700 }
+        }
+    }
     Component { id: tableColumnComponent; Tk.TableColumn { key: "name"; title: "Name" } }
     Component {
         id: paletteComponent
@@ -368,6 +375,17 @@ TestCase {
         mouseClick(primary)
         compare(spy.count, 1)
         tryVerify(function() { return !dialog.visible })
+    }
+
+    function test_dialog_content_clears_scrollbar() {
+        const dialog = createTemporaryObject(scrollingDialogComponent, root)
+        dialog.open()
+        tryVerify(() => dialog.opened)
+        const body = findChild(dialog.contentItem, "dialogBody") || dialog.contentItem
+        tryVerify(() => body.scrollableY)
+        verify(body.contentRightInset >= Tk.Theme.size.scrollbar)
+        compare(body.contentItem.width, body.viewportWidth - body.contentRightInset)
+        dialog.close()
     }
 
     function test_command_palette_filters_and_activates() {

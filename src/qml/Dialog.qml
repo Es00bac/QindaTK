@@ -88,6 +88,7 @@ T.Dialog {
         id: body
         objectName: "dialogBody"
         padding: Tk.Theme.space.md
+        contentRightInset: Tk.Theme.size.scrollbar + Tk.Theme.space.xs
         Accessible.role: Accessible.Dialog
         Accessible.name: dialog.title.length > 0 ? dialog.title : qsTr("Dialog")
         Keys.onReturnPressed: if (dialog.primaryEnabled) dialog.accept()

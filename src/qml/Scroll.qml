@@ -20,6 +20,9 @@ Item {
     property int overflowX: Scroll.Hidden
     property int overflowY: Scroll.Auto
     property real padding: 0
+    // Reserve content width beside an overlay vertical scrollbar when the
+    // owner has right-edge controls (for example a dialog form).
+    property real contentRightInset: 0
     property alias contentX: flick.contentX
     property alias contentY: flick.contentY
     readonly property alias contentWidth: flick.contentWidth
@@ -93,7 +96,7 @@ Item {
         event.accepted = scroll._moveBy(dx, dy)
     }
 
-    implicitWidth: contentHost.implicitWidth + padding * 2
+    implicitWidth: contentHost.implicitWidth + padding * 2 + contentRightInset
     implicitHeight: contentHost.implicitHeight + padding * 2
 
     function ensureVisible(item) {
@@ -120,14 +123,14 @@ Item {
                           : scroll.overflowY === Scroll.Hidden ? Flickable.HorizontalFlick
                           : Flickable.AutoFlickDirection
         contentWidth: scroll.overflowX === Scroll.Hidden ? width
-                    : Math.max(width, contentHost.implicitWidth)
+                    : Math.max(width, contentHost.implicitWidth + scroll.contentRightInset)
         contentHeight: scroll.overflowY === Scroll.Hidden ? height
                      : Math.max(height, contentHost.implicitHeight)
         pixelAligned: true
 
         Item {
             id: contentHost
-            width: flick.contentWidth
+            width: Math.max(0, flick.contentWidth - scroll.contentRightInset)
             height: flick.contentHeight
             readonly property Item single: children.length === 1 ? children[0] : null
             // Implicit sizes only (see Box.qml): childrenRect would depend on
