@@ -22,7 +22,7 @@ import QindaTK as Tk
 // to its model. A table that sorted a JS array in place would silently
 // reorder the caller's data and disagree with a C++ proxy's own ordering.
 //
-// objectNames: tableHeader, tableBody, headerCell_<key>,
+// objectNames: tableHorizontal, tableHeader, tableBody, headerCell_<key>,
 // headerFocusRing_<key>, tableRow.
 Item {
     id: table
