@@ -164,8 +164,9 @@ Item {
                         contentItem: Tk.Flex {
                             direction: Tk.Flex.Row
                             align: Tk.Flex.Center
+                            justify: rail.expanded ? Tk.Flex.Start : Tk.Flex.Center
                             gap: Tk.Theme.space.sm
-                            Tk.Icon { name: slot.modelData.iconName; size: Tk.Theme.size.icon; color: itemButton.checked ? Tk.Theme.color.accent : Tk.Theme.color.textMuted }
+                            Tk.Icon { objectName: "navigationIcon_" + slot.modelData.id; name: slot.modelData.iconName; size: Tk.Theme.size.icon; color: itemButton.checked ? Tk.Theme.color.accent : Tk.Theme.color.textMuted }
                             Tk.Label {
                                 visible: rail.expanded
                                 text: slot.modelData.label

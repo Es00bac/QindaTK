@@ -160,7 +160,13 @@ TestCase {
         compare(spy.signalArguments[0][1], "route.files")
         rail.expanded = false
         compare(rail.implicitWidth, rail.compactWidth)
-        verify(findChild(rail, "navigationButton_files"))
+        const button = findChild(rail, "navigationButton_files")
+        const icon = findChild(rail, "navigationIcon_files")
+        verify(button && icon)
+        tryVerify(function() {
+            const iconCenter = icon.mapToItem(button, icon.width / 2, icon.height / 2).x
+            return Math.abs(iconCenter - button.width / 2) < 0.5
+        })
     }
 
     function test_navigation_route_confirmation_and_reconciliation() {

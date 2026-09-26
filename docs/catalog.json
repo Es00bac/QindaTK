@@ -23266,7 +23266,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "navigationButton_"
+        "navigationButton_",
+        "navigationIcon_"
       ]
     },
     {
