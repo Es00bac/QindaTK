@@ -6,6 +6,11 @@
 `EGIT_COMMIT` to a commit on the hub; older revisions stay as immutable pins.
 Copy a new revision here and into the overlay together.
 
+Revision `0.1.0-r13` pins the live-agent SDK (D-306): the installed
+`QindaTK::agent` static target and headers plus `qinda-agent` CLI/MCP client.
+It adds a Python 3 runtime dependency; the client uses only its standard
+library. Existing toolkit/QML APIs remain compatible.
+
 Revision `0.1.0-r6` is the first pin of the finished universal toolkit and
 declares every library the build uses:
 
