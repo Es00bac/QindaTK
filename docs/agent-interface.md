@@ -65,7 +65,8 @@ Requests are UTF-8 JSON-RPC 2.0 objects followed by a newline. Supply a transpor
 
 Permission, stale revision, unavailable action or invalid argument failures
 occur before mutation. Provider receipts include document ID, request ID and
-post-operation revision. Choose a unique 1–128-character request ID for a new
+post-operation revision (`null` with `document_closed` if the action closes
+its provider). Choose a unique 1–128-character request ID for a new
 operation. On uncertain delivery retry **the same ID and identical parameters**.
 An executed request is cached once; different inputs with its ID fail. Replays
 include `replayed` and `current_revision`, which may differ from the original
@@ -84,7 +85,8 @@ unsolicited subscriptions and asynchronous jobs are not advertised.
 Supported: type (object/array/string/number/integer/boolean/null), properties,
 required, additionalProperties (bool or schema), items, anyOf, enum, pattern,
 minimum/maximum, min/maxLength, min/maxItems, min/maxProperties, description.
-Unknown keywords fail validation instead of silently losing a constraint.
+Unknown keywords and malformed schemas fail validation, including constraints
+on optional properties not present in the request.
 Schemas nest at most 16 levels. Providers must additionally validate domain
 rules (cell bounds, formulas, target identities, current editing/modal state).
 This deliberately avoids adding a model or JSON-schema package dependency.
@@ -101,13 +103,23 @@ qinda-agent --socket /run/user/1000/qindatk-agent/app.sock invoke DOCUMENT_ID ca
 qinda-agent --socket /run/user/1000/qindatk-agent/app.sock mcp
 ```
 
-CLI exits nonzero for refused requests. MCP exposes document discovery,
+CLI exits nonzero for refused or partial requests. Without `--socket`,
+document discovery spans all available local endpoints and includes their
+paths; reads/writes route the lifetime UUID to its currently granted owner.
+Unresponsive endpoints are reported in `unavailable_endpoints`. Discovery
+uses a two-second timeout per endpoint; stale socket paths do not block other
+applications. Event sequences remain process-local: choose `--socket` for
+CLI events, or pass `endpoint` to the MCP event tool.
+
+MCP exposes endpoint discovery, document discovery,
 inspection, action discovery, invocation and event polling as tools, and
 granted document snapshots as JSON resources. MCP stdout contains only newline
 JSON; diagnostics go to stderr. Configure a compatible client to launch
+`qinda-agent mcp` (which initializes before applications open), or
 `qinda-agent --socket ACTUAL_ENDPOINT mcp`; configuration formats are client
 specific. Tool discovery gives the formal action arguments. MCP compatibility
 is based on the [2025-11-25 stdio protocol](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).
 
 Verification: `tst_agent_host` uses a real socket and subprocess CLI/MCP clients,
-and checks grants, schema rejection, revisions, retry, ABA and provider teardown.
+and checks grants, schema rejection, revisions, retry, ABA, synchronous
+provider closure, multi-process routing and MCP initialization before startup.

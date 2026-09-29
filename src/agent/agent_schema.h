@@ -7,5 +7,6 @@ namespace QindaTK {
 // Deliberate JSON Schema subset documented in docs/agent-interface.md.
 // Unknown keywords reject a schema; they are never silently ignored.
 QString validateAgentJson(const QJsonValue &value, const QJsonObject &schema,
-                          const QString &path = QStringLiteral("arguments"), int depth = 0);
-}
+                          const QString &path = QStringLiteral("arguments"),
+                          int depth = 0);
+} // namespace QindaTK

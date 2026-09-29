@@ -30,13 +30,13 @@ def select_endpoint(explicit):
     return choices[0]
 
 
-def rpc(endpoint, method, parameters=None):
+def rpc(endpoint, method, parameters=None, timeout=20):
     request = {'jsonrpc': '2.0', 'id': str(uuid.uuid4()), 'method': method, 'params': parameters or {}}
     data = json.dumps(request, separators=(',', ':')).encode() + b'\n'
     if len(data) > 262144:
         raise ValueError('Request exceeds 256 KiB')
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(20)
+        connection.settimeout(timeout)
         connection.connect(endpoint)
         connection.sendall(data)
         received = bytearray()
@@ -55,6 +55,29 @@ def rpc(endpoint, method, parameters=None):
     return response['result']
 
 
+def dispatch(explicit, method, parameters=None):
+    """Discover across processes; route a UUID to its currently granted owner."""
+    if explicit:
+        return rpc(explicit, method, parameters)
+    if method == 'documents.list':
+        documents, unavailable = [], []
+        for endpoint in endpoints():
+            try:
+                for document in rpc(endpoint, method, timeout=2)['documents']:
+                    documents.append(dict(document, endpoint=endpoint))
+            except (OSError, ValueError, KeyError):
+                unavailable.append(endpoint)
+        return {'documents': documents, 'unavailable_endpoints': unavailable}
+    if method in ('document.inspect', 'actions.list', 'action.invoke'):
+        document_id = (parameters or {}).get('document_id')
+        matches = [d for d in dispatch(None, 'documents.list')['documents']
+                   if d['document_id'] == document_id]
+        if len(matches) != 1:
+            return {'status': 'access_denied', 'message': 'Document is closed or not currently granted'}
+        return rpc(matches[0]['endpoint'], method, parameters)
+    return rpc(select_endpoint(None), method, parameters)
+
+
 def object_schema(properties, required):
     return {'type': 'object', 'properties': properties, 'required': required, 'additionalProperties': False}
 
@@ -62,12 +85,13 @@ def object_schema(properties, required):
 STRING = {'type': 'string'}
 DOC = object_schema({'document_id': STRING}, ['document_id'])
 TOOLS = [
+    {'name': 'qinda_sessions', 'description': 'Discover local application endpoints. No document contents are disclosed.', 'inputSchema': object_schema({}, [])},
     {'name': 'qinda_documents', 'description': 'List granted open Qinda documents; grant is controlled in the application.', 'inputSchema': object_schema({}, [])},
     {'name': 'qinda_inspect', 'description': 'Read live document/workflow state and its opaque revision.', 'inputSchema': DOC},
     {'name': 'qinda_actions', 'description': 'Discover typed actions, input schemas and enabled state for a document.', 'inputSchema': DOC},
     {'name': 'qinda_invoke', 'description': 'Invoke one discovered action with its input schema and the current revision. Choose a unique request_id; retry uncertain delivery with the SAME ID and identical inputs. Completed results are application receipts, not model guesses.',
      'inputSchema': object_schema({'document_id': STRING, 'action': STRING, 'arguments': {'type': 'object'}, 'if_revision': STRING, 'request_id': STRING}, ['document_id', 'action', 'arguments', 'if_revision', 'request_id'])},
-    {'name': 'qinda_events', 'description': 'Poll granted document activity after a decimal sequence string; refresh state if refresh_required is true.', 'inputSchema': object_schema({'after': STRING}, [])},
+    {'name': 'qinda_events', 'description': 'Poll activity from one endpoint (returned by documents/sessions), after a decimal sequence string; refresh if refresh_required is true.', 'inputSchema': object_schema({'after': STRING, 'endpoint': STRING}, [])},
 ]
 METHODS = {'qinda_documents': 'documents.list', 'qinda_inspect': 'document.inspect',
            'qinda_actions': 'actions.list', 'qinda_invoke': 'action.invoke', 'qinda_events': 'events.poll'}
@@ -75,11 +99,16 @@ METHODS = {'qinda_documents': 'documents.list', 'qinda_inspect': 'document.inspe
 
 def mcp(endpoint):
     # AGENT-CONTRACT: stdout is MCP JSON only; diagnostics go to stderr.
-    for line in sys.stdin.buffer:
+    while True:
+        line = sys.stdin.buffer.readline(262145)
+        if not line:
+            break
         request = {}
         try:
             if len(line) > 262144:
-                raise ValueError('MCP request exceeds 256 KiB')
+                print(json.dumps({'jsonrpc': '2.0', 'id': None,
+                                  'error': {'code': -32600, 'message': 'MCP request exceeds 256 KiB'}}), flush=True)
+                return  # Do not reinterpret an oversized line's tail as another request.
             request = json.loads(line)
             if not isinstance(request, dict) or request.get('jsonrpc') != '2.0':
                 raise ValueError('Invalid JSON-RPC request')
@@ -87,6 +116,8 @@ def mcp(endpoint):
                 continue
             method = request.get('method')
             params = request.get('params', {})
+            if not isinstance(params, dict):
+                raise ValueError('params must be an object')
             if method == 'initialize':
                 result = {'protocolVersion': '2025-11-25', 'capabilities': {'tools': {}, 'resources': {}},
                           'serverInfo': {'name': 'qinda-agent', 'version': '1.0'},
@@ -97,23 +128,27 @@ def mcp(endpoint):
                 result = {'tools': TOOLS}
             elif method == 'tools/call':
                 name = params.get('name')
-                if name not in METHODS:
+                if name not in METHODS and name != 'qinda_sessions':
                     raise ValueError('Unknown tool')
                 arguments = params.get('arguments', {})
                 if not isinstance(arguments, dict):
                     raise ValueError('Tool arguments must be an object')
-                data = rpc(endpoint, METHODS[name], arguments)
-                error = data.get('status', 'completed') not in ('completed', 'partial', 'undone')
+                try:
+                    selected = arguments.pop('endpoint', endpoint) if name == 'qinda_events' else endpoint
+                    data = {'endpoints': endpoints()} if name == 'qinda_sessions' else dispatch(selected, METHODS[name], arguments)
+                except (OSError, ValueError) as error:
+                    data = {'status': 'client_error', 'message': str(error)}
+                error = data.get('status', 'completed') not in ('completed', 'undone')
                 result = {'content': [{'type': 'text', 'text': json.dumps(data, ensure_ascii=False)}], 'structuredContent': data, 'isError': error}
             elif method == 'resources/list':
-                documents = rpc(endpoint, 'documents.list')['documents']
+                documents = dispatch(endpoint, 'documents.list')['documents']
                 result = {'resources': [{'uri': f"qinda://document/{d['document_id']}", 'name': d.get('title') or d['document_id'], 'mimeType': 'application/json'} for d in documents]}
             elif method == 'resources/read':
                 uri = params.get('uri', '')
                 prefix = 'qinda://document/'
                 if not uri.startswith(prefix) or not uri[len(prefix):]:
                     raise ValueError('Unknown resource URI')
-                data = rpc(endpoint, 'document.inspect', {'document_id': uri[len(prefix):]})
+                data = dispatch(endpoint, 'document.inspect', {'document_id': uri[len(prefix):]})
                 if data.get('status') == 'access_denied':
                     raise ValueError('Document resource is not granted')
                 result = {'contents': [{'uri': uri, 'mimeType': 'application/json', 'text': json.dumps(data, ensure_ascii=False)}]}
@@ -150,23 +185,22 @@ def main():
         if args.command == 'sessions':
             result = {'endpoints': endpoints()}
         else:
-            endpoint = select_endpoint(args.socket)
             if args.command == 'mcp':
-                mcp(endpoint)
+                mcp(args.socket)
                 return 0
             if args.command == 'documents':
-                result = rpc(endpoint, 'documents.list')
+                result = dispatch(args.socket, 'documents.list')
             elif args.command in ('inspect', 'actions'):
-                result = rpc(endpoint, 'document.inspect' if args.command == 'inspect' else 'actions.list', {'document_id': args.document_id})
+                result = dispatch(args.socket, 'document.inspect' if args.command == 'inspect' else 'actions.list', {'document_id': args.document_id})
             elif args.command == 'events':
-                result = rpc(endpoint, 'events.poll', {'after': args.after})
+                result = dispatch(args.socket, 'events.poll', {'after': args.after})
             else:
                 arguments = json.loads(args.args)
                 if not isinstance(arguments, dict):
                     raise ValueError('--args must be a JSON object')
-                result = rpc(endpoint, 'action.invoke', {'document_id': args.document_id, 'action': args.action, 'arguments': arguments, 'if_revision': args.if_revision, 'request_id': args.request_id})
+                result = dispatch(args.socket, 'action.invoke', {'document_id': args.document_id, 'action': args.action, 'arguments': arguments, 'if_revision': args.if_revision, 'request_id': args.request_id})
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result.get('status', 'completed') in ('completed', 'partial', 'undone') else 1
+        return 0 if result.get('status', 'completed') in ('completed', 'undone') else 1
     except (ValueError, OSError) as error:
         print(json.dumps({'status': 'client_error', 'message': str(error)}), file=sys.stderr)
         return 2
