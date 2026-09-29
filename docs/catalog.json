@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-26",
+  "generated": "2026-09-29",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -10031,7 +10031,7 @@
       "name": "DataTable",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT: a dense, virtualised, sortable table. `columns` is a list of Tk.TableColumn. `model` is a JS array of objects, or any model that exposes `get(index)` returning one record (QML ListModel does; a C++ model needs a Q_INVOKABLE QVariantMap get(int)). Rows are Theme.size.row tall and only the visible ones exist, so a table of ten thousand processes costs the same as a table of thirty.  AGENT-NOTE: records are fetched with recordAt(index) rather than read from the delegate's `model`/`modelData` context properties, because those differ by model kind -- a JS array delegate gets `modelData` and no `model`, a QAbstractItemModel delegate gets role properties and no `modelData` -- and a cell that has to work for formatters, ramps and custom delegates alike cannot branch on which one happens to exist. get() is only ever called for rows that are actually on screen.  AGENT-GUARD: the table never sorts or filters. Clicking a header emits `sortRequested(key, order)` and nothing moves until the owner applies it to its model. A table that sorted a JS array in place would silently reorder the caller's data and disagree with a C++ proxy's own ordering.  objectNames: tableHeader, tableBody, headerCell_<key>, headerFocusRing_<key>, tableRow.",
+      "description": "AGENT-CONTRACT: a dense, virtualised, sortable table. `columns` is a list of Tk.TableColumn. `model` is a JS array of objects, or any model that exposes `get(index)` returning one record (QML ListModel does; a C++ model needs a Q_INVOKABLE QVariantMap get(int)). Rows are Theme.size.row tall and only the visible ones exist, so a table of ten thousand processes costs the same as a table of thirty.  AGENT-NOTE: records are fetched with recordAt(index) rather than read from the delegate's `model`/`modelData` context properties, because those differ by model kind -- a JS array delegate gets `modelData` and no `model`, a QAbstractItemModel delegate gets role properties and no `modelData` -- and a cell that has to work for formatters, ramps and custom delegates alike cannot branch on which one happens to exist. get() is only ever called for rows that are actually on screen.  AGENT-GUARD: the table never sorts or filters. Clicking a header emits `sortRequested(key, order)` and nothing moves until the owner applies it to its model. A table that sorted a JS array in place would silently reorder the caller's data and disagree with a C++ proxy's own ordering.  objectNames: tableHorizontal, tableHeader, tableBody, headerCell_<key>, headerFocusRing_<key>, tableRow.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/DataTable.qml",

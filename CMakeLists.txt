@@ -147,6 +147,7 @@ function(qindatk_enable_warnings target)
     endif()
 endfunction()
 
+add_subdirectory(src/agent)
 add_subdirectory(src)
 
 # AGENT-CONTRACT (tools/qualify/qualify_build.py, D-201): the optional
@@ -179,6 +180,7 @@ qindatk_write_feature_summary()
 
 if(QINDATK_BUILD_TOOLS)
     add_subdirectory(tools/preview)
+    install(PROGRAMS tools/agent/qinda-agent DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 if(BUILD_TESTING)

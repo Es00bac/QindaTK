@@ -7,6 +7,7 @@ pages below are the reference.
 
 | Page | What it covers |
 | --- | --- |
+| [agent-interface.md](agent-interface.md) | Live domain providers, typed actions, grants, local CLI and MCP access |
 | [architecture.md](architecture.md) | Module layout, C++/QML split, ownership and threading, how apps link it |
 | [layout.md](layout.md) | Flex, Grid, Stack, Box, Scroll: the CSS-equivalent layout model, with the exact algorithm rules |
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |

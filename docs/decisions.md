@@ -2056,6 +2056,22 @@ Consumers opt in per surface and drop the canceled finger stroke; pen and
 mouse grabs keep their permissions. Tests: `tst_viewport_touch.qml`,
 `tst_stylus_handler` (touch ignored by default).
 
+## D-306 — Agent access is a provider contract over the existing editing engine
+
+**Decision.** A Qt Core/Network-only `QindaTK::agent` library owns live JSON
+state, formal action discovery, revision-gated invocation, application-set
+per-provider grants and execution receipts. It borrows providers, runs on the
+owner thread and exposes the same service through a private local Unix socket,
+CLI and MCP stdio adapter. Models do not validate success or own document state.
+Receipts are retained up to a hard session limit, never evicted and reapplied.
+
+**Consequences.** QtQuick and native content engines can share one contract;
+applications implement domain state and semantic actions instead of exposing
+visual delegates. The v1 boundary is local same-user access with synchronous
+operations and bounded event polling. Automatic control coverage, async tasks
+and remote access are not implied. See [agent-interface.md](agent-interface.md)
+and `tst_agent_host` for the contract and real IPC verification.
+
 ## D-305 — The ribbon squeezes group by group, from the right
 
 **Context.** One `squeezeLevel` applied to every group: a tab a few pixels
