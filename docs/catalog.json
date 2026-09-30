@@ -76280,6 +76280,69 @@
           "constant": false
         },
         {
+          "name": "alternateScreen",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "reverseScreen",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorBlink",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorShape",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "mouseMode",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scrollbackOffset",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "foregroundProcessRunning",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "workingDirectory",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "maxScrollback",
           "type": "int",
           "default": "",
@@ -76299,6 +76362,10 @@
         {
           "name": "exited",
           "parameters": "int exitCode"
+        },
+        {
+          "name": "bell",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -76311,6 +76378,46 @@
           "name": "sendText",
           "returns": "bool",
           "parameters": "const QString &text"
+        },
+        {
+          "name": "sendKey",
+          "returns": "bool",
+          "parameters": "int key, int modifiers = 0, const QString &text = {}"
+        },
+        {
+          "name": "pasteText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "sendMouse",
+          "returns": "bool",
+          "parameters": "int row, int column, int button, bool pressed, int modifiers = 0"
+        },
+        {
+          "name": "setFocused",
+          "returns": "void",
+          "parameters": "bool focused"
+        },
+        {
+          "name": "setColors",
+          "returns": "void",
+          "parameters": "const QColor &foreground, const QColor &background, const QVariantList &palette = {}"
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "rowData",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "copyTextRange",
+          "returns": "QString",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
         },
         {
           "name": "resize",
