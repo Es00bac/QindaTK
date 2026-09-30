@@ -50,6 +50,12 @@ private slots:
         QTest::newRow("ctrl shift left") << QString() << int(Qt::Key_Left) << int(Qt::ControlModifier | Qt::ShiftModifier) << QString() << QByteArray("\033[1;6D");
         QTest::newRow("alt ctrl c") << QString() << int(Qt::Key_C) << int(Qt::ControlModifier | Qt::AltModifier) << QString() << QByteArray("\033\003");
         QTest::newRow("ctrl v goes to child") << QString() << int(Qt::Key_V) << int(Qt::ControlModifier) << QString() << QByteArray("\026");
+        QTest::newRow("ctrl backspace") << QString() << int(Qt::Key_Backspace) << int(Qt::ControlModifier) << QString() << QByteArray("\010");
+        QTest::newRow("shift backspace") << QString() << int(Qt::Key_Backspace) << int(Qt::ShiftModifier) << QString() << QByteArray("\177");
+        QTest::newRow("ctrl space") << QString() << int(Qt::Key_Space) << int(Qt::ControlModifier) << QString() << QByteArray(1, '\0');
+        QTest::newRow("ctrl bracket") << QString() << int(Qt::Key_BracketLeft) << int(Qt::ControlModifier) << QString() << QByteArray("\033");
+        QTest::newRow("ctrl underscore") << QString() << int(Qt::Key_Underscore) << int(Qt::ControlModifier | Qt::ShiftModifier) << QString() << QByteArray("\037");
+        QTest::newRow("ctrl caret") << QString() << int(Qt::Key_AsciiCircum) << int(Qt::ControlModifier | Qt::ShiftModifier) << QString() << QByteArray("\036");
         QTest::newRow("shift f5") << QString() << int(Qt::Key_F5) << int(Qt::ShiftModifier) << QString() << QByteArray("\033[15;2~");
         QTest::newRow("application keypad") << QStringLiteral("\033=") << int(Qt::Key_2) << int(Qt::KeypadModifier) << QStringLiteral("2") << QByteArray("\033Or");
     }
@@ -128,6 +134,22 @@ private slots:
         QVERIFY(session.resize(5, 20));
         QCOMPARE(session.scrollback().size() + session.rows(), qMax(total, 5));
         QCOMPARE(session.copyText(0, total - 1), previous);
+        session.stop();
+        QTRY_VERIFY(!session.running());
+    }
+    void foregroundJobAndDirectory()
+    {
+        QTemporaryDir directory;
+        TerminalSession session;
+        QVERIFY(session.start(QStringLiteral("/bin/bash"), {QStringLiteral("--noprofile"), QStringLiteral("--norc"), QStringLiteral("-i")}, directory.path()));
+        QTRY_COMPARE(session.workingDirectory(), directory.path());
+        QVERIFY(!session.foregroundProcessRunning());
+        QVERIFY(session.sendText(QStringLiteral("sleep 30\n")));
+        QTRY_VERIFY(session.foregroundProcessRunning());
+        QVERIFY(session.sendKey(Qt::Key_C, Qt::ControlModifier));
+        QTRY_VERIFY(!session.foregroundProcessRunning());
+        QVERIFY(session.sendText(QStringLiteral("cd /tmp\n")));
+        QTRY_COMPARE(session.workingDirectory(), QStringLiteral("/tmp"));
         session.stop();
         QTRY_VERIFY(!session.running());
     }

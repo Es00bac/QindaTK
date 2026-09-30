@@ -23,7 +23,8 @@ Destroying a running session kills and reaps the child.
 raw cells, so `rowData(row)` preserves color, styling, cell columns and glyph
 widths. `copyTextRange(firstRow, firstColumn, lastRow, lastColumn)` selects
 cells, with an exclusive last column; combining and wide glyphs stay intact.
-Whole-line copies trim terminal padding. History pop restores rows when the
+Whole-line copies trim terminal padding.  `historyColumns` lets surfaces expose old wide rows after a width change.
+History pop restores rows when the
 screen grows, and `scrollbackOffset` counts rows evicted from the front.
 Alternate-screen programs hide primary history until they leave that screen.
 `clearHistory()` clears history without sending input to the application. It defaults to 2,000
@@ -34,7 +35,7 @@ host owns selection, clipboard, fonts and theming in its TerminalView.
 libvterm handles UTF-8, CSI/SGR and alternate screen state. The PTY is local
 to Unix/Linux; this initial adapter has no Windows ConPTY implementation.
 `sendKey(qtKey, qtModifiers, text)` uses libvterm's application cursor and
-keypad modes; traditional Ctrl-letter and Return encodings remain compatible
+keypad modes; traditional Ctrl-letter/punctuation, Backspace and Return encodings remain compatible
 with shell line editors. `pasteText(text)` negotiates bracketed paste, normalizes
 line endings, and removes control characters other than tabs/newlines.
 `sendMouse(row, column, button, pressed, qtModifiers)` follows the program's

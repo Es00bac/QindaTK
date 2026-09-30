@@ -56,6 +56,27 @@ bool TerminalSession::sendKey(int key, int modifiers, const QString &text)
 {
     if (!running() || !m_vterm)
         return false;
+    if ((modifiers & Qt::ControlModifier) || key == Qt::Key_Backspace || key == Qt::Key_Escape) {
+        int control = -1;
+        if (modifiers & Qt::ControlModifier) {
+            switch (key) {
+            case Qt::Key_Space: case Qt::Key_At: case Qt::Key_2: control = 0; break;
+            case Qt::Key_BracketLeft: case Qt::Key_3: control = 27; break;
+            case Qt::Key_Backslash: case Qt::Key_4: control = 28; break;
+            case Qt::Key_BracketRight: case Qt::Key_5: control = 29; break;
+            case Qt::Key_AsciiCircum: case Qt::Key_6: control = 30; break;
+            case Qt::Key_Underscore: case Qt::Key_7: case Qt::Key_Minus: control = 31; break;
+            case Qt::Key_Question: case Qt::Key_8: control = 127; break;
+            }
+        }
+        if (key == Qt::Key_Backspace) control = (modifiers & Qt::ControlModifier) ? 8 : 127;
+        if (key == Qt::Key_Escape) control = 27;
+        if (control >= 0) {
+            QByteArray bytes(1, char(control));
+            if (modifiers & Qt::AltModifier) bytes.prepend(char(27));
+            return queueInput(bytes);
+        }
+    }
     if (key == Qt::Key_Backtab)
         modifiers |= Qt::ShiftModifier;
     // Traditional terminal Return remains CR with Shift/Ctrl; many line

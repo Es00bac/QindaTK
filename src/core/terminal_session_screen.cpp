@@ -204,6 +204,14 @@ QVariantMap TerminalSession::formatRow(const QList<VTermScreenCell> &cells, bool
     return result;
 }
 
+int TerminalSession::historyColumns() const
+{
+    int columns = 0;
+    if (!m_alternateScreen)
+        for (const auto &row : m_history) columns = qMax(columns, int(row.size()));
+    return columns;
+}
+
 QVariantMap TerminalSession::rowData(int row) const
 {
     return formatRow(rowCells(row), true);

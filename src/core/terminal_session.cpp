@@ -285,14 +285,24 @@ void TerminalSession::closePty()
     m_pendingInput.clear();
 }
 
-void TerminalSession::updateProcessInfo()
+bool TerminalSession::foregroundProcessRunning() const
 {
     const pid_t foreground = m_master >= 0 ? ::tcgetpgrp(m_master) : -1;
-    const bool active = foreground > 0 && foreground != m_pid;
-    QString directory = QFileInfo(QStringLiteral("/proc/%1/cwd").arg(
+    return foreground > 0 && foreground != m_pid;
+}
+
+QString TerminalSession::workingDirectory() const
+{
+    const pid_t foreground = m_master >= 0 ? ::tcgetpgrp(m_master) : -1;
+    const QString directory = QFileInfo(QStringLiteral("/proc/%1/cwd").arg(
         foreground > 0 ? foreground : m_pid)).symLinkTarget();
-    if (directory.isEmpty())
-        directory = m_workingDirectory;
+    return directory.isEmpty() ? m_workingDirectory : directory;
+}
+
+void TerminalSession::updateProcessInfo()
+{
+    const bool active = foregroundProcessRunning();
+    const QString directory = workingDirectory();
     if (active != m_foregroundProcessRunning || directory != m_workingDirectory) {
         m_foregroundProcessRunning = active;
         m_workingDirectory = directory;

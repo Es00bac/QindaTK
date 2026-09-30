@@ -76280,6 +76280,13 @@
           "constant": false
         },
         {
+          "name": "historyColumns",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "alternateScreen",
           "type": "bool",
           "default": "",

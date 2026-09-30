@@ -28,6 +28,7 @@ class TerminalSession : public QObject {
     Q_PROPERTY(bool cursorVisible READ cursorVisible NOTIFY screenChanged)
     Q_PROPERTY(QVariantList screen READ screen NOTIFY screenChanged)
     Q_PROPERTY(QStringList scrollback READ scrollback NOTIFY screenChanged)
+    Q_PROPERTY(int historyColumns READ historyColumns NOTIFY screenChanged)
     Q_PROPERTY(bool alternateScreen READ alternateScreen NOTIFY screenChanged)
     Q_PROPERTY(bool reverseScreen READ reverseScreen NOTIFY screenChanged)
     Q_PROPERTY(bool cursorBlink READ cursorBlink NOTIFY screenChanged)
@@ -59,8 +60,9 @@ public:
     int mouseMode() const { return m_mouseMode; }
     QString title() const { return m_title; }
     qulonglong scrollbackOffset() const { return m_scrollbackOffset; }
-    bool foregroundProcessRunning() const { return m_foregroundProcessRunning; }
-    QString workingDirectory() const { return m_workingDirectory; }
+    bool foregroundProcessRunning() const;
+    QString workingDirectory() const;
+    int historyColumns() const;
     int maxScrollback() const { return m_maxScrollback; }
     void setMaxScrollback(int value);
 
