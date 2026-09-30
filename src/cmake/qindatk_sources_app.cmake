@@ -90,6 +90,7 @@ set(qindatk_app_sources
     core/job_model.cpp core/job_model.h
     core/script_runtime.cpp core/script_runtime.h
     core/terminal_session.cpp core/terminal_session.h
+    core/terminal_session_screen.cpp core/terminal_session_input.cpp
     core/render_queue_model.cpp core/render_queue_model.h core/render_queue_provider.cpp
     core/notification_model.cpp core/notification_model.h
     core/pdf_annotation_document.cpp core/pdf_annotation_document.h

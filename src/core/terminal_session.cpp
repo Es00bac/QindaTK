@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QVariantMap>
 #include <cerrno>
 #include <cstring>
@@ -15,8 +16,8 @@
 
 namespace QindaTK {
 namespace {
-constexpr int maxRows = 100;
-constexpr int maxColumns = 240;
+constexpr int maxRows = 512;
+constexpr int maxColumns = 1024;
 constexpr int maxPendingInput = 1024 * 1024;
 
 void signalProcessGroup(int pid, int signal)
@@ -27,16 +28,6 @@ void signalProcessGroup(int pid, int signal)
         ::kill(pid, signal);
 }
 
-QString colorName(const VTermScreen *screen, VTermColor color, bool foreground)
-{
-    if (foreground ? VTERM_COLOR_IS_DEFAULT_FG(&color) : VTERM_COLOR_IS_DEFAULT_BG(&color))
-        return {};
-    vterm_screen_convert_color_to_rgb(screen, &color);
-    return QStringLiteral("#%1%2%3")
-        .arg(color.rgb.red, 2, 16, QLatin1Char('0'))
-        .arg(color.rgb.green, 2, 16, QLatin1Char('0'))
-        .arg(color.rgb.blue, 2, 16, QLatin1Char('0'));
-}
 } // namespace
 
 TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
@@ -45,7 +36,7 @@ TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
     connect(&m_pollTimer, &QTimer::timeout, this, &TerminalSession::pollProcess);
     m_killTimer.setSingleShot(true);
     connect(&m_killTimer, &QTimer::timeout, this, [this] {
-        if (m_pid > 0)
+        if (m_pid > 0 && !m_childExited)
             signalProcessGroup(m_pid, SIGKILL);
     });
     m_vterm = vterm_new(m_rows, m_columns);
@@ -57,11 +48,19 @@ TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
     vterm_output_set_callback(m_vterm, &TerminalSession::outputToPty, this);
     m_vscreen = vterm_obtain_screen(m_vterm);
     m_callbacks.movecursor = &TerminalSession::cursorMoved;
+    m_callbacks.settermprop = &TerminalSession::termProperty;
+    m_callbacks.bell = &TerminalSession::ringBell;
+    m_callbacks.sb_popline = &TerminalSession::popScrollback;
     m_callbacks.sb_pushline = &TerminalSession::pushScrollback;
     m_callbacks.sb_clear = &TerminalSession::clearScrollback;
     vterm_screen_set_callbacks(m_vscreen, &m_callbacks, this);
     vterm_screen_enable_altscreen(m_vscreen, 1);
     vterm_screen_reset(m_vscreen, 1);
+    for (int index = 0; index < 16; ++index) {
+        VTermColor color{};
+        vterm_state_get_palette_color(vterm_obtain_state(m_vterm), index, &color);
+        m_defaultPalette.append(color);
+    }
     rebuildScreen();
 }
 
@@ -69,7 +68,7 @@ TerminalSession::~TerminalSession()
 {
     m_pollTimer.stop();
     m_killTimer.stop();
-    if (m_pid > 0) {
+    if (m_pid > 0 && !m_childExited) {
         signalProcessGroup(m_pid, SIGKILL);
         int status = 0;
         while (::waitpid(m_pid, &status, 0) < 0 && errno == EINTR) {}
@@ -92,8 +91,11 @@ void TerminalSession::setMaxScrollback(int value)
     if (m_maxScrollback == value)
         return;
     m_maxScrollback = value;
-    while (m_scrollback.size() > m_maxScrollback)
+    while (m_scrollback.size() > m_maxScrollback) {
         m_scrollback.removeFirst();
+        m_history.pop_front();
+        ++m_scrollbackOffset;
+    }
     emit screenChanged();
 }
 
@@ -105,6 +107,7 @@ bool TerminalSession::start(const QString &program, const QStringList &arguments
         return false;
     }
     if (!m_vterm || program.isEmpty() || program.contains(QChar::Null)
+        || workingDirectory.contains(QChar::Null)
         || arguments.size() > 256 || (workingDirectory.size() && !QDir(workingDirectory).exists())) {
         setError(QStringLiteral("invalid terminal process request"));
         return false;
@@ -129,31 +132,65 @@ bool TerminalSession::start(const QString &program, const QStringList &arguments
     struct winsize size {};
     size.ws_row = static_cast<unsigned short>(m_rows);
     size.ws_col = static_cast<unsigned short>(m_columns);
+    // AGENT-GUARD: CLOEXEC prevents later sessions and exec'd applications
+    // from retaining earlier sessions' masters and keeping their PTYs alive.
+    int errors[2];
+    if (::pipe2(errors, O_CLOEXEC) != 0) {
+        setError(QString::fromLocal8Bit(std::strerror(errno)));
+        return false;
+    }
     int master = -1;
     const pid_t child = ::forkpty(&master, nullptr, nullptr, &size);
     if (child == 0) {
-        if (!directory.isEmpty() && ::chdir(directory.constData()) != 0)
+        ::close(errors[0]);
+        if (!directory.isEmpty() && ::chdir(directory.constData()) != 0) {
+            const int failure = errno;
+            (void)::write(errors[1], &failure, sizeof(failure));
             _exit(126);
+        }
         ::setenv("TERM", "xterm-256color", 1);
         ::setenv("COLORTERM", "truecolor", 1);
         ::execvp(executable.constData(), argv.data());
+        const int failure = errno;
+        (void)::write(errors[1], &failure, sizeof(failure));
         _exit(127);
     }
+    ::close(errors[1]);
     if (child < 0) {
+        const int failure = errno;
+        ::close(errors[0]);
+        errno = failure;
         setError(QString::fromLocal8Bit(std::strerror(errno)));
+        return false;
+    }
+    int failure = 0;
+    ssize_t count;
+    do { count = ::read(errors[0], &failure, sizeof(failure)); } while (count < 0 && errno == EINTR);
+    ::close(errors[0]);
+    if (count > 0) {
+        ::close(master);
+        while (::waitpid(child, nullptr, 0) < 0 && errno == EINTR) {}
+        setError(QStringLiteral("could not start %1: %2").arg(program, QString::fromLocal8Bit(std::strerror(failure))));
         return false;
     }
     m_pid = child;
     m_master = master;
     m_exitCode = -1;
+    m_childExited = false;
+    m_foregroundProcessRunning = false;
+    m_workingDirectory = workingDirectory.isEmpty() ? QDir::currentPath()
+                                                   : QDir(workingDirectory).absolutePath();
+    m_title.clear();
+    m_titleBytes.clear();
     m_error.clear();
-    m_scrollback.clear();
+    clearHistory();
     m_pendingInput.clear();
     vterm_screen_reset(m_vscreen, 1);
     const int flags = ::fcntl(m_master, F_GETFL);
     ::fcntl(m_master, F_SETFL, flags | O_NONBLOCK);
+    ::fcntl(m_master, F_SETFD, FD_CLOEXEC);
     m_readNotifier = new QSocketNotifier(m_master, QSocketNotifier::Read, this);
-    connect(m_readNotifier, &QSocketNotifier::activated, this, &TerminalSession::readAvailable);
+    connect(m_readNotifier, &QSocketNotifier::activated, this, [this] { readAvailable(); });
     m_writeNotifier = new QSocketNotifier(m_master, QSocketNotifier::Write, this);
     m_writeNotifier->setEnabled(false);
     connect(m_writeNotifier, &QSocketNotifier::activated, this, &TerminalSession::flushInput);
@@ -167,7 +204,13 @@ bool TerminalSession::sendText(const QString &text)
 {
     if (!running() || m_master < 0)
         return false;
-    const QByteArray bytes = text.toUtf8();
+    return queueInput(text.toUtf8());
+}
+
+bool TerminalSession::queueInput(const QByteArray &bytes)
+{
+    if (!running() || m_master < 0)
+        return false;
     if (bytes.size() > maxPendingInput - m_pendingInput.size()) {
         setError(QStringLiteral("terminal input buffer is full"));
         return false;
@@ -208,6 +251,7 @@ bool TerminalSession::resize(int rows, int columns)
     m_rows = rows;
     m_columns = columns;
     vterm_set_size(m_vterm, rows, columns);
+    vterm_screen_flush_damage(m_vscreen);
     if (m_master >= 0) {
         struct winsize size {};
         size.ws_row = static_cast<unsigned short>(rows);
@@ -222,7 +266,7 @@ bool TerminalSession::resize(int rows, int columns)
 
 void TerminalSession::stop()
 {
-    if (m_pid <= 0)
+    if (m_pid <= 0 || m_childExited)
         return;
     signalProcessGroup(m_pid, SIGHUP);
     m_killTimer.start(2000);
@@ -241,20 +285,45 @@ void TerminalSession::closePty()
     m_pendingInput.clear();
 }
 
+void TerminalSession::updateProcessInfo()
+{
+    const pid_t foreground = m_master >= 0 ? ::tcgetpgrp(m_master) : -1;
+    const bool active = foreground > 0 && foreground != m_pid;
+    QString directory = QFileInfo(QStringLiteral("/proc/%1/cwd").arg(
+        foreground > 0 ? foreground : m_pid)).symLinkTarget();
+    if (directory.isEmpty())
+        directory = m_workingDirectory;
+    if (active != m_foregroundProcessRunning || directory != m_workingDirectory) {
+        m_foregroundProcessRunning = active;
+        m_workingDirectory = directory;
+        emit processChanged();
+    }
+}
+
 void TerminalSession::pollProcess()
 {
     if (m_pid <= 0)
         return;
-    int status = 0;
-    const pid_t result = ::waitpid(m_pid, &status, WNOHANG);
-    if (result == 0)
+    if (!m_childExited) {
+        const pid_t result = ::waitpid(m_pid, &m_exitedStatus, WNOHANG);
+        if (result == 0) {
+            updateProcessInfo();
+            return;
+        }
+        if (result < 0 && errno == EINTR)
+            return;
+        if (result < 0)
+            m_exitedStatus = -1;
+        m_childExited = true;
+    }
+    // Drain output in bounded event-loop turns even after waitpid succeeds.
+    // Closing after one read budget silently discarded large final output.
+    if (readAvailable())
         return;
-    if (result < 0 && errno == EINTR)
-        return;
-    readAvailable();
-    m_exitCode = result < 0 ? -1 : WIFEXITED(status) ? WEXITSTATUS(status)
-                                                : 128 + WTERMSIG(status);
+    m_exitCode = m_exitedStatus < 0 ? -1 : WIFEXITED(m_exitedStatus)
+        ? WEXITSTATUS(m_exitedStatus) : 128 + WTERMSIG(m_exitedStatus);
     m_pid = -1;
+    m_foregroundProcessRunning = false;
     m_pollTimer.stop();
     m_killTimer.stop();
     closePty();
@@ -262,12 +331,11 @@ void TerminalSession::pollProcess()
     emit exited(m_exitCode);
 }
 
-void TerminalSession::readAvailable()
+bool TerminalSession::readAvailable(int budget)
 {
     if (m_master < 0 || !m_vterm)
-        return;
+        return false;
     char bytes[8192];
-    int budget = 262144;
     bool changed = false;
     while (budget > 0) {
         const ssize_t n = ::read(m_master, bytes, qMin<int>(sizeof(bytes), budget));
@@ -288,121 +356,7 @@ void TerminalSession::readAvailable()
         flushInput();
         rebuildScreen();
     }
-}
-
-QString TerminalSession::cellText(const VTermScreenCell &cell)
-{
-    if (cell.width == 0)
-        return {};
-    QString text;
-    for (uint32_t ch : cell.chars) {
-        if (!ch)
-            break;
-        const char32_t scalar = static_cast<char32_t>(ch);
-        text += QString::fromUcs4(&scalar, 1);
-    }
-    return text.isEmpty() ? QStringLiteral(" ") : text;
-}
-
-int TerminalSession::pushScrollback(int columns, const VTermScreenCell *cells, void *user)
-{
-    auto *self = static_cast<TerminalSession *>(user);
-    if (self->m_maxScrollback == 0)
-        return 0;
-    QString line;
-    for (int column = 0; column < columns; ++column)
-        line += cellText(cells[column]);
-    while (line.endsWith(QLatin1Char(' ')))
-        line.chop(1);
-    self->m_scrollback.append(line);
-    while (self->m_scrollback.size() > self->m_maxScrollback)
-        self->m_scrollback.removeFirst();
-    return 0;
-}
-
-int TerminalSession::clearScrollback(void *user)
-{
-    static_cast<TerminalSession *>(user)->m_scrollback.clear();
-    return 1;
-}
-
-int TerminalSession::cursorMoved(VTermPos pos, VTermPos, int visible, void *user)
-{
-    auto *self = static_cast<TerminalSession *>(user);
-    self->m_cursorRow = pos.row;
-    self->m_cursorColumn = pos.col;
-    self->m_cursorVisible = visible;
-    return 1;
-}
-
-void TerminalSession::outputToPty(const char *bytes, size_t length, void *user)
-{
-    auto *self = static_cast<TerminalSession *>(user);
-    if (self->m_master < 0 || length > size_t(maxPendingInput - self->m_pendingInput.size()))
-        return;
-    self->m_pendingInput.append(bytes, qsizetype(length));
-}
-
-void TerminalSession::rebuildScreen()
-{
-    if (!m_vscreen)
-        return;
-    QVariantList rows;
-    rows.reserve(m_rows);
-    for (int row = 0; row < m_rows; ++row) {
-        QString plain;
-        QVariantList spans;
-        QString spanText;
-        QVariantMap style;
-        auto flushSpan = [&] {
-            if (spanText.isEmpty())
-                return;
-            QVariantMap span = style;
-            span.insert(QStringLiteral("text"), spanText);
-            spans.append(span);
-            spanText.clear();
-        };
-        for (int column = 0; column < m_columns; ++column) {
-            VTermScreenCell cell {};
-            if (!vterm_screen_get_cell(m_vscreen, {row, column}, &cell))
-                continue;
-            const QString glyph = cellText(cell);
-            if (glyph.isEmpty())
-                continue;
-            QVariantMap nextStyle {
-                {QStringLiteral("foreground"), colorName(m_vscreen, cell.fg, true)},
-                {QStringLiteral("background"), colorName(m_vscreen, cell.bg, false)},
-                {QStringLiteral("bold"), bool(cell.attrs.bold)},
-                {QStringLiteral("italic"), bool(cell.attrs.italic)},
-                {QStringLiteral("underline"), bool(cell.attrs.underline)},
-                {QStringLiteral("reverse"), bool(cell.attrs.reverse)}
-            };
-            if (nextStyle != style) {
-                flushSpan();
-                style = nextStyle;
-            }
-            spanText += glyph;
-            plain += glyph;
-        }
-        flushSpan();
-        rows.append(QVariantMap {{QStringLiteral("text"), plain},
-                                 {QStringLiteral("spans"), spans}});
-    }
-    m_screenRows = rows;
-    emit screenChanged();
-}
-
-QString TerminalSession::copyText(int firstRow, int lastRow) const
-{
-    const int total = m_scrollback.size() + m_screenRows.size();
-    if (firstRow < 0 || lastRow < firstRow || lastRow >= total)
-        return {};
-    QStringList selected;
-    for (int row = firstRow; row <= lastRow; ++row)
-        selected.append(row < m_scrollback.size() ? m_scrollback.at(row)
-                                                : m_screenRows.at(row - m_scrollback.size())
-                                                      .toMap().value(QStringLiteral("text")).toString());
-    return selected.join(QLatin1Char('\n'));
+    return budget == 0;
 }
 
 } // namespace QindaTK

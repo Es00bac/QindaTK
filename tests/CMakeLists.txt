@@ -165,6 +165,7 @@ target_compile_definitions(tst_asset_dependency_index PRIVATE
     QINDATK_ASSET_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/asset_dependencies")
 qindatk_add_test(tst_job_model)
 qindatk_add_test(tst_terminal_session)
+qindatk_add_test(tst_terminal_modes)
 qindatk_add_test(tst_code_document)
 qindatk_add_test(tst_code_language_service)
 qindatk_add_test(tst_render_queue_model)

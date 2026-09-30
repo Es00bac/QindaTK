@@ -2085,3 +2085,22 @@ per-group levels; `squeezeLevel` reports the deepest, so its 0–3 contract
 and monotonic shrink behaviour hold. **Consequences.** The first groups
 (most-used commands) keep their labels longest. Tests:
 `tst_ribbon.qml::test_squeeze_goes_group_by_group_from_the_right`.
+
+## D-307 — Terminal input modes and history cells belong to the session
+
+**Problem.** Application surfaces manually encoded keys and pasted raw text,
+losing application-cursor/keypad and bracketed-paste modes. Plain-text history
+lost styling and double-width geometry, and unread final output could be dropped
+when the child exited.
+
+**Decision.** TerminalSession delegates keyboard, paste, mouse and focus input to
+libvterm. It exposes terminal properties and retains raw history cells, including
+palette indices and glyph widths, for cell-accurate rendering and extraction.
+History eviction has a monotonic offset, resize can pop history, and final output
+drains in bounded event-loop turns before the exit notification. Launch errors
+are reported synchronously through a close-on-exec error pipe.
+
+**Verification.** `tst_terminal_session` and `tst_terminal_modes` run real PTYs:
+normal/application keys, modifiers/keypad, paste, SGR mouse/focus, alternate
+screen, cursor/title, Unicode, palette history, resize, eviction and large final
+output. QQ_Term supplies the surface, selection, search, shortcuts and clipboard.
