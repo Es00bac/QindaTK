@@ -2104,3 +2104,25 @@ are reported synchronously through a close-on-exec error pipe.
 normal/application keys, modifiers/keypad, paste, SGR mouse/focus, alternate
 screen, cursor/title, Unicode, palette history, resize, eviction and large final
 output. QQ_Term supplies the surface, selection, search, shortcuts and clipboard.
+
+## D-308 — Scoped read authority belongs to the resource owner
+
+**Problem.** Cooperative same-user v1 grants cannot represent one authenticated
+task reading one resource. Reusing an app-wide state getter can disclose other
+documents even when the caller names a narrower resource.
+
+**Decision.** Add a separate public scoped Read host and pure value/bounds
+policy. The application retains volatile exact grants and supplies an explicit
+resource adapter that validates generation/revision and captures only that
+resource. Injected task/privacy ports are trusted, side-effect-free composition
+boundaries. Admission precedes provider lookup and is rechecked after capture;
+a transport must check again immediately before queued disclosure. Legacy v1
+grants and protocol remain unchanged; no scoped grant calls a global setter.
+
+**Consequences.** This SDK depends on Qt Core/Network only and has no desktop
+private headers or authority lookup. Ports are not yet OS authentication:
+desktop/session composition, real document adapters, consent and a scoped
+wire transport remain separate production packets. This first host has no
+mutation/proposal/receipt API. See [scoped access](agent-scoped-access.md),
+`tst_scoped_agent_policy` and `tst_scoped_agent_host`; retain `tst_agent_host`
+as the v1 compatibility gate.

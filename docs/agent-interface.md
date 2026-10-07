@@ -13,6 +13,10 @@ toolkit control. Providers own domain semantics, validation, undo and useful
 changed-target/result data. Standard-control adapters, async task cancellation,
 remote access and multi-document transactions remain separate work.
 
+The additive [scoped Read SDK](agent-scoped-access.md) keeps resource-specific
+grants separate from this cooperative v1 boundary. Its injected task/privacy
+ports are not yet authenticated desktop transport or installed app admission.
+
 ## Provider ownership and state
 
 All calls run on the provider/host's owning thread (normally GUI). The host
