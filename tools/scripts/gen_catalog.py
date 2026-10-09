@@ -219,6 +219,8 @@ def build():
     types = [parse_qml(path) for path in sorted(QML_DIR.glob("*.qml"))]
     types.extend(parse_qml(path, "QindaTK.QindaQt", "bridge_qml")
                  for path in sorted(BRIDGE_DIR.glob("*.qml")))
+    types.extend(parse_qml(path, "QindaTK.Raster", "qml_companion")
+                 for path in sorted((ROOT / "modules" / "QindaTK" / "Raster").glob("*.qml")))
     for header in sorted(CORE_DIR.glob("*.h")):
         if not header.name.endswith("_p.h"):
             types.extend(parse_header(header))

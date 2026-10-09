@@ -222,3 +222,10 @@ if(QINDATK_WITH_WIDGETS)
         "${CMAKE_CURRENT_BINARY_DIR}/QindaTKWidgetsConfigVersion.cmake"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/QindaTKWidgets")
 endif()
+
+# Portage packages this separately to keep file ownership independent.
+option(QINDATK_INSTALL_RASTER_COMPANION "Install the optional raster QML companion with core" OFF)
+if(QINDATK_INSTALL_RASTER_COMPANION)
+    install(DIRECTORY modules/QindaTK/Raster DESTINATION "${QINDATK_QML_INSTALL_DIR}"
+        FILES_MATCHING PATTERN "*.qml" PATTERN "qmldir")
+endif()

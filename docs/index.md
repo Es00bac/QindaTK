@@ -13,6 +13,7 @@ pages below are the reference.
 | [layout.md](layout.md) | Flex, Grid, Stack, Box, Scroll: the CSS-equivalent layout model, with the exact algorithm rules |
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
+| [raster.md](raster.md) | Raster editing viewport, bounded transparency texture, display proxies/tiles and document-coordinate stylus input |
 | [code-editor.md](code-editor.md) | Native text buffer, visual folding, multi-caret edits, optional local LSP process, diagnostics and local UTF-8 save/reopen |
 | [diagram.md](diagram.md) | Stable diagram nodes/ports/edges, editing, deterministic orthogonal paths and local JSON |
 | [cad.md](cad.md) | Typed 2D sketch entities, units, measurements, constraints, viewport, native file and SVG/DXF output |

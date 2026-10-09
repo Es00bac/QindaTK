@@ -1,0 +1,3 @@
+module QindaTK.Raster
+RasterView 1.0 RasterView.qml
+Checkerboard 1.0 Checkerboard.qml

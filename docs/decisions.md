@@ -2143,3 +2143,20 @@ requests. `ensureVisible()` itself is unchanged for explicit callers.
 
 **Consequences.** `tst_scroll_nested` `test_focusKeepsATallItemThatAlreadyShows`
 guards it; the nested reveal tests are unchanged.
+
+## D-310 — Raster display resolution is independent of editing coordinates
+
+**Context.** QindaPhotoCraft retains its Rust editing engine while native QindaTK
+controls display a reduced composite or a visible tile. Treating that display
+texture as the document would scale brush and selection coordinates incorrectly.
+
+**Decision.** Publish the pure QML `QindaTK.Raster` companion separately from
+the core plugin. `documentSize` owns editing coordinates; `displayRect` locates
+the current texture within them. Existing Viewport navigation and StylusHandler
+samples keep their original coordinate system. A tiny checker texture bounds
+background storage. The host owns pixels, profiles, commands, history and IPC.
+
+**Consequences.** Existing core ABI and installed consumers need no rebuild.
+Source installs can opt into the companion; Portage installs it independently
+as `dev-libs/qindatk-raster`. `tests/raster/tst_raster.qml` checks proxy/tile
+geometry, mouse pressure/positions, and the painting gate.

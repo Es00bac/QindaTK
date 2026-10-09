@@ -446,3 +446,8 @@ target_link_libraries(tst_gradient_evaluator PRIVATE Qt6::Core Qt6::Gui Qt6::Tes
 target_compile_definitions(tst_gradient_evaluator PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
 add_test(NAME tst_gradient_evaluator COMMAND tst_gradient_evaluator)
+
+add_test(NAME tst_raster COMMAND tst_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/raster"
+    -import "${PROJECT_SOURCE_DIR}/modules")
+set_tests_properties(tst_raster PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")

@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-29",
+  "generated": "2026-10-09",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -82899,6 +82899,54 @@
       "bridge": false
     },
     {
+      "name": "Checkerboard",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A repeated tiny native texture, independent of the document dimensions.",
+      "singleton": false,
+      "attached": null,
+      "file": "modules/QindaTK/Raster/Checkerboard.qml",
+      "properties": [
+        {
+          "name": "lightColor",
+          "type": "color",
+          "default": "Tk.Theme.color.controlBg",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "darkColor",
+          "type": "color",
+          "default": "Tk.Theme.color.border",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellSize",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK.Raster",
+      "registrationKind": "qml_companion",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rasterCheckerboard"
+      ]
+    },
+    {
       "name": "QindaQtTheme",
       "kind": "qml",
       "base": "QtObject",
@@ -82940,6 +82988,122 @@
       "valueType": false,
       "bridge": true,
       "objectNames": []
+    },
+    {
+      "name": "RasterView",
+      "kind": "qml",
+      "base": "Tk.Viewport",
+      "description": "AGENT-CONTRACT (docs/raster.md): documentSize describes editing coordinates, not the resolution of the display proxy. Stylus samples and selectionRect use those document coordinates even when the image is reduced or zoomed.",
+      "singleton": false,
+      "attached": null,
+      "file": "modules/QindaTK/Raster/RasterView.qml",
+      "properties": [
+        {
+          "name": "source",
+          "type": "url",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "documentSize",
+          "type": "size",
+          "default": "Qt.size(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayRect",
+          "type": "rect",
+          "default": "Qt.rect(0, 0, documentSize.width, documentSize.height)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionRect",
+          "type": "rect",
+          "default": "Qt.rect(0, 0, 0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paintingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "smooth",
+          "type": "bool",
+          "default": "zoom < 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "imageStatus",
+          "type": "alias",
+          "default": "image.status",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "surfaceItem",
+          "type": "alias",
+          "default": "surface",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputHandler",
+          "type": "alias",
+          "default": "stylus",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "strokeBegan",
+          "parameters": "var sample"
+        },
+        {
+          "name": "strokeMoved",
+          "parameters": "var sample"
+        },
+        {
+          "name": "strokeEnded",
+          "parameters": "var sample"
+        },
+        {
+          "name": "strokeCanceled",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK.Raster",
+      "registrationKind": "qml_companion",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rasterImage",
+        "rasterSelection",
+        "rasterStylus",
+        "rasterSurface"
+      ]
     }
   ]
 }
