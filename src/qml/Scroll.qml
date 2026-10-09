@@ -56,7 +56,25 @@ Item {
                 target = ancestor
             ancestor = ancestor.parent
         }
-        if (ancestor === contentHost) scroll.ensureVisible(target)
+        if (ancestor === contentHost) scroll._reveal(target)
+    }
+    // AGENT-GUARD (D-309): a focused item larger than the viewport on an
+    // axis (a document page in a Viewport) that already shows on that axis
+    // keeps its scroll position. ensureVisible() would align its far edge
+    // and jump a long document to its top or bottom whenever focus returns
+    // to it from a field, a popup or a dialog.
+    function _reveal(item) {
+        const p = item.mapToItem(contentHost, 0, 0)
+        const keepY = item.height > flick.height && p.y < flick.contentY + flick.height
+                      && p.y + item.height > flick.contentY
+        const keepX = item.width > flick.width && p.x < flick.contentX + flick.width
+                      && p.x + item.width > flick.contentX
+        if (keepX && keepY) return
+        const x = flick.contentX
+        const y = flick.contentY
+        scroll.ensureVisible(item)
+        if (keepX) flick.contentX = x
+        if (keepY) flick.contentY = y
     }
     Connections {
         target: scroll.Window.window

@@ -2126,3 +2126,20 @@ wire transport remain separate production packets. This first host has no
 mutation/proposal/receipt API. See [scoped access](agent-scoped-access.md),
 `tst_scoped_agent_policy` and `tst_scoped_agent_host`; retain `tst_agent_host`
 as the v1 compatibility gate.
+
+## D-309 — Focus reveal keeps a tall item that already shows
+
+**Problem.** D-021's focus reveal called `ensureVisible()` on the focused
+item. For an item taller than the viewport — the page of a `Tk.Viewport`
+document — that aligns its far edge: focus returning to the page from a
+find field, a popover or a dialog scrolled a long document to its top or
+bottom (QindaWrite, 2026-10-08).
+
+**Decision.** The reveal leaves the scroll position alone on each axis where
+the focused item is larger than the viewport and already intersects it;
+items that fit, and items wholly out of view, are revealed as before. The
+document view keeps showing its caret through its own ensure-visible
+requests. `ensureVisible()` itself is unchanged for explicit callers.
+
+**Consequences.** `tst_scroll_nested` `test_focusKeepsATallItemThatAlreadyShows`
+guards it; the nested reveal tests are unchanged.

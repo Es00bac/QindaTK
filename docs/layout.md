@@ -476,7 +476,10 @@ focus leaves, it drops from tab traversal until scrolling is needed again.
 When a descendant gains focus, each Scroll reveals it. An outer Scroll
 reveals an inner Scroll viewport as a unit; the inner one reveals the actual
 focus target. This avoids moving the outer viewport to the target's old
-offscreen content position before the inner viewport scrolls. `ensureVisible`
+offscreen content position before the inner viewport scrolls. A focused item
+larger than the viewport that already shows on an axis (a document page)
+keeps its scroll position on that axis, so focus returning to a page from a
+field or a popup does not jump to the page's edge (D-309). `ensureVisible`
 remains available for explicit reveal. See D-021 and the nested wheel,
 keyboard and focus tests in `tests/qml/tst_scroll_nested.qml`.
 

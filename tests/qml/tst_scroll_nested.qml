@@ -43,6 +43,25 @@ TestCase {
         }
     }
     Component {
+        id: tallScene
+        Item {
+            width: 220
+            height: 180
+            Tk.Scroll {
+                objectName: "tallScroll"
+                width: 200
+                height: 160
+                Tk.Flex {
+                    direction: Tk.Flex.Column
+                    Item { implicitHeight: 40 }
+                    // A document page: far taller than the viewport, focusable.
+                    Item { objectName: "tallPage"; implicitWidth: 180; implicitHeight: 900; activeFocusOnTab: true }
+                    Tk.Button { objectName: "afterPage"; text: "After" }
+                }
+            }
+        }
+    }
+    Component {
         id: horizontalScene
         Tk.Scroll {
             width: 100
@@ -179,6 +198,30 @@ TestCase {
         verify(innerPoint.y + target.height <= inner.contentY + inner.viewportHeight)
         verify(outerPoint.y >= outer.contentY)
         verify(outerPoint.y + target.height <= outer.contentY + outer.viewportHeight)
+    }
+
+    function test_focusKeepsATallItemThatAlreadyShows() {
+        // D-309: focus returning to a page that fills the viewport must not
+        // jump to the page's top or bottom edge.
+        const scene = createTemporaryObject(tallScene, root)
+        const scroll = findChild(scene, "tallScroll")
+        const page = findChild(scene, "tallPage")
+        const after = findChild(scene, "afterPage")
+        verify(scroll && page && after)
+        tryVerify(() => scroll.scrollableY)
+        scroll.contentY = 400
+        page.forceActiveFocus()
+        verify(page.activeFocus)
+        wait(50)
+        compare(scroll.contentY, 400)
+        // A field below the page still comes into view …
+        after.forceActiveFocus()
+        tryVerify(() => scroll.contentY > 800)
+        // … and the page, when it shows again, stays where it is.
+        scroll.contentY = 300
+        page.forceActiveFocus()
+        wait(50)
+        compare(scroll.contentY, 300)
     }
 
     function test_keyboardPagingAndDisabledInnerHandoff() {
