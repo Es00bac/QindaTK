@@ -20,11 +20,24 @@ FocusScope {
     property int remaining: duration
     property bool paused: pointer.hovered || activeFocus
     readonly property int tickInterval: Math.max(Tk.Theme.motion.fast, Tk.Theme.motion.base)
+    // AGENT-CONTRACT (D-328, docs/controls.md): the implicit width is the
+    // title's or the message's one-line width (Notice.naturalWidth), at least
+    // `minimumWidth`, at most `maximumWidth`, and never more than the window
+    // leaves beside the toast's horizontal anchor margins (`availableWidth`),
+    // so a toast anchored to a window corner wraps inside the window instead
+    // of spilling past it. The window, not the parent, caps it: a parent
+    // sized from its children would otherwise shrink with the toast.
+    property real minimumWidth: Tk.Theme.size.menuMinWidth
+    property real maximumWidth: Tk.Theme.size.dialogWidth
+    readonly property real availableWidth: control.Window.width > 0
+        ? Math.max(0, control.Window.width - control.anchors.leftMargin - control.anchors.rightMargin)
+        : control.maximumWidth
     signal dismissed()
     signal actionRequested(string actionId)
 
     visible: false
-    implicitWidth: notice.implicitWidth
+    implicitWidth: Math.min(Math.max(notice.naturalWidth, control.minimumWidth),
+                            control.maximumWidth, control.availableWidth)
     implicitHeight: notice.implicitHeight
     Accessible.role: Accessible.AlertMessage
     Accessible.name: control.title.length > 0 ? control.title + ". " + control.message : control.message

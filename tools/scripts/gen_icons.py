@@ -69,7 +69,7 @@ copy-plus align-horizontal-distribute-center align-vertical-distribute-center ty
 move-right image-plus file-plus-2 notebook notebook-pen notebook-tabs text-select list-restart
 chart-area chart-scatter gallery-horizontal-end file-type clipboard-list clipboard-check refresh-ccw
 mail-check mail-warning mail-x alarm-clock bell-ring mailbox inbox chart-column-big pen-line
-signature handshake briefcase store truck vault
+signature handshake briefcase store truck vault case-sensitive
 """
 
 ELEMENT_RE = re.compile(r'\[\s*"(\w+)",\s*\{([^}]*)\}\s*\]', re.S)

@@ -18,6 +18,15 @@ Tk.Box {
 
     signal dismissed()
 
+    // D-328: the width at which the title and the text each fit on one line
+    // (icon, actions, dismiss button, padding and border included). The
+    // text column has a zero flex basis, so `implicitWidth` leaves the text
+    // out; a host that sizes a notice from its content (Tk.Toast) reads this.
+    readonly property real naturalWidth: Math.ceil(row.implicitWidth
+        + Math.max(notice.title.length > 0 ? titleMetrics.advanceWidth : 0,
+                   notice.text.length > 0 ? textMetrics.advanceWidth : 0))
+        + insetLeft + insetRight
+
     readonly property color statusColor: notice.variant === "danger" ? Tk.Theme.color.danger
                                        : notice.variant === "warning" ? Tk.Theme.color.warning
                                        : notice.variant === "success" ? Tk.Theme.color.success
@@ -39,7 +48,11 @@ Tk.Box {
     Accessible.role: Accessible.AlertMessage
     Accessible.name: notice.title.length > 0 ? notice.title + ". " + notice.text : notice.text
 
+    TextMetrics { id: titleMetrics; font: titleLabel.font; text: notice.title }
+    TextMetrics { id: textMetrics; font: textLabel.font; text: notice.text }
+
     Tk.Flex {
+        id: row
         direction: Tk.Flex.Row
         align: Tk.Flex.Start
         gap: Tk.Theme.space.sm
@@ -59,6 +72,7 @@ Tk.Box {
             Tk.Flex.minWidth: 0
 
             Tk.Label {
+                id: titleLabel
                 objectName: "noticeTitle"
                 visible: notice.title.length > 0
                 text: notice.title
@@ -67,6 +81,7 @@ Tk.Box {
                 elide: Text.ElideNone
             }
             Tk.Label {
+                id: textLabel
                 objectName: "noticeText"
                 visible: notice.text.length > 0
                 text: notice.text
