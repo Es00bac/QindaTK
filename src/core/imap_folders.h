@@ -17,7 +17,9 @@ constexpr int MaximumCounted = 200;       // mailboxes asked for STATUS
 constexpr qint64 MaximumAppendBytes = 64LL * 1024 * 1024;
 
 // One LIST reply entry as reported in result.mailboxes:
-// {name, rawName, delimiter, flags, specialUse, selectable, unread, total}.
+// {name, rawName, canonical, delimiter, flags, specialUse, selectable,
+// unread, total}. `canonical` is false when the display name alone would
+// not reach the mailbox (D-341): commands then send `rawName`.
 QVariantList parseList(const QList<QByteArray> &untagged);
 // "\\Sent" -> "sent" … ; "" for attributes without a special-use role.
 QString specialUseOf(const QStringList &flags);
@@ -29,15 +31,17 @@ void applyNameHeuristics(QVariantList *mailboxes);
 // UNSEEN) for up to MaximumCounted selectable mailboxes when `withCounts`.
 bool listMailboxes(Imap::Session &session, bool withCounts, QVariantMap *out);
 
-// A system flag ("\\Seen") or keyword atom; anything else is refused before
-// it reaches the command line.
+// RFC 3501 flag syntax (D-340): a system flag ("\\Seen"), a flag-extension
+// or a keyword atom; "\\Recent" and anything else are refused before they
+// reach the command line. Same as ImapKeywords::validFlag.
 bool validFlag(const QString &flag);
 // APPEND of `message` (bare LF normalised to CRLF) to the display-name
 // `mailbox`; out gets appendUid/appendUidValidity when the server sends
 // APPENDUID. The message bytes never enter the transcript.
 // Input (flags, size) is validated by the provider before connecting.
+// A non-empty `wire` is sent instead of the encoded display name (D-341).
 bool append(Imap::Session &session, const QString &mailbox, const QByteArray &message,
-            const QStringList &flags, QVariantMap *out);
+            const QStringList &flags, QVariantMap *out, const QByteArray &wire = {});
 
 // Reads "[COPYUID <validity> <source> <target>]" from a MOVE/COPY exchange
 // into targetUid/targetUidValidity when the source UID is `uid`.

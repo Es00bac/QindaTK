@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "imap_folders.h"
 
+#include "imap_keywords.h"
 #include "imap_mutf7.h"
 
 #include <QHash>
@@ -84,6 +85,7 @@ QVariantList parseList(const QList<QByteArray> &untagged)
         if (isInbox) role = QStringLiteral("inbox");
         const QVariantMap entry{{QStringLiteral("name"), Imap::decodeMailboxName(wire)},
                                 {QStringLiteral("rawName"), QString::fromUtf8(wire)},
+                                {QStringLiteral("canonical"), Imap::isCanonicalMailboxName(wire)},
                                 {QStringLiteral("delimiter"), delimiter}, {QStringLiteral("flags"), flags},
                                 {QStringLiteral("specialUse"), role},
                                 {QStringLiteral("selectable"), selectable && safeWireName(wire)},
@@ -162,14 +164,10 @@ bool listMailboxes(Imap::Session &session, bool withCounts, QVariantMap *out)
     return true;
 }
 
-bool validFlag(const QString &flag)
-{
-    static const QRegularExpression pattern(QStringLiteral("^\\\\?[A-Za-z0-9$_.\\-]{1,64}$"));
-    return pattern.match(flag).hasMatch() && flag != QLatin1String("\\Recent");
-}
+bool validFlag(const QString &flag) { return ImapKeywords::validFlag(flag); }
 
 bool append(Imap::Session &session, const QString &mailbox, const QByteArray &message,
-            const QStringList &flags, QVariantMap *out)
+            const QStringList &flags, QVariantMap *out, const QByteArray &wire)
 {
     QByteArray normalized;
     normalized.reserve(message.size() + message.count('\n'));
@@ -178,7 +176,7 @@ bool append(Imap::Session &session, const QString &mailbox, const QByteArray &me
         if (c == '\n' && (i == 0 || message.at(i - 1) != '\r')) normalized += '\r';
         normalized += c;
     }
-    QByteArray command = "APPEND " + Imap::mailboxArgument(mailbox);
+    QByteArray command = "APPEND " + (wire.isEmpty() ? Imap::mailboxArgument(mailbox) : Imap::quoted(wire));
     if (!flags.isEmpty()) command += " (" + flags.join(QLatin1Char(' ')).toLatin1() + ')';
     command += " {" + QByteArray::number(normalized.size()) + '}';
     // AGENT-NOTE: a synchronizing literal: the server's "+" continuation is

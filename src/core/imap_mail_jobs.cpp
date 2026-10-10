@@ -2,6 +2,9 @@
 #include "imap_mail_jobs.h"
 
 #include "imap_folders.h"
+#include "imap_keywords.h"
+#include "imap_messages.h"
+#include "imap_mutf7.h"
 #include "imap_session.h"
 #include "mail_mime.h"
 #include "mail_record.h"
@@ -14,22 +17,43 @@ namespace QindaTK::ImapJobs {
 namespace {
 QByteArray number(qint64 value) { return QByteArray::number(value); }
 
-bool hasFlag(const Imap::Value *flags, const char *name)
-{
-    if (!flags || flags->kind != Imap::Value::List) return false;
-    for (const Imap::Value &flag : flags->items)
-        if (flag.text.compare(name, Qt::CaseInsensitive) == 0) return true;
-    return false;
-}
-
 qint64 uidOf(const Imap::FetchItem &item)
 {
     const Imap::Value *uid = item.find("UID");
     return uid ? uid->text.toLongLong() : 0;
 }
 
-bool syncMailbox(Imap::Session &session, const Job &job, qint64 validity, qint64 exists, QVariantMap *out)
+QStringList sorted(QStringList list)
 {
+    list.sort(Qt::CaseInsensitive);
+    return list;
+}
+
+// True when the server's flags say something the stored record does not.
+bool changed(const Job &job, const KnownMessage &local, const QVariantMap &fields)
+{
+    return local.unread != fields.value(QStringLiteral("unread")).toBool()
+        || local.flagged != fields.value(QStringLiteral("flagged")).toBool()
+        || local.answered != fields.value(QStringLiteral("answered")).toBool()
+        || sorted(local.keywords) != fields.value(QStringLiteral("keywords")).toStringList()
+        || (job.keywordCategories
+            && sorted(local.categories) != sorted(fields.value(QStringLiteral("categories")).toStringList()));
+}
+
+void reportMailbox(const Imap::SelectInfo &info, QVariantMap *out)
+{
+    out->insert(QStringLiteral("mailboxFlags"), info.flags);
+    out->insert(QStringLiteral("permanentFlags"), info.permanentFlags);
+    out->insert(QStringLiteral("permanentFlagsSent"), info.permanentFlagsSent);
+    // RFC 3501 §7.1: "\*" means new keywords can be created and kept.
+    out->insert(QStringLiteral("allowsKeywords"),
+                !info.permanentFlagsSent || info.permanentFlags.contains(QStringLiteral("\\*")));
+    out->insert(QStringLiteral("readOnly"), info.readOnly);
+}
+
+bool syncMailbox(Imap::Session &session, const Job &job, const Imap::SelectInfo &info, QVariantMap *out)
+{
+    const qint64 validity = info.uidValidity, exists = info.exists;
     const bool reset = job.knownUidValidity != 0 && job.knownUidValidity != validity;
     qint64 lastUid = 0;
     if (!reset)
@@ -44,12 +68,10 @@ bool syncMailbox(Imap::Session &session, const Job &job, qint64 validity, qint64
                 const qint64 uid = uidOf(item);
                 if (!job.known.contains(uid)) continue;
                 seen.insert(uid);
-                const bool unread = !hasFlag(item.find("FLAGS"), "\\Seen");
-                const bool flagged = hasFlag(item.find("FLAGS"), "\\Flagged");
-                const KnownMessage local = job.known.value(uid);
-                if (local.unread != unread || local.flagged != flagged)
-                    updated.append(QVariantMap{{QStringLiteral("uid"), uid}, {QStringLiteral("unread"), unread},
-                                               {QStringLiteral("flagged"), flagged}});
+                QVariantMap fields = flagFields(job, ImapMessages::flagsOf(item.find("FLAGS")));
+                if (!changed(job, job.known.value(uid), fields)) continue;
+                fields.insert(QStringLiteral("uid"), uid);
+                updated.append(fields);
             }
         }
         for (auto it = job.known.cbegin(); it != job.known.cend(); ++it)
@@ -75,9 +97,8 @@ bool syncMailbox(Imap::Session &session, const Job &job, qint64 validity, qint64
             for (const Imap::FetchItem &item : Imap::fetchItems(message)) {
                 if (uidOf(item) != uid) continue;
                 const Imap::Value *body = item.find("BODY[");
-                const Imap::Value *flags = item.find("FLAGS");
-                added.append(messageRecord(job, validity, uid, !hasFlag(flags, "\\Seen"), hasFlag(flags, "\\Flagged"),
-                                           size, body ? body->text : QByteArray(), truncated));
+                added.append(messageRecord(job, validity, uid, ImapMessages::flagsOf(item.find("FLAGS")), size,
+                                           body ? body->text : QByteArray(), truncated));
                 break;
             }
         }
@@ -88,15 +109,8 @@ bool syncMailbox(Imap::Session &session, const Job &job, qint64 validity, qint64
     out->insert(QStringLiteral("added"), added);
     out->insert(QStringLiteral("updated"), updated);
     out->insert(QStringLiteral("removedUids"), removed);
+    reportMailbox(info, out);
     return true;
-}
-
-bool expunge(Imap::Session &session, const QByteArray &uid)
-{
-    if (!session.command("UID STORE " + uid + " +FLAGS.SILENT (\\Deleted)")) return false;
-    // AGENT-NOTE: without UIDPLUS a plain EXPUNGE also removes any other
-    // message already marked \Deleted in this mailbox (RFC 3501 §6.4.3).
-    return session.hasCapability("UIDPLUS") ? session.command("UID EXPUNGE " + uid) : session.command("EXPUNGE");
 }
 
 bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channel, QVariantMap *out)
@@ -106,20 +120,77 @@ bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channe
     if (job.action == QLatin1String("unread")) return session.command("UID STORE " + uid + " -FLAGS.SILENT (\\Seen)");
     if (job.action == QLatin1String("flag")) return session.command("UID STORE " + uid + " +FLAGS.SILENT (\\Flagged)");
     if (job.action == QLatin1String("unflag")) return session.command("UID STORE " + uid + " -FLAGS.SILENT (\\Flagged)");
-    if (job.action == QLatin1String("delete")) return expunge(session, uid);
+    if (job.action == QLatin1String("delete")) return ImapMessages::expunge(session, {job.uid});
     if (job.action == QLatin1String("archive") || job.action == QLatin1String("move")) {
-        // AGENT-NOTE: MOVE (RFC 6851) is atomic; without it COPY + \Deleted +
-        // (UID) EXPUNGE is the RFC 3501 equivalent. COPYUID (UIDPLUS) names
-        // the message's UID in the destination when the server sends it.
-        const QByteArray target = Imap::mailboxArgument(job.targetMailbox);
-        QList<QByteArray> untagged;
-        const bool move = session.hasCapability("MOVE");
-        if (!session.command((move ? "UID MOVE " : "UID COPY ") + uid + ' ' + target, &untagged)) return false;
-        ImapFolders::readCopyUid(untagged, session.lastStatus(), job.uid, out);
-        return move || expunge(session, uid);
+        QMap<qint64, qint64> targets;
+        QString validity;
+        if (!ImapMessages::transfer(session, {job.uid}, wireName(job, job.targetMailbox), true, &targets, &validity))
+            return false;
+        if (targets.contains(job.uid)) {
+            out->insert(QStringLiteral("targetUidValidity"), validity);
+            out->insert(QStringLiteral("targetUid"), targets.value(job.uid));
+        }
+        return true;
     }
     channel.fail(Protocol::Failure::Rejected, QStringLiteral("Unsupported mail action %1").arg(job.action));
     return false;
+}
+
+// STORE of flags or of a category set on one message, honouring
+// PERMANENTFLAGS, then the flags as the server holds them afterwards.
+bool runFlags(Imap::Session &session, const Job &job, const Imap::SelectInfo &info, Protocol::Channel &channel,
+              QVariantMap *out)
+{
+    QMap<qint64, QStringList> before;
+    if (!ImapMessages::fetchFlags(session, {job.uid}, &before)) return false;
+    if (!before.contains(job.uid)) {
+        channel.fail(Protocol::Failure::Rejected, QStringLiteral("The message is no longer in the mailbox; sync first"));
+        return false;
+    }
+    QStringList add, remove;
+    if (job.setCategories) {
+        QStringList wanted;
+        for (const QString &name : job.categories) {
+            const QString keyword = ImapKeywords::keywordForCategory(name);
+            if (!keyword.isEmpty() && !ImapKeywords::containsFlag(wanted, keyword)) wanted.append(keyword);
+        }
+        for (const QString &keyword : wanted)
+            if (!ImapKeywords::containsFlag(before.value(job.uid), keyword)) add.append(keyword);
+        for (const QString &flag : before.value(job.uid))
+            if (ImapKeywords::isCategoryKeyword(flag) && !ImapKeywords::containsFlag(wanted, flag)) remove.append(flag);
+    } else {
+        for (const QString &flag : job.addFlags) add.append(ImapKeywords::canonicalFlag(flag));
+        for (const QString &flag : job.removeFlags) remove.append(ImapKeywords::canonicalFlag(flag));
+    }
+    QStringList notPermanent;
+    for (const QString &flag : std::as_const(add))
+        if (!ImapKeywords::isPermanent(flag, info.permanentFlags, info.permanentFlagsSent)) notPermanent.append(flag);
+    reportMailbox(info, out);
+    if (!notPermanent.isEmpty()) {
+        // AGENT-GUARD: a flag outside PERMANENTFLAGS would only last for this
+        // session (RFC 3501 §7.1); storing it would report a change that is
+        // gone at the next sync. Nothing is stored.
+        out->insert(QStringLiteral("notPermanent"), notPermanent);
+        channel.fail(Protocol::Failure::Rejected,
+                     QStringLiteral("The server does not keep %1 permanently in this mailbox").arg(notPermanent.join(QStringLiteral(", "))));
+        return false;
+    }
+    if ((!add.isEmpty() || !remove.isEmpty()) && !ImapMessages::storeFlags(session, {job.uid}, add, remove)) return false;
+    QMap<qint64, QStringList> after;
+    if (!ImapMessages::fetchFlags(session, {job.uid}, &after)) return false;
+    const QStringList flags = after.value(job.uid, before.value(job.uid));
+    out->insert(flagFields(job, flags));
+    out->insert(QStringLiteral("flags"), flags);
+    out->insert(QStringLiteral("addedFlags"), add);
+    out->insert(QStringLiteral("removedFlags"), remove);
+    return true;
+}
+
+QVariantMap uidKeyed(const QMap<qint64, QByteArray> &values)
+{
+    QVariantMap out;
+    for (auto it = values.cbegin(); it != values.cend(); ++it) out.insert(QString::number(it.key()), QString::fromUtf8(it.value()));
+    return out;
 }
 
 bool download(Imap::Session &session, const Job &job, Protocol::Channel &channel, QVariantMap *out)
@@ -142,6 +213,35 @@ bool download(Imap::Session &session, const Job &job, Protocol::Channel &channel
     channel.fail(Protocol::Failure::Rejected, QStringLiteral("The server returned no data for this attachment"));
     return false;
 }
+
+bool runSelected(Kind kind, Imap::Session &session, const Job &job, const Imap::SelectInfo &info,
+                 Protocol::Channel &channel, QVariantMap *out)
+{
+    switch (kind) {
+    case Kind::Action: return runAction(session, job, channel, out);
+    case Kind::Attachment: return download(session, job, channel, out);
+    case Kind::Flags: return runFlags(session, job, info, channel, out);
+    case Kind::Headers: {
+        QMap<qint64, QByteArray> headers;
+        if (!ImapMessages::fetchHeaders(session, job.uids, job.headerFields, &headers)) return false;
+        out->insert(QStringLiteral("headers"), uidKeyed(headers));
+        return true;
+    }
+    case Kind::Transfer: {
+        QMap<qint64, qint64> targets;
+        QString validity;
+        if (!ImapMessages::transfer(session, job.uids, wireName(job, job.targetMailbox), job.move, &targets, &validity))
+            return false;
+        QVariantMap mapped;
+        for (auto it = targets.cbegin(); it != targets.cend(); ++it) mapped.insert(QString::number(it.key()), it.value());
+        out->insert(QStringLiteral("targetUids"), mapped);
+        if (!validity.isEmpty()) out->insert(QStringLiteral("targetUidValidity"), validity);
+        return true;
+    }
+    default: break;
+    }
+    return false;
+}
 } // namespace
 
 QString recordId(const QString &accountId, const QString &mailbox, qint64 uidValidity, qint64 uid)
@@ -149,17 +249,44 @@ QString recordId(const QString &accountId, const QString &mailbox, qint64 uidVal
     return QStringLiteral("imap:%1:%2:%3:%4").arg(accountId, mailbox).arg(uidValidity).arg(uid);
 }
 
-QVariantMap messageRecord(const Job &job, qint64 uidValidity, qint64 uid, bool unread, bool flagged,
+QByteArray wireName(const Job &job, const QString &mailbox)
+{
+    const auto known = job.wireNames.constFind(mailbox);
+    return known != job.wireNames.cend() ? *known : Imap::encodeMailboxName(mailbox);
+}
+
+QVariantMap flagFields(const Job &job, const QStringList &flags)
+{
+    QVariantMap fields{{QStringLiteral("unread"), !ImapKeywords::containsFlag(flags, QStringLiteral("\\Seen"))},
+                       {QStringLiteral("flagged"), ImapKeywords::containsFlag(flags, QStringLiteral("\\Flagged"))},
+                       {QStringLiteral("answered"), ImapKeywords::containsFlag(flags, QStringLiteral("\\Answered"))},
+                       {QStringLiteral("keywords"), sorted(ImapKeywords::keywordsOf(flags))}};
+    if (job.keywordCategories) fields.insert(QStringLiteral("categories"), ImapKeywords::categoriesOf(flags));
+    return fields;
+}
+
+QVariantMap messageRecord(const Job &job, qint64 uidValidity, qint64 uid, const QStringList &flags,
                           qint64 size, const QByteArray &source, bool truncated)
 {
+    MailRecord::Options options;
+    options.keepHtml = job.keepHtml;
     QVariantMap record = MailRecord::fromParsed(recordId(job.accountId, job.mailbox, uidValidity, uid),
-                                                Mime::parse(source), truncated);
-    record.insert(QVariantMap{{QStringLiteral("unread"), unread}, {QStringLiteral("flagged"), flagged},
-                              {QStringLiteral("remoteAccount"), job.accountId},
+                                                Mime::parse(source), truncated, options);
+    record.insert(flagFields(job, flags));
+    record.insert(QVariantMap{{QStringLiteral("remoteAccount"), job.accountId},
                               {QStringLiteral("remoteMailbox"), job.mailbox},
                               {QStringLiteral("remoteUidValidity"), QString::number(uidValidity)},
                               {QStringLiteral("remoteUid"), uid}, {QStringLiteral("remoteSize"), size}});
     return record;
+}
+
+QVariantMap messageRecord(const Job &job, qint64 uidValidity, qint64 uid, bool unread, bool flagged,
+                          qint64 size, const QByteArray &source, bool truncated)
+{
+    QStringList flags;
+    if (!unread) flags.append(QStringLiteral("\\Seen"));
+    if (flagged) flags.append(QStringLiteral("\\Flagged"));
+    return messageRecord(job, uidValidity, uid, flags, size, source, truncated);
 }
 
 QVariantMap run(Kind kind, const Job &job)
@@ -170,22 +297,21 @@ QVariantMap run(Kind kind, const Job &job)
     QVariantMap result;
     QString conflict;
     bool ok = false;
-    qint64 validity = 0, exists = 0;
+    Imap::SelectInfo info;
     if (!session.open(job.endpoint, job.credentials)) {
         // failure recorded on the channel
     } else if (kind == Kind::Mailboxes) {
         ok = ImapFolders::listMailboxes(session, job.withCounts, &result);
     } else if (kind == Kind::Append) {
-        ok = ImapFolders::append(session, job.targetMailbox, job.appendMessage, job.appendFlags, &result);
-    } else if (session.select(job.mailbox, &validity, &exists)) {
+        ok = ImapFolders::append(session, job.targetMailbox, job.appendMessage, job.appendFlags, &result,
+                                 job.wireNames.value(job.targetMailbox));
+    } else if (session.select(job.mailbox, &info, job.wireNames.value(job.mailbox))) {
         if (kind == Kind::Sync) {
-            ok = syncMailbox(session, job, validity, exists, &result);
-        } else if (validity != job.uidValidity) {
+            ok = syncMailbox(session, job, info, &result);
+        } else if (info.uidValidity != job.uidValidity) {
             conflict = QStringLiteral("The mailbox was rebuilt on the server (UIDVALIDITY changed); sync before retrying");
-        } else if (kind == Kind::Action) {
-            ok = runAction(session, job, channel, &result);
         } else {
-            ok = download(session, job, channel, &result);
+            ok = runSelected(kind, session, job, info, channel, &result);
         }
     }
     const Protocol::Failure failure = channel.failure();

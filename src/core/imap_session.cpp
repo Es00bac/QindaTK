@@ -289,24 +289,43 @@ bool Session::authenticate(const Protocol::Credentials &credentials)
 
 bool Session::select(const QString &mailbox, qint64 *uidValidity, qint64 *exists)
 {
-    if (mailbox.trimmed().isEmpty()) {
+    SelectInfo info;
+    const bool ok = select(mailbox, &info);
+    *uidValidity = info.uidValidity;
+    *exists = info.exists;
+    return ok;
+}
+
+bool Session::select(const QString &mailbox, SelectInfo *info, const QByteArray &wire)
+{
+    *info = {};
+    if (mailbox.trimmed().isEmpty() && wire.isEmpty()) {
         m_channel->fail(Protocol::Failure::Rejected, QStringLiteral("No mailbox name is configured"));
         return false;
     }
     QList<QByteArray> untagged;
-    if (!command("SELECT " + mailboxArgument(mailbox), &untagged)) return false;
+    if (!command("SELECT " + (wire.isEmpty() ? mailboxArgument(mailbox) : quoted(wire)), &untagged)) return false;
     static const QRegularExpression validity(QStringLiteral("\\[UIDVALIDITY (\\d+)\\]"), QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression count(QStringLiteral("^(\\d+) EXISTS"), QRegularExpression::CaseInsensitiveOption);
-    *uidValidity = 0;
-    *exists = 0;
+    static const QRegularExpression permanent(QStringLiteral("\\[PERMANENTFLAGS \\(([^)]*)\\)"),
+                                              QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression flags(QStringLiteral("^FLAGS \\(([^)]*)\\)"), QRegularExpression::CaseInsensitiveOption);
     for (const QByteArray &line : std::as_const(untagged)) {
         const QString text = QString::fromLatin1(line);
         const QRegularExpressionMatch v = validity.match(text);
-        if (v.hasMatch()) *uidValidity = v.captured(1).toLongLong();
+        if (v.hasMatch()) info->uidValidity = v.captured(1).toLongLong();
         const QRegularExpressionMatch e = count.match(text);
-        if (e.hasMatch()) *exists = e.captured(1).toLongLong();
+        if (e.hasMatch()) info->exists = e.captured(1).toLongLong();
+        const QRegularExpressionMatch p = permanent.match(text);
+        if (p.hasMatch()) {
+            info->permanentFlagsSent = true;
+            info->permanentFlags = p.captured(1).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        }
+        const QRegularExpressionMatch f = flags.match(text);
+        if (f.hasMatch()) info->flags = f.captured(1).split(QLatin1Char(' '), Qt::SkipEmptyParts);
     }
-    if (*uidValidity <= 0) {
+    info->readOnly = m_lastStatus.contains(QLatin1String("[READ-ONLY]"), Qt::CaseInsensitive);
+    if (info->uidValidity <= 0) {
         m_channel->fail(Protocol::Failure::Rejected, QStringLiteral("Server did not report UIDVALIDITY"));
         return false;
     }

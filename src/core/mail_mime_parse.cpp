@@ -8,6 +8,12 @@
 namespace QindaTK::Mime {
 namespace {
 constexpr int MaximumDepth = 8;
+constexpr qsizetype MaximumCalendar = 1024 * 1024;     // iCalendar text kept from one part
+
+// The parse result plus what the walk tracks while it runs.
+struct ParseState : Parsed {
+    bool calendarFromText = false;
+};
 
 struct Split {
     QByteArray head, body;
@@ -150,8 +156,25 @@ QString normalizeNewlines(QString text)
     return text;
 }
 
+QString bareId(const QByteArray &value)
+{
+    QString id = QString::fromLatin1(value).trimmed();
+    const qsizetype open = id.indexOf(QLatin1Char('<'));
+    const qsizetype close = id.indexOf(QLatin1Char('>'), open + 1);
+    if (open >= 0 && close > open) id = id.mid(open + 1, close - open - 1);
+    return id.trimmed();
+}
+
+// METHOD of a VCALENDAR (upper case), for a part without the parameter.
+QString calendarMethodOf(const QString &text)
+{
+    static const QRegularExpression method(QStringLiteral("^METHOD:([A-Za-z-]+)\\s*$"),
+                                           QRegularExpression::MultilineOption);
+    return method.match(text).captured(1).toUpper();
+}
+
 void walk(const QMultiMap<QByteArray, QByteArray> &headers, const QByteArray &body,
-          const QString &section, int depth, Parsed *parsed)
+          const QString &section, int depth, ParseState *parsed)
 {
     const HeaderValue type = parseStructured(headers.value("content-type", "text/plain"));
     const QString mimeType = type.main.isEmpty() ? QStringLiteral("text/plain") : type.main;
@@ -179,6 +202,19 @@ void walk(const QMultiMap<QByteArray, QByteArray> &headers, const QByteArray &bo
     const bool attachment = disposition.main == QLatin1String("attachment") || !name.isEmpty()
         || !(isPlain || isHtml);
     const QByteArray decoded = decodeTransfer(body, encoding);
+    // iMIP (RFC 6047): the first text/calendar part wins over an attached
+    // application/ics or .ics file (Google sends both).
+    const bool textCalendar = mimeType == QLatin1String("text/calendar");
+    const bool icsFile = mimeType == QLatin1String("application/ics")
+        || name.endsWith(QLatin1String(".ics"), Qt::CaseInsensitive);
+    if ((textCalendar || icsFile) && decoded.size() <= MaximumCalendar
+        && (parsed->calendar.isEmpty() || (textCalendar && !parsed->calendarFromText))) {
+        parsed->calendar = decodeText(decoded, charset);
+        parsed->calendarSection = leafSection;
+        parsed->calendarFromText = textCalendar;
+        parsed->calendarMethod = type.params.value(QStringLiteral("method")).trimmed().toUpper();
+        if (parsed->calendarMethod.isEmpty()) parsed->calendarMethod = calendarMethodOf(parsed->calendar);
+    }
     if (!attachment && isPlain && parsed->plain.isEmpty()) {
         parsed->plain = normalizeNewlines(decodeText(decoded, charset));
         return;
@@ -196,6 +232,8 @@ void walk(const QMultiMap<QByteArray, QByteArray> &headers, const QByteArray &bo
     part.charset = charset;
     part.size = decoded.size();
     part.attachment = true;
+    part.contentId = bareId(headers.value("content-id"));
+    part.disposition = disposition.main;
     part.data = decoded;
     parsed->attachments.append(part);
 }
@@ -216,19 +254,11 @@ void firstAddress(const QString &decoded, QString *name, QString *address)
     }
 }
 
-QString bareId(const QByteArray &value)
-{
-    QString id = QString::fromLatin1(value).trimmed();
-    const qsizetype open = id.indexOf(QLatin1Char('<'));
-    const qsizetype close = id.indexOf(QLatin1Char('>'), open + 1);
-    if (open >= 0 && close > open) id = id.mid(open + 1, close - open - 1);
-    return id.trimmed();
-}
 } // namespace
 
 Parsed parse(const QByteArray &raw)
 {
-    Parsed parsed;
+    ParseState parsed;
     const Split split = splitHeaderBody(raw);
     parsed.headers = parseHeaders(split.head);
     parsed.subject = decodeHeaderText(parsed.headers.value("subject"));
@@ -238,12 +268,32 @@ Parsed parse(const QByteArray &raw)
     parsed.messageId = bareId(parsed.headers.value("message-id"));
     parsed.inReplyTo = bareId(parsed.headers.value("in-reply-to"));
     parsed.references = QString::fromLatin1(parsed.headers.value("references")).simplified();
+    parsed.replyTo = decodeHeaderText(parsed.headers.value("reply-to"));
+    parsed.importance = importanceOf(parsed.headers);
     QString date = QString::fromLatin1(parsed.headers.value("date")).trimmed();
     date.remove(QRegularExpression(QStringLiteral("\\s*\\([^)]*\\)\\s*$")));   // trailing "(UTC)" comment
     parsed.date = QDateTime::fromString(date, Qt::RFC2822Date);
     walk(parsed.headers, split.body, QString(), 0, &parsed);
     if (parsed.plain.isEmpty() && !parsed.html.isEmpty()) parsed.plain = htmlToPlain(parsed.html);
-    return parsed;
+    return static_cast<Parsed>(parsed);
+}
+
+QString importanceOf(const QMultiMap<QByteArray, QByteArray> &headers)
+{
+    const QString importance = QString::fromLatin1(headers.value("importance")).trimmed().toLower();
+    if (importance == QLatin1String("high") || importance == QLatin1String("low")) return importance;
+    if (importance == QLatin1String("normal")) return importance;
+    // "1 (Highest)", "2 (High)", "3 (Normal)", "4 (Low)", "5 (Lowest)".
+    const QByteArray priority = headers.value("x-priority").trimmed();
+    if (!priority.isEmpty() && priority.at(0) >= '1' && priority.at(0) <= '5')
+        return priority.at(0) <= '2' ? QStringLiteral("high") : priority.at(0) >= '4' ? QStringLiteral("low")
+                                                                                       : QStringLiteral("normal");
+    const QString rfc2156 = QString::fromLatin1(headers.value("priority")).trimmed().toLower();
+    if (rfc2156 == QLatin1String("urgent")) return QStringLiteral("high");
+    if (rfc2156 == QLatin1String("non-urgent")) return QStringLiteral("low");
+    const QString ms = QString::fromLatin1(headers.value("x-msmail-priority")).trimmed().toLower();
+    if (ms == QLatin1String("high") || ms == QLatin1String("low")) return ms;
+    return QStringLiteral("normal");
 }
 
 QString htmlToPlain(const QString &html)

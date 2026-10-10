@@ -38,6 +38,16 @@ struct FetchItem {
 };
 QList<FetchItem> fetchItems(const QList<QByteArray> &untagged);
 
+// What SELECT reported about the mailbox (RFC 3501 §6.3.1, §7.1).
+struct SelectInfo {
+    qint64 uidValidity = 0;
+    qint64 exists = 0;
+    QStringList flags;                // FLAGS: the flags the mailbox knows
+    QStringList permanentFlags;       // PERMANENTFLAGS, "\\*" included when sent
+    bool permanentFlagsSent = false;  // without it every flag is permanent
+    bool readOnly = false;            // [READ-ONLY] on the tagged OK
+};
+
 class Session {
 public:
     explicit Session(Protocol::Channel *channel) : m_channel(channel) {}
@@ -56,6 +66,10 @@ public:
     bool optionalCommand(const QByteArray &command, QList<QByteArray> *untagged = nullptr);
     // `mailbox` is the display name; it is sent in modified UTF-7.
     bool select(const QString &mailbox, qint64 *uidValidity, qint64 *exists);
+    // The same with everything SELECT reports. A non-empty `wire` is sent
+    // instead of the encoded display name (a server's non-canonical name,
+    // D-341).
+    bool select(const QString &mailbox, SelectInfo *info, const QByteArray &wire = {});
     void logout();
     bool hasCapability(const char *name) const;
     bool failed() const { return m_channel->failure() != Protocol::Failure::None; }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "imap_mutf7.h"
 
-#include <QList>
+#include <QStringView>
 
 namespace QindaTK::Imap {
 namespace {
@@ -19,12 +19,13 @@ int sextet(char c)
 
 bool directlyEncoded(char16_t c) { return c >= 0x20 && c <= 0x7e && c != u'&'; }
 
-void flush(QByteArray *out, const QList<char16_t> &run)
+void flush(QByteArray *out, QStringView run)
 {
     if (run.isEmpty()) return;
     QByteArray bytes;
     bytes.reserve(run.size() * 2);
-    for (const char16_t unit : run) {
+    for (const QChar c : run) {
+        const char16_t unit = c.unicode();
         bytes += static_cast<char>(unit >> 8);
         bytes += static_cast<char>(unit & 0xff);
     }
@@ -68,9 +69,8 @@ bool decodeRun(const QByteArray &run, QString *out)
                                             | static_cast<unsigned char>(bytes.at(i + 1))));
     for (qsizetype i = 0; i < text.size(); ++i) {
         const QChar c = text.at(i);
-        // A run must not encode what could be written directly, and every
-        // surrogate must be paired.
-        if (directlyEncoded(c.unicode())) return false;
+        // Every surrogate must be paired. A run that encodes printable ASCII
+        // is accepted (D-341): servers send such names and keywords hold them.
         if (c.isHighSurrogate()) {
             if (i + 1 >= text.size() || !text.at(i + 1).isLowSurrogate()) return false;
             ++i;
@@ -86,7 +86,7 @@ bool decodeRun(const QByteArray &run, QString *out)
 QByteArray encodeMailboxName(const QString &name)
 {
     QByteArray out;
-    QList<char16_t> run;
+    QString run;
     for (const QChar c : name) {
         const char16_t unit = c.unicode();
         if (directlyEncoded(unit) || unit == u'&') {
@@ -94,11 +94,25 @@ QByteArray encodeMailboxName(const QString &name)
             run.clear();
             out += unit == u'&' ? QByteArrayLiteral("&-") : QByteArray(1, static_cast<char>(unit));
         } else {
-            run.append(unit);
+            run.append(c);
         }
     }
     flush(&out, run);
     return out;
+}
+
+QByteArray encodeRun(QStringView text)
+{
+    QByteArray out;
+    flush(&out, text);
+    return out;
+}
+
+bool isCanonicalMailboxName(const QByteArray &wire)
+{
+    bool ok = false;
+    const QString name = decodeMailboxName(wire, &ok);
+    return ok && encodeMailboxName(name) == wire;
 }
 
 QString decodeMailboxName(const QByteArray &wire, bool *ok)

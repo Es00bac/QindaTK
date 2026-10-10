@@ -34,6 +34,8 @@ QByteArray wrapBase64(const QByteArray &bytes)
 }
 
 // Normalizes a text body to CRLF lines and picks 7bit or base64.
+// `subtype` is "plain", "html", or a full parameter tail after "text/"
+// ("calendar; charset=utf-8; method=REQUEST").
 QByteArray textLeaf(const QString &text, const QByteArray &subtype)
 {
     QString normalized = text;
@@ -47,7 +49,7 @@ QByteArray textLeaf(const QString &text, const QByteArray &subtype)
             if (static_cast<unsigned char>(c) >= 0x80 || c == '\0') { sevenBit = false; break; }
         if (!sevenBit) break;
     }
-    QByteArray part = "Content-Type: text/" + subtype + "; charset=utf-8\r\n";
+    QByteArray part = "Content-Type: text/" + subtype + (subtype.contains(';') ? "\r\n" : "; charset=utf-8\r\n");
     if (sevenBit) {
         QByteArray body = utf8;
         body.replace("\n", "\r\n");
@@ -247,9 +249,15 @@ QByteArray build(const Outgoing &message)
             joined += (joined.isEmpty() ? QByteArray() : QByteArrayLiteral(",\r\n ")) + formatAddress(address);
         return joined;
     };
+    if (!message.replyTo.isEmpty()) head += "Reply-To: " + list(message.replyTo) + "\r\n";
     if (!message.to.isEmpty()) head += "To: " + list(message.to) + "\r\n";
     if (!message.cc.isEmpty()) head += "Cc: " + list(message.cc) + "\r\n";
     head += "Subject: " + encodeHeaderText(message.subject) + "\r\n";
+    // AGENT-NOTE: Outlook reads Importance (RFC 2156) and X-Priority (the
+    // older de-facto header) and writes both; "normal" is the absence of both.
+    const QString importance = message.importance.trimmed().toLower();
+    if (importance == QLatin1String("high")) head += "Importance: High\r\nX-Priority: 1 (Highest)\r\n";
+    else if (importance == QLatin1String("low")) head += "Importance: Low\r\nX-Priority: 5 (Lowest)\r\n";
     const QByteArray id = messageIdHeader(message.messageId);
     if (!id.isEmpty()) head += "Message-ID: " + id + "\r\n";
     const QByteArray reply = messageIdHeader(message.inReplyTo);
@@ -259,9 +267,17 @@ QByteArray build(const Outgoing &message)
         head += "References: " + references.toLatin1() + "\r\n";
     head += "MIME-Version: 1.0\r\n";
 
-    QByteArray body = message.html.isEmpty()
-        ? textLeaf(message.plain, "plain")
-        : multipart("alternative", {textLeaf(message.plain, "plain"), textLeaf(message.html, "html")});
+    QList<QByteArray> alternatives{textLeaf(message.plain, "plain")};
+    if (!message.html.isEmpty()) alternatives.append(textLeaf(message.html, "html"));
+    if (!message.calendar.isEmpty()) {
+        // RFC 6047 §2.4: the method parameter repeats the calendar's METHOD.
+        QByteArray method = message.calendarMethod.trimmed().toUpper().toLatin1();
+        for (const char c : method)
+            if (!(c >= 'A' && c <= 'Z') && c != '-') method.clear();
+        alternatives.append(textLeaf(QString::fromUtf8(message.calendar),
+                                     "calendar; charset=utf-8; method=" + (method.isEmpty() ? "PUBLISH" : method)));
+    }
+    QByteArray body = alternatives.size() == 1 ? alternatives.first() : multipart("alternative", alternatives);
     if (!message.attachments.isEmpty()) {
         QList<QByteArray> parts{body};
         for (const OutgoingAttachment &attachment : message.attachments)
