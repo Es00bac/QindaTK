@@ -2,11 +2,14 @@
 #include "rich_text_html.h"
 #include "rich_text_spans.h"
 
+#include <QMutex>
+#include <QSet>
 #include <QTextBlock>
 #include <QTextDocument>
 #include <QTextFrame>
 #include <QTextList>
 #include <QTextTable>
+#include <QUrl>
 
 namespace QindaTK::RichTextHtml {
 using namespace RichText;
@@ -14,6 +17,27 @@ using namespace RichText;
 namespace {
 
 QString escaped(const QString &text) { return text.toHtmlEscaped(); }
+
+QMutex &schemeMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
+QSet<QString> &imageSchemes()
+{
+    static QSet<QString> schemes;
+    return schemes;
+}
+
+// AGENT-GUARD (D-319): QTextDocument::loadResource reads local files and
+// qrc: for <img>, <link rel=stylesheet> and CSS urls, and a QTextBrowser
+// parent would fetch remote ones. The import document is never laid out,
+// but it must not be able to load anything even if Qt starts to.
+class InertDocument final : public QTextDocument {
+protected:
+    QVariant loadResource(int, const QUrl &) override { return {}; }
+};
 
 QString spanStyle(const CharFormat &f)
 {
@@ -210,7 +234,9 @@ struct Importer {
                     const QTextImageFormat image = cf.toImageFormat();
                     RichObject object;
                     object.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-                    object.source = image.name();
+                    // A blocked source stays a placeholder (alt text, no source).
+                    object.source = isImportableImageSource(image.name()) ? image.name().trimmed() : QString();
+                    object.altText = image.property(QTextFormat::ImageAltText).toString().left(1000);
                     object.widthPt = image.width() > 0 ? image.width() / PxPerPt : 72;
                     object.heightPt = image.height() > 0 ? image.height() / PxPerPt : 72;
                     fragment.objects.insert(object.id, object);
@@ -284,9 +310,50 @@ struct Importer {
 
 } // namespace
 
+void registerImageScheme(const QString &scheme)
+{
+    const QString name = scheme.trimmed().toLower();
+    if (name.isEmpty() || name == u"data") return;
+    QMutexLocker lock(&schemeMutex());
+    imageSchemes().insert(name);
+}
+
+void unregisterImageScheme(const QString &scheme)
+{
+    QMutexLocker lock(&schemeMutex());
+    imageSchemes().remove(scheme.trimmed().toLower());
+}
+
+QStringList registeredImageSchemes()
+{
+    QMutexLocker lock(&schemeMutex());
+    QStringList out(imageSchemes().cbegin(), imageSchemes().cend());
+    out.sort();
+    return out;
+}
+
+bool isImportableImageSource(const QString &source)
+{
+    const QString text = source.trimmed();
+    // A scheme is required: relative and protocol-relative ("//host/x")
+    // references resolve against whatever base the engine has.
+    const qsizetype colon = text.indexOf(u':');
+    if (text.isEmpty() || colon <= 0) return false;
+    const QString scheme = text.left(colon).toLower();
+    for (const QChar c : scheme)
+        if (!(c.isLetterOrNumber() || c == u'+' || c == u'-' || c == u'.') || c.unicode() > 0x7f) return false;
+    if (!scheme.at(0).isLetter()) return false;
+    if (scheme == u"data") {
+        const QString media = text.mid(colon + 1).section(u',', 0, 0).section(u';', 0, 0).trimmed().toLower();
+        return media.startsWith(QLatin1String("image/")) && !media.startsWith(QLatin1String("image/svg"));
+    }
+    QMutexLocker lock(&schemeMutex());
+    return imageSchemes().contains(scheme);
+}
+
 Fragment toFragment(const QString &html)
 {
-    QTextDocument document;
+    InertDocument document;
     document.setHtml(html);
     Importer importer;
     importer.fragment.formats.append(CharFormat{});

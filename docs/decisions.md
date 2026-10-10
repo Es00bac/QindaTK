@@ -2160,3 +2160,25 @@ background storage. The host owns pixels, profiles, commands, history and IPC.
 Source installs can opt into the companion; Portage installs it independently
 as `dev-libs/qindatk-raster`. `tests/raster/tst_raster.qml` checks proxy/tile
 geometry, mouse pressure/positions, and the painting gate.
+
+## D-319 — Imported HTML never names an image the engine would fetch
+
+**Problem.** `RichTextHtml::toFragment` copied every `<img src>` into the
+document, so pasted or imported HTML could make the engine read a local
+`file:` image (the default renderer loads `file:` and `qrc:`) or hand a
+remote URL to a host renderer; QTextDocument's own import could also load
+local style sheets.
+
+**Decision.** The import document overrides `loadResource` and loads
+nothing. An image keeps its source only when `isImportableImageSource`
+accepts it: a `data:image/...` raster URI (not SVG) or a scheme the
+application registered with `registerImageScheme` (for example `asset`).
+Everything else — `http(s):`, `file:`, `qrc:`, protocol-relative
+`//host/...`, relative paths, `javascript:` — becomes a placeholder object
+with its alt text and size and an empty source.
+
+**Consequences.** Pasting HTML from another application keeps text and
+layout but drops external pictures unless the app opts a scheme in.
+`tst_rich_text_html_import` feeds hostile HTML (remote, `file:`,
+protocol-relative, `srcset`, entity-encoded, SVG data) and proves a local
+`<link rel=stylesheet>` is not read.

@@ -356,8 +356,24 @@ pasted list reuses an identical definition, and gets a new ID only when its
 ID is already taken by a different list. Plain text takes the caret's typing format. HTML is imported through
 `QTextDocument`'s parser into a fragment: runs, links, headings, alignment,
 lists, tables without spans, and inline images. Unsupported constructs
-become text. `ClipboardService` hosts can pass their own
+become text. Imported HTML is hostile input ([HTML import](#html-import)). `ClipboardService` hosts can pass their own
 `ClipboardAdapter` with `setClipboardAdapter`.
+
+<a id="html-import"></a>
+### HTML import (D-319)
+
+`RichTextHtml::toFragment` (paste, `NotebookDocument.insertHtml`) never
+lets HTML make the engine load anything. The parser's document loads no
+resource (no `file:` read, no style sheet, no network), and an image keeps
+its source only when `RichTextHtml::isImportableImageSource` accepts it: a
+`data:image/...` raster URI (not SVG, which can reference other files) or a
+URI whose scheme the application registered with
+`RichTextHtml::registerImageScheme` (for example `asset` when it renders
+`RichTextAssetRenderer`'s `asset:` sources; registering `http`, `https` or
+`file` is the application's explicit choice). Every other image — remote,
+`file:`, `qrc:`, protocol-relative `//host/...`, relative, `javascript:` —
+stays as a placeholder object with its alt text and size and an empty
+source. `tst_rich_text_html_import` covers hostile HTML.
 
 ## Objects
 
