@@ -5,7 +5,7 @@ import QindaTK as Tk
 Section {
     id: section
     title: "Document app parts"
-    note: "Viewport · ColorButton · ColorSwatches · MessageDialog · PromptDialog · TreeRow editable · ToolBar wrap · MenuItem radio"
+    note: "Viewport · ColorButton · ColorSwatches · MessageDialog · PromptDialog · TreeRow editable · ToolBar wrap · MenuItem radio · Gallery · CharacterMap"
 
     readonly property var swatchList: [
         { name: "Black", color: "#000000" }, { name: "Grey", color: "#7f7f7f" },
@@ -37,6 +37,33 @@ Section {
         Tk.ColorButton { id: penColor; color: "#1c62d4"; colors: section.swatchList; tooltip: "Pen colour" }
         Tk.ColorButton { color: "#ffd200"; small: true; colors: ["#ffd200", "#7ee787", "#ffa7c4", "#7ec8ff", "#ffbe6e"]; columns: 5; tooltip: "Highlighter colour" }
         Tk.ColorSwatches { colors: section.swatchList; current: penColor.color; onSelected: function(c) { penColor.color = c } }
+        Tk.ColorButton { automaticEntry: true; colorMode: "automatic"; colors: section.swatchList; tooltip: "Font colour" }
+        Tk.ColorButton { noColorEntry: true; colorMode: "none"; colors: section.swatchList; tooltip: "Fill" }
+    }
+    GalleryRow {
+        label: "Gallery"
+        Tk.Gallery {
+            id: styles
+            implicitWidth: 400
+            tooltip: "Styles"
+            currentId: "normal"
+            model: [{ id: "normal", label: "Normal", size: 11 }, { id: "heading1", label: "Heading 1", size: 15, bold: true },
+                    { id: "heading2", label: "Heading 2", size: 13, bold: true }, { id: "title", label: "Title", size: 18 },
+                    { id: "quote", label: "Quote", size: 11, italic: true }, { id: "strong", label: "Strong", size: 11, bold: true }]
+            // Demo previews only: an application renders its real styles here.
+            preview: Component {
+                Rectangle {
+                    property var entry: ({})
+                    color: "white"
+                    Text { anchors.centerIn: parent; text: "AaBbCc"; color: "black"; font.pixelSize: parent.entry.size || 11; font.bold: !!parent.entry.bold; font.italic: !!parent.entry.italic }
+                }
+            }
+            onActivated: function(id) { styles.currentId = id }
+        }
+    }
+    GalleryRow {
+        label: "Character map"
+        Tk.CharacterMap { implicitWidth: 420; implicitHeight: 260; recent: ["€", "§", "→", "≠"] }
     }
     GalleryRow {
         label: "TreeRow editable"

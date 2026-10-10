@@ -61,7 +61,7 @@ set(qindatk_app_sources
     core/document_session.cpp core/document_session.h
     core/document_manager.cpp core/document_manager.h
     core/settings_model.cpp core/settings_model.h
-    core/local_productivity_store.cpp core/local_productivity_events.cpp core/local_productivity_store.h
+    core/local_productivity_store.cpp core/local_productivity_events.cpp core/local_productivity_batch.cpp core/local_productivity_store.h
     core/local_attachment_store.cpp core/local_attachment_store.h
     core/local_calendar_projection_model.cpp core/local_calendar_projection_model.h
     core/protocol_client.cpp core/protocol_client.h

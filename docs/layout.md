@@ -13,10 +13,10 @@ All containers share these rules:
   children's position and size. A child's own `width`/`height` binding is
   ignored by the container (and overwritten) — give sizes through
   `implicitWidth`/`implicitHeight` or the attached constraints.
-- They set their **own implicit size** from the content plus padding. Never
-  bind `implicitWidth`/`implicitHeight` on a `Flex`, `Grid` or `Stack`; the
-  layout overwrites it. Wrap in an `Item` if a component must report a
-  fixed size.
+- They set their **own implicit size** from the content plus padding. A
+  `Grid` or `Stack` overwrites a bound `implicitWidth`/`implicitHeight`;
+  wrap it in an `Item` if a component must report a fixed size. A `Flex`
+  keeps one assigned to it (below).
 - Invisible children take no slot. `Repeater` objects are skipped (their
   delegates are laid out). `Tk.<Container>.ignore: true` excludes a child.
 - Layout runs on the next polish after any change; `relayout()` runs it
@@ -31,6 +31,14 @@ All containers share these rules:
 - Padding: `padding` plus `paddingLeft/Top/Right/Bottom`; a side set to
   `-1` (the default) inherits `padding`. Gaps: `gap` plus `rowGap` and
   `columnGap`; `-1` inherits `gap`.
+
+<a id="explicit-implicit-size"></a>
+**An implicit size assigned to a `Flex` wins (D-316).** `implicitWidth:
+180` (a value or a binding) on a `Tk.Flex` is what it reports to its parent
+instead of the measured content size; the parent lays it out from that
+value, and the Flex lays its children out in the real size it gets (so
+content wider than 180 shrinks or overflows exactly as in any 180 px box).
+Assigning `undefined` returns to the measurement; each axis is independent.
 
 The attached constraints exist on every container under its own name
 (`Tk.Flex.minWidth`, `Tk.Grid.minWidth`, `Tk.Stack.minWidth`):

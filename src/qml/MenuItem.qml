@@ -90,17 +90,34 @@ T.MenuItem {
 
         Item {
             id: iconSlot
+            // AGENT-NOTE (D-323): a checkable item with an icon keeps the
+            // icon and shows its checked state as a frame around it (as
+            // office suites do); without an icon the slot is the check mark
+            // (a dot for `radio`).
+            readonly property bool framed: item.checkable && item.iconName.length > 0
             implicitWidth: Tk.Theme.size.icon
             implicitHeight: Tk.Theme.size.icon
             visible: item.iconName.length > 0 || item.checkable
             Tk.Flex.shrink: 0
-            Tk.Icon {
+            Rectangle {
+                objectName: "menuItemCheckFrame"
+                visible: iconSlot.framed && item.checked
                 anchors.centerIn: parent
-                name: item.checkable ? (item.radio ? "circle-dot" : "check") : item.iconName
+                width: Tk.Theme.size.icon + Tk.Theme.space.xs * 2
+                height: width
+                radius: Tk.Theme.radius.xs
+                color: Tk.Theme.color.accentSubtle
+                border.width: Tk.Theme.size.border
+                border.color: Tk.Theme.color.accent
+            }
+            Tk.Icon {
+                objectName: "menuItemIcon"
+                anchors.centerIn: parent
+                name: item.checkable && !iconSlot.framed ? (item.radio ? "circle-dot" : "check") : item.iconName
                 size: Tk.Theme.size.icon
-                visible: !item.checkable || item.checked
+                visible: !item.checkable || iconSlot.framed || item.checked
                 color: item.danger ? Tk.Theme.color.danger
-                     : item.checkable ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
+                     : item.checkable && (item.checked || !iconSlot.framed) ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
             }
         }
         Tk.Label {

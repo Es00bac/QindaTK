@@ -68,6 +68,15 @@ class Flex : public QQuickItem, public LayoutContainer {
     Q_PROPERTY(qreal contentWidth READ contentWidth NOTIFY contentSizeChanged)
     Q_PROPERTY(qreal contentHeight READ contentHeight NOTIFY contentSizeChanged)
     Q_PROPERTY(int lineCount READ lineCount NOTIFY contentSizeChanged)
+    // AGENT-CONTRACT (D-316, docs/layout.md#explicit-implicit-size): an
+    // implicit size assigned from QML (a value or a binding) is what the
+    // container reports to its parent instead of the measured content
+    // size; assigning `undefined` resets it to the measurement. The
+    // container still lays its children out in its real width/height.
+    Q_PROPERTY(qreal implicitWidth READ implicitWidth WRITE setDeclaredImplicitWidth
+                   RESET resetDeclaredImplicitWidth NOTIFY implicitWidthChanged OVERRIDE)
+    Q_PROPERTY(qreal implicitHeight READ implicitHeight WRITE setDeclaredImplicitHeight
+                   RESET resetDeclaredImplicitHeight NOTIFY implicitHeightChanged OVERRIDE)
 
 public:
     enum Direction { Row, RowReverse, Column, ColumnReverse };
@@ -117,6 +126,11 @@ public:
     // Runs the layout now instead of at the next polish (tests, measuring).
     Q_INVOKABLE void relayout();
 
+    void setDeclaredImplicitWidth(qreal value);
+    void resetDeclaredImplicitWidth();
+    void setDeclaredImplicitHeight(qreal value);
+    void resetDeclaredImplicitHeight();
+
     void invalidateLayout() override;
 
 signals:
@@ -162,6 +176,9 @@ private:
     qreal m_contentWidth = 0;
     qreal m_contentHeight = 0;
     int m_lineCount = 0;
+    // Negative: not declared, report the measured content size.
+    qreal m_declaredImplicitWidth = -1;
+    qreal m_declaredImplicitHeight = -1;
     bool m_inLayout = false;
     bool m_dirtyDuringLayout = false;
 };

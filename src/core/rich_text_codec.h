@@ -27,6 +27,7 @@ public:
     static constexpr int MaximumParagraphLength = 1000000;
     static constexpr int MaximumFormats = 65536;
     static constexpr int MaximumObjects = 100000;
+    static constexpr qsizetype MaximumParagraphData = 64 * 1024; // compact JSON bytes per paragraph (D-325)
     static QString schemaId() { return QStringLiteral("qindatk.richtext"); }
     static QString fragmentSchemaId() { return QStringLiteral("qindatk.richtext.fragment"); }
 
@@ -47,6 +48,9 @@ public:
                                                               OperationError *error = nullptr);
 
     static QVariantMap paragraphFormatToMap(const RichText::ParagraphFormat &format);
+    // A paragraph's `data` member (D-325): absent, or an object of at most
+    // MaximumParagraphData compact bytes. False leaves `out` unchanged.
+    static bool readParagraphData(const QJsonValue &value, QJsonObject *out);
     static QVariantMap charFormatToMap(const RichText::CharFormat &format);
     static QString placementName(RichText::Placement placement);
     static QString listKindName(RichText::ListKind kind);

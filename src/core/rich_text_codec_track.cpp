@@ -87,6 +87,7 @@ struct FormatReader {
 
     bool paragraph(const QJsonObject &o, ParagraphFormat *f)
     {
+        f->data = o.value(QStringLiteral("data")).toObject();
         f->listId = o.value(QStringLiteral("list")).toString();
         f->styleId = o.value(QStringLiteral("style")).toString();
         const std::optional<quint32> overrides = overrideBits(o.value(QStringLiteral("overrides")));

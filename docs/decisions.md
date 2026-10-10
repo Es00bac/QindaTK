@@ -2161,6 +2161,147 @@ Source installs can opt into the companion; Portage installs it independently
 as `dev-libs/qindatk-raster`. `tests/raster/tst_raster.qml` checks proxy/tile
 geometry, mouse pressure/positions, and the painting gate.
 
+## D-311 — Form designs carry positioned controls
+
+**Problem.** QindaBase needs Access-class forms — combo and list boxes,
+subforms, command buttons, tab controls, labels, images, lines and
+rectangles, and calculated controls — but `FormDesigner` only listed the
+bound fields with a caption, an order and a "Shown" flag.
+
+**Decision.** A design's form gains an optional `controls` list: each control
+is `{id, type, name, x, y, width, height, ...}` in design units, with
+type-specific properties (`caption`, `fieldName` for the bound types,
+`expression` as an opaque calculated-control string, `items`/`rowSource`,
+`formName` and link fields for a subform, `actionId` for a button, `pages`
+for a tab control, `parentId`/`page` for a control on a tab page, `source`,
+`slant`). `LocalDataDesignStore::checkStructure` checks the list and
+`referencedFields` includes bound controls, so a control can never name an
+unbound field; `bindTable` unbinds controls whose field it drops.
+`LocalDataDesignDocument` edits controls with `addFormControl`,
+`setFormControl`, `removeFormControl` and `setFormControls`, one undo step
+each. `FormDesigner` draws them on `FormControlCanvas` (select, drag, eight
+resize handles, keyboard nudge, all snapped to `gridSize`; a finished
+gesture is one edit) with `FormControlSheet` as the property sheet, and runs
+them live in preview and edit mode; record values still change only
+through `setFieldValue`, and a host-owned design receives the whole next
+list in `designChangeRequested("", {controls})`. The toolkit never
+evaluates `expression` (the host's `expressionEvaluator` does) and never
+resolves a subform (the host's `subformComponent` does).
+
+**Consequences.** Designs without `controls` behave and look as before; the
+toolbox shows only once a design has controls or the host sets
+`controlsEnabled`. Coordinates are absolute in the form, also for controls
+on a tab page; moving a tab control moves its pages' controls in the same
+edit. `tst_local_data_design_document` (commands, refusals, undo,
+rebinding) and `tst_form_designer_controls` (toolbox, canvas gestures,
+property sheet, live preview/edit, host-owned path) guard it.
+
+## D-312 — Group header rows are the host's projection
+
+**Problem.** QindaPlan groups its task sheet and Gantt chart (MS Project's
+Group By): a band per group with a summary, collapsible. The sheet
+(`EditableGrid`) and the chart (`GanttView`) must keep showing the same rows
+in the same order, and their models (`EditableGridModel`, `GanttTaskModel`)
+are separate.
+
+**Decision.** Collapsing is the host's re-projection, not view state. A
+`GanttTaskModel` row with `kind: "group"` (`collapsed`, `summaryText`) is a
+group header: it has no dependencies, nothing depends on it, and it is never
+previewed or moved. `GanttView` draws it as a band with a chevron, name,
+summary and a span bar, and reports `groupToggled(id, collapsed)` from the
+chevron, Left/Right or Space. `EditableGrid.groupHeader(rowId, index)`
+marks the grid's group rows; `GridGroupHeaders` draws the band (name,
+summary, per-column values) above the cells, the grid never edits such a
+row, and the chevron, Return or Space emit `groupToggled`. The host then
+supplies both views the next rows.
+
+**Consequences.** One source of truth for row order; no hidden-row geometry
+in either view, so links, frozen panes and synchronized scrolling are
+unchanged. `tst_gantt` (C++), `tst_gantt_planning` and
+`tst_grid_group_rows` guard it.
+
+## D-313 — Planning bars are presentation fields
+
+**Decision.** `GanttTaskModel` accepts, validates and exposes as roles
+`slackFinishUtc` and `freeSlackFinishUtc` (bars after the task),
+`deadlineUtc` (an arrow, `danger` once the bar ends after it),
+`progressUtc` (the progress point), `segments` (ordered, non-overlapping
+split pieces) and a second baseline lane (`baseline2StartUtc` with
+`baseline2FinishUtc` or `baseline2DurationMinutes`). `GanttView.progressLines`
+(`[{utc, role}]`) draws MS Project progress lines through each task's
+progress point. The values are the host engine's; the view only draws them,
+and the reference scheduler drops `segments` with `finishUtc` when it moves
+a task. Role values are appended, so existing role numbers are unchanged.
+Lane geometry with one baseline is the D-303 geometry.
+
+## D-314 — Completion is host-fed and reports the whole entry
+
+**Decision.** `TextField.suggestions` is a list the host keeps current
+(strings or `{label, detail, iconName, ...}`); a popup that never takes
+focus lists it while the field has focus. Up/Down/PageUp/PageDown move
+`suggestionIndex`, Return/Enter/Tab or a click emit
+`suggestionChosen(entry)` with the whole entry, and the field never edits
+its own text for a choice (a formula bar replaces the token being typed).
+The keys are handled in the generic `Keys.pressed` stage only while the
+popup is open, so `accepted` and consumers' own key handlers behave as
+before otherwise. A `TokenField.validator` declaring two parameters
+receives `(label, suggestion)`, so a chosen suggestion's value survives
+validation; one-parameter validators are called as before.
+
+## D-315 — A narrow MenuBar moves its trailing menus into "»"
+
+**Decision.** When the bar is narrower than its menus, `MenuBar` moves the
+trailing menus — the real `Menu` objects, as submenus — into its
+`overflowMenu` ("»"), the bar's last entry, and moves them back in order
+when it widens. Widths come from the real `MenuBarItem`s, re-measured only
+when titles or the theme change, and the bar's implicitWidth stays the
+natural width of every menu, so a layout never shrinks it because menus
+moved. Menus move only with `takeMenu`/`insertMenu`/`addMenu`, never
+`removeMenu`; host insertions are re-flowed, and a moved menu that its
+host destroys leaves a null submenu that the next re-flow drops.
+`overflowEnabled: false` keeps the old clipping behaviour.
+
+**Consequences.** While menus overflow, `count`, `menuAt()` and `menus`
+describe the bar as shown ("»" included); `overflowMenus` lists the moved
+ones. `tst_menubar_overflow` guards it.
+
+## D-316 — An implicit size assigned to a Flex wins
+
+**Problem.** `Flex` always wrote its measured content size into its own
+`implicitWidth`/`implicitHeight`, so a consumer's binding was silently
+overwritten (AGENTS rule 5 told everyone to wrap in an `Item`).
+
+**Decision.** `Flex` overrides the two properties: a value or binding
+assigned from QML (or C++ through the property) is what it reports to its
+parent; assigning `undefined` resets to the measurement. The content is
+still laid out in the Flex's real size. `Grid` and `Stack` are unchanged.
+
+**Consequences.** The two in-tree Flexes that already assigned an implicit
+size (TerminalView's status bar, the grading example's readout) now get the
+size their authors wrote. `tst_layout_intrinsic` `flexHonoursDeclaredImplicitSize`
+guards it.
+
+## D-317 — Consumers' state survives the toolkit's own updates
+
+**Decision.** A `FormGroup` toggle (its header, or `focusFirstInvalid`
+expanding it) first emits `toggled(collapsed)`; only when `collapsed` is
+unchanged afterwards does the group assign it, so a consumer that binds
+`collapsed` and answers `toggled` keeps its binding, and the header re-binds
+to the group instead of keeping a stale value. `Ribbon` matches tabs by ID
+on a freshly filtered list, so rebuilding `tabs` (new objects, same IDs)
+keeps the current tab, and when the current contextual tab disappears it
+returns to the tab that was current before the contextual one appeared
+(the first tab when that is gone too).
+
+## D-318 — "Automatic" and "No Color" are colour modes
+
+**Decision.** `ColorButton` gains opt-in `automaticEntry` and
+`noColorEntry` above its swatches and a `colorMode` (`color`, `automatic`,
+`none`): a document stores "use the automatic colour" or "no fill", which no
+`color` value can say. Choosing them emits `automaticSelected()` or
+`noColorSelected()`; the swatch shows `automaticColor` or a struck-through
+empty square. Without the entries nothing changes.
+
 ## D-319 — Imported HTML never names an image the engine would fetch
 
 **Problem.** `RichTextHtml::toFragment` copied every `<img src>` into the
@@ -2182,3 +2323,90 @@ layout but drops external pictures unless the app opts a scheme in.
 `tst_rich_text_html_import` feeds hostile HTML (remote, `file:`,
 protocol-relative, `srcset`, entity-encoded, SVG data) and proves a local
 `<link rel=stylesheet>` is not read.
+
+## D-320 — A focused rich text area owns its typing keys
+
+**Decision.** `RichTextArea` accepts `ShortcutOverride` while it has active
+focus and is editable for printable text without Ctrl, Alt or Meta and for
+Backspace, Delete, the arrows, Home, End, Return and Enter without those
+modifiers, as Qt's text inputs do. A host's one-letter shortcuts (QindaNote's
+P, H, E, T) no longer steal typing; Alt mnemonics and Ctrl/Meta chords stay
+the host's, and a read-only or unfocused area leaves every key to them.
+
+## D-321 — Host-kept rich text history receives undo and redo
+
+**Decision.** `RichTextDocument.requestUndo()`/`requestRedo()` are what the
+area's `edit.undo`/`edit.redo` commands, Ctrl+Z and Ctrl+Shift+Z call. With
+`externalUndo` they emit `undoRequested()`/`redoRequested()` (returning
+true) for the host's history, and the commands stay enabled while the
+document is writable; without it they are `undo()`/`redo()`. `undo()` and
+`redo()` keep their meaning (a no-op returning false with `externalUndo`).
+A request made while one is being handled is refused, so a host that
+answers with `requestUndo()` cannot recurse.
+
+## D-322 — A whole table deletes as one step
+
+**Decision.** `RichTextDocument.deleteTable(id)` (QML `removeTable`) removes a
+table block with its rows, cells, paragraphs and anchored objects as one
+undoable `StepBlocks` transaction (refused while tracking changes; a lone
+table leaves an empty paragraph), and the area offers it as the
+`table.delete` command at the caret. `RichTextFormatState` also reports the
+selection's highlight (`highlight`, `highlightMixed`), the value of
+`text.highlight`.
+
+## D-323 — Checkable menu items keep their icons
+
+**Decision.** A checkable `MenuItem` with an `iconName` shows its icon and
+marks the checked state with a frame around it (`menuItemCheckFrame`,
+accent border on `accentSubtle`), as office suites do for Bold or Ruler;
+only an item without an icon uses the check mark (or the dot of a `radio`
+item) in the icon slot. The accessible checked state is unchanged.
+
+## D-324 — A batch of records is one store change
+
+**Problem.** A mail or calendar sync upserted record by record: each call
+scanned its collection (O(n·k)) and emitted `dataChanged`, so QML
+re-evaluated every binding on the store thousands of times.
+
+**Decision.** `LocalProductivityStore.upsertMany(collection, records)` applies
+a batch as one change (one revision, one `dataChanged`) through a stable-ID
+index that is built lazily per collection and dropped on every
+`dataChanged`, the one signal every mutation already emits; `indexOf` and
+`record` expose the same O(1) lookup. A record without an ID refuses the
+whole batch. `upsert` is unchanged.
+
+## D-325 — Paragraph data is part of the paragraph's format
+
+**Problem.** QindaNote keeps tags per paragraph and had nowhere in the rich
+text model to put them that would follow the paragraph through undo, save,
+copy and paste.
+
+**Decision.** `ParagraphFormat` gains `data`, a JSON object the host owns
+(at most 64 KiB compact). `RichTextDocument.setParagraphData` sets it as one
+`StepParagraphFormat` (one undo step, applied directly even while tracking
+changes) and `paragraphData` reads it. Because it is format, the codec saves
+it (`format.data`), fragments carry it and a split copies it to the new
+paragraph; nothing draws or exports it.
+
+## D-326 — Tree rows report drops; owners move
+
+**Decision.** `TreeRow` drag and drop is opt-in (`dragEnabled`,
+`dropEnabled`) and keyed (`dragKey`), on Qt Quick's internal drag: the
+dragged row shows a ghost on the window overlay, a target row shows a
+before/after line or an inside frame (inside only when `acceptsChildren`),
+and the drop is reported as `dropRequested(sourceId, position)`. Like
+`ShapePalette` (D-302) the control never moves a model row; the owner
+(a notebook's page tree, a task outline) applies the move as its own undoable
+edit.
+
+## D-327 — Galleries render host previews; the character map emits text
+
+**Decision.** `Gallery` lays out tiles whose previews are the host's
+`preview` Component (it receives the entry and the selected state), so a
+Styles gallery shows the application's real styles and a Themes gallery its
+real themes without the toolkit knowing either; hover and keys emit
+`highlighted` for live preview, a choice emits `activated`, and `currentId`
+stays the host's. `CharacterMap` lists Unicode blocks by code point (no
+character-name database) and emits `characterChosen(text)`; the host
+inserts it and keeps the recent list.
+

@@ -62,6 +62,83 @@ QString fieldStatus(const QVariantMap &check, const QString &name)
 class LocalDataDesignDocumentTest final : public QObject {
     Q_OBJECT
 private slots:
+    // D-311: positioned form controls are design data, edited one undo step
+    // at a time and checked like the rest of the design.
+    void formControlsAreUndoableDesignData()
+    {
+        LocalDatabaseProvider db;
+        QVERIFY(seedSales(db));
+        LocalDataDesignDocument doc;
+        QVERIFY(doc.bindTable(&db, QStringLiteral("sales")));
+        const QString combo = doc.addFormControl({{"type", "comboBox"}, {"x", 8}, {"y", 16}, {"fieldName", "region"},
+                                                  {"items", QVariantList{"North", "South"}}});
+        QVERIFY2(!combo.isEmpty(), qPrintable(doc.lastError()));
+        QCOMPARE(doc.undoText(), QStringLiteral("Add combo box"));
+        const QString tabs = doc.addFormControl({{"type", "tabControl"}, {"x", 8}, {"y", 48}});
+        const QString sub = doc.addFormControl({{"type", "subform"}, {"formName", "Lines"}, {"parentId", tabs}, {"page", 1},
+                                                {"linkMasterFields", "id"}, {"linkChildFields", "saleId"}});
+        const QString total = doc.addFormControl({{"type", "textBox"}, {"expression", "=[amount]*[units]"}});
+        const QString button = doc.addFormControl({{"type", "commandButton"}, {"caption", "Print"}, {"actionId", "basePrintAction"}});
+        for (const QString &type : {QStringLiteral("label"), QStringLiteral("listBox"), QStringLiteral("checkBox"),
+                                    QStringLiteral("image"), QStringLiteral("line"), QStringLiteral("rectangle")})
+            QVERIFY2(!doc.addFormControl({{"type", type}}).isEmpty(), qPrintable(type));
+        QVERIFY(!tabs.isEmpty() && !sub.isEmpty() && !total.isEmpty() && !button.isEmpty());
+        QVariantList controls = doc.form().value("controls").toList();
+        QCOMPARE(controls.size(), 11);
+        QVariantMap first = controls.first().toMap();
+        QCOMPARE(first.value("name").toString(), QStringLiteral("Combo1"));
+        QCOMPARE(first.value("width").toInt(), 160);
+        QCOMPARE(controls.at(1).toMap().value("pages").toList().size(), 2);
+        QCOMPARE(controls.at(3).toMap().value("expression").toString(), QStringLiteral("=[amount]*[units]"));
+
+        QVERIFY(doc.setFormControl(combo, {{"x", 24}, {"y", 32}, {"width", 200}}));
+        QCOMPARE(doc.undoText(), QStringLiteral("Move or size Combo1"));
+        QVERIFY(doc.setFormControl(button, {{"caption", "Print sale"}, {"actionId", QVariant()}}));
+        QCOMPARE(doc.undoText(), QStringLiteral("Change CommandButton1"));
+        controls = doc.form().value("controls").toList();
+        QCOMPARE(controls.first().toMap().value("x").toInt(), 24);
+        QVERIFY(!controls.at(4).toMap().contains("actionId"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.form().value("controls").toList().at(4).toMap().value("actionId").toString(), QStringLiteral("basePrintAction"));
+
+        // Refused edits change nothing.
+        const QString revision = doc.revision();
+        QVERIFY(!doc.setFormControl(combo, {{"fieldName", "territory"}}));
+        QVERIFY(doc.lastError().contains(QStringLiteral("territory")));
+        QVERIFY(!doc.setFormControl(combo, {{"type", "listBox"}}));
+        QVERIFY(!doc.setFormControl(combo, {{"x", -1}}));
+        QVERIFY(!doc.setFormControl(sub, {{"page", 5}}));
+        QVERIFY(!doc.setFormControl(button, {{"fieldName", "region"}}));
+        QVERIFY(!doc.setFormControl(tabs, {{"pages", QVariantList{}}}));
+        QVERIFY(doc.addFormControl({{"type", "chart"}}).isEmpty());
+        QVERIFY(doc.addFormControl({{"type", "label"}, {"id", combo}}).isEmpty());
+        QCOMPARE(doc.revision(), revision);
+
+        // Deleting a tab control takes the controls on its pages along.
+        QVERIFY(doc.removeFormControl(tabs));
+        QCOMPARE(doc.form().value("controls").toList().size(), 9);
+        QCOMPARE(doc.undoText(), QStringLiteral("Delete TabControl1"));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.form().value("controls").toList().size(), 11);
+
+        // Rebinding to fewer fields unbinds the controls that named a dropped field.
+        QVERIFY(doc.bindTable(&db, QStringLiteral("sales"), {QStringLiteral("id"), QStringLiteral("amount")}));
+        QVERIFY(!doc.form().value("controls").toList().first().toMap().contains("fieldName"));
+        QCOMPARE(doc.form().value("controls").toList().size(), 11);
+
+        // The structure check guards files too.
+        QVariantMap design = doc.design();
+        QVariantMap form = design.value("form").toMap();
+        form.insert("controls", QVariantList{QVariantMap{{"id", "a"}, {"type", "label"}, {"x", 0}, {"y", 0},
+                                                        {"width", 10}, {"height", 10}, {"fieldName", "id"}}});
+        design.insert("form", form);
+        QVERIFY(LocalDataDesignStore::checkStructure(design).contains(QStringLiteral("cannot bind")));
+        form.insert("controls", QVariantList{QVariantMap{{"id", "a"}, {"type", "label"}, {"x", 0}, {"y", 0},
+                                                        {"width", 10}, {"height", 10}, {"parentId", "missing"}, {"page", 0}}});
+        design.insert("form", form);
+        QVERIFY(!LocalDataDesignStore::checkStructure(design).isEmpty());
+    }
+
     void editsAreUndoableCommands()
     {
         LocalDatabaseProvider db;

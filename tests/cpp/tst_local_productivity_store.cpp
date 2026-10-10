@@ -3,6 +3,7 @@
 #include "../../src/core/rich_text_document.h"
 
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 #include <algorithm>
@@ -149,6 +150,63 @@ private slots:
         QindaTK::LocalProductivityStore repaired;
         QVERIFY(repaired.loadFrom(path));
         QCOMPARE(repaired.messages().size(), 2);
+    }
+
+    // D-324: a sync hands thousands of records at once — one change, one
+    // signal, matched through the ID index; a bad batch changes nothing.
+    void upsertManyIsOneChangeThroughTheIdIndex()
+    {
+        QindaTK::LocalProductivityStore store;
+        QSignalSpy changed(&store, &QindaTK::LocalProductivityStore::dataChanged);
+        QVariantList batch;
+        for (int i = 0; i < 5000; ++i)
+            batch.append(QVariantMap{{QStringLiteral("id"), QStringLiteral("m-%1").arg(i)},
+                                     {QStringLiteral("subject"), QStringLiteral("Message %1").arg(i)}});
+        QVariantMap outcome = store.upsertMany(QStringLiteral("messages"), batch);
+        QVERIFY2(outcome.value(QStringLiteral("ok")).toBool(), qPrintable(outcome.value(QStringLiteral("error")).toString()));
+        QCOMPARE(outcome.value(QStringLiteral("inserted")).toInt(), 5000);
+        QCOMPARE(outcome.value(QStringLiteral("updated")).toInt(), 0);
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(store.messages().size(), 5000);
+        QCOMPARE(store.indexOf(QStringLiteral("messages"), QStringLiteral("m-4321")), 4321);
+        QCOMPARE(store.record(QStringLiteral("messages"), QStringLiteral("m-7")).value(QStringLiteral("subject")).toString(),
+                 QStringLiteral("Message 7"));
+
+        // Updates and inserts in one batch; a repeated ID in the batch: the later one wins.
+        const QString revision = store.revisionText();
+        outcome = store.upsertMany(QStringLiteral("messages"), {
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("m-7")}, {QStringLiteral("subject"), QStringLiteral("Edited")}},
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("new-1")}, {QStringLiteral("subject"), QStringLiteral("First")}},
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("new-1")}, {QStringLiteral("subject"), QStringLiteral("Second")}}});
+        QVERIFY(outcome.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(outcome.value(QStringLiteral("inserted")).toInt(), 1);
+        QCOMPARE(outcome.value(QStringLiteral("updated")).toInt(), 2);
+        QCOMPARE(changed.count(), 2);
+        QVERIFY(store.revisionText() != revision);
+        QCOMPARE(store.messages().size(), 5001);
+        QCOMPARE(store.indexOf(QStringLiteral("messages"), QStringLiteral("m-7")), 7);
+        QCOMPARE(store.record(QStringLiteral("messages"), QStringLiteral("new-1")).value(QStringLiteral("subject")).toString(),
+                 QStringLiteral("Second"));
+
+        // A record without an ID refuses the whole batch.
+        const QString before = store.revisionText();
+        outcome = store.upsertMany(QStringLiteral("messages"), {
+            QVariantMap{{QStringLiteral("id"), QStringLiteral("m-1")}, {QStringLiteral("subject"), QStringLiteral("Lost")}},
+            QVariantMap{{QStringLiteral("subject"), QStringLiteral("No id")}}});
+        QVERIFY(!outcome.value(QStringLiteral("ok")).toBool());
+        QVERIFY(outcome.value(QStringLiteral("error")).toString().contains(QStringLiteral("Record 2")));
+        QCOMPARE(store.revisionText(), before);
+        QCOMPARE(store.record(QStringLiteral("messages"), QStringLiteral("m-1")).value(QStringLiteral("subject")).toString(),
+                 QStringLiteral("Message 1"));
+        QVERIFY(!store.upsertMany(QStringLiteral("folders"), {}).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(changed.count(), 2);
+
+        // The index follows other edits: remove shifts the rows after it.
+        QVERIFY(store.remove(QStringLiteral("messages"), QStringLiteral("m-0")).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(store.indexOf(QStringLiteral("messages"), QStringLiteral("m-7")), 6);
+        QCOMPARE(store.indexOf(QStringLiteral("messages"), QStringLiteral("m-0")), -1);
+        QCOMPARE(store.indexOf(QStringLiteral("tasks"), QStringLiteral("m-7")), -1);
+        QVERIFY(store.record(QStringLiteral("messages"), QStringLiteral("missing")).isEmpty());
     }
 };
 

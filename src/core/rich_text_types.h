@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QColor>
+#include <QJsonObject>
 #include <QString>
 #include <QStringList>
 #include <QUuid>
@@ -131,6 +132,10 @@ struct ParagraphFormat {
     bool pageBreakBefore = false;
     QString styleId;           // named paragraph style; empty: unstyled
     quint32 overrides = 0;     // StyleProperty bits set directly (styled paragraphs only)
+    // Host data of the paragraph (D-325): tags and the like. Never drawn or
+    // exported; part of the format, so it is undoable, saved, copied with
+    // the paragraph and inherited by a split, like a list membership.
+    QJsonObject data;
     friend bool operator==(const ParagraphFormat &, const ParagraphFormat &) = default;
 };
 

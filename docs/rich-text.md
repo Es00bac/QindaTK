@@ -66,7 +66,9 @@ map onto `insertTableRow(tableId, index)`, `removeTableRow(tableId, rowId)`,
 `setTableColumnWidth(tableId, columnId, width)`,
 `setTableCellText(tableId, cellId, text)`, `mergeTableCells(tableId,
 cellIds)`, `splitTableCell(tableId, cellId)` and `setTableStyle(tableId,
-styleId)`. Each returns false and sets `lastError` without changing the
+styleId)`; `removeTable(tableId)` (C++ `deleteTable`) deletes the whole
+table — rows, cells, paragraphs and anchored objects — as one undoable
+`StepBlocks` step, refused while tracking changes (D-322). Each returns false and sets `lastError` without changing the
 document when the request is invalid.
 
 - Every grid edit is one `StepTable` undo step that swaps the whole grid.
@@ -332,15 +334,17 @@ use. The IDs are public API.
 | `paragraph.bulletList`, `paragraph.numberedList` | — | Toggle. Joins the previous paragraph's list when the kind matches. |
 | `paragraph.indent`, `paragraph.outdent` | — | List level. |
 | `insert.table` | `rows`, `columns`, `headerRows` | |
+| `table.delete` | — | Deletes the table at the caret as one step; the caret goes to the block after it (D-322). |
 | `insert.pageBreak` | — | Ctrl+Enter. |
 | `insert.object` | `source`, `kind`, `widthPt`, `heightPt`, `alt`, `placement` | |
-| `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.selectAll` | — | |
+| `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.selectAll` | — | With `externalUndo`, undo and redo ask the host ([host history](#host-history)). |
 | `paragraph.style`, `text.style` | `value` (style ID; empty removes) | Paragraph or character style on the selection ([styles](publishing.md#styles)). |
 | `navigate.nextFrame`, `navigate.previousFrame` | — | Ctrl+Alt+Page Down/Up: next or previous text frame of the story. |
 
 `formatState` (`RichTextFormatState`) resolves the selection:
-`fontFamily`, `fontSize`, `color`, `link`, `alignment` and `heading`, each
-with a `…Mixed` flag. `bold`, `italic`, `underline`, `strike`,
+`fontFamily`, `fontSize`, `color`, `highlight` (the run background; invalid
+for none), `link`, `alignment` and `heading`, each with a `…Mixed` flag;
+`commandState("text.highlight").value` is the same highlight. `bold`, `italic`, `underline`, `strike`,
 `superscript` and `subscript` are `Qt.CheckState` values, and `list` is
 `none`, `bullet`, `number` or `mixed`. `fontMissing` is set when the
 selection has a single family and that family is not installed.
@@ -374,6 +378,42 @@ URI whose scheme the application registered with
 `file:`, `qrc:`, protocol-relative `//host/...`, relative, `javascript:` —
 stays as a placeholder object with its alt text and size and an empty
 source. `tst_rich_text_html_import` covers hostile HTML.
+
+<a id="keyboard"></a>
+### Keyboard and host shortcuts (D-320)
+
+While it has active focus and is editable, `RichTextArea` accepts the
+`ShortcutOverride` of the keys it types and edits with — printable text
+without Ctrl, Alt or Meta, and Backspace, Delete, the arrows, Home, End,
+Return and Enter without them — as Qt's text inputs do. A host's one-letter
+shortcuts (a `Shortcut { sequence: "P" }`) never steal typing; Alt
+mnemonics and Ctrl/Meta chords stay the host's, and a read-only or
+unfocused area leaves every key to the host.
+
+<a id="host-history"></a>
+### Host-kept history (D-321)
+
+With `externalUndo` the host records each `committed(transactionId)` step
+and replays it with `applyHistoryChanges` (D-050); `undo()`/`redo()` do
+nothing then, as before. `requestUndo()`/`requestRedo()` — what the area's
+`edit.undo`/`edit.redo` commands (enabled while the document is writable),
+Ctrl+Z and Ctrl+Shift+Z call — emit `undoRequested()`/`redoRequested()` and
+return true: the host steps its history. Without `externalUndo` they are
+`undo()`/`redo()`. A request made while the host handles one returns false,
+so a host that answers with `requestUndo()` cannot recurse.
+
+<a id="paragraph-data"></a>
+### Paragraph data (D-325)
+
+`RichTextDocument.setParagraphData(paragraphId, map)` stores host data on
+one paragraph — QindaNote's tags, a to-do state — and
+`paragraphData(paragraphId)` reads it ({} for an unknown paragraph). The map
+is JSON (at most 64 KiB compact per paragraph) and lives in the paragraph's
+format (`format.data` in the file, `paragraphFormatMap(id).data`): it is
+never drawn or exported, saved and reloaded by the codec, one undo step per
+change (applied directly, not as a tracked change, since a reviewer has
+nothing to review), copied with a pasted fragment, and inherited by the new
+paragraph of a split, as a list membership is.
 
 ## Objects
 

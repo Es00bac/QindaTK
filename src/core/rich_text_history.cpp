@@ -239,6 +239,26 @@ std::optional<Selection> RichTextDocument::redoTransaction()
     return transaction.after;
 }
 
+bool RichTextDocument::requestUndo()
+{
+    if (!m_externalUndo) return undo();
+    if (!forwardsHistory() || m_forwardingHistory) return false;
+    m_forwardingHistory = true;
+    emit undoRequested();
+    m_forwardingHistory = false;
+    return true;
+}
+
+bool RichTextDocument::requestRedo()
+{
+    if (!m_externalUndo) return redo();
+    if (!forwardsHistory() || m_forwardingHistory) return false;
+    m_forwardingHistory = true;
+    emit redoRequested();
+    m_forwardingHistory = false;
+    return true;
+}
+
 void RichTextDocument::setExternalUndo(bool enabled)
 {
     if (m_externalUndo == enabled) return;

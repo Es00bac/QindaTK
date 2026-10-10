@@ -33,5 +33,16 @@ public:
     static QString checkStructure(const QVariantMap &design);
     // Every field name the form and report refer to.
     static QStringList referencedFields(const QVariantMap &design);
+    // Form controls (D-311, docs/forms-reports.md#form-controls), in
+    // local_data_design_controls.cpp: the control types, why `controls` is
+    // not a well-formed list (or empty), and a control of `type` with its
+    // default size and properties.
+    static QStringList formControlTypes();
+    static QString checkFormControls(const QVariantList &controls);
+    static QVariantMap formControlDefaults(const QString &type);
+    // The same for QML (FormDesigner without a design document).
+    Q_INVOKABLE QStringList controlTypes() const { return formControlTypes(); }
+    Q_INVOKABLE QVariantMap controlDefaults(const QString &type) const { return formControlDefaults(type); }
+    Q_INVOKABLE QString checkControls(const QVariantList &controls) const { return checkFormControls(controls); }
 };
 }

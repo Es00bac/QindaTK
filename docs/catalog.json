@@ -7010,6 +7010,128 @@
       ]
     },
     {
+      "name": "CharacterMap",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (D-327, docs/controls.md): the character map behind an office suite's Insert ▸ Symbol — a block picker, the host's recent characters, a grid of the block's characters in `fontFamily`, and the selected character large with its code point. Selection is view state; characterChosen(text) (double-click, Return, the Insert button or a recent chip) is the only output: the host inserts the text and keeps `recent`. Characters are code points, so astral ones (emoji, math alphanumerics) work; C0/C1 controls and lone surrogates are never listed.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CharacterMap.qml",
+      "properties": [
+        {
+          "name": "blocks",
+          "type": "var",
+          "default": "defaultBlocks",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentBlock",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fontFamily",
+          "type": "string",
+          "default": "Tk.Theme.font.family",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "recent",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "16",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentCharacter",
+          "type": "string",
+          "default": "characters.length ? characters[0] : \"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Character map\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "characters",
+          "type": "var",
+          "default": "charactersOf(blocks[currentBlock])",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "defaultBlocks",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "characterChosen",
+          "parameters": "string text"
+        }
+      ],
+      "methods": [
+        {
+          "name": "charactersOf",
+          "parameters": "block"
+        },
+        {
+          "name": "codePointLabel",
+          "parameters": "text"
+        },
+        {
+          "name": "choose",
+          "parameters": "text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "characterCell_",
+        "characterMapBlock",
+        "characterMapCode",
+        "characterMapGlyph",
+        "characterMapGrid",
+        "characterMapInsert",
+        "characterMapPreview",
+        "characterMapRecent",
+        "characterRecent_"
+      ]
+    },
+    {
       "name": "ChartLegend",
       "kind": "qml",
       "base": "Item",
@@ -8177,7 +8299,7 @@
       "name": "ColorButton",
       "kind": "qml",
       "base": "T.AbstractButton",
-      "description": "AGENT-CONTRACT (docs/controls.md): a toolbar button showing the current `color` as a swatch with a chevron; clicking opens a Tk.Popover with a Tk.ColorSwatches over `colors`. Picking a swatch sets `color` and emits colorSelected(color); \"Custom…\" emits customRequested() (the host opens its picker and sets `color` itself). Control height (24; `small` 20). objectNames \"colorButtonSwatch\", \"colorButtonPopover\".",
+      "description": "AGENT-CONTRACT (docs/controls.md): a toolbar button showing the current `color` as a swatch with a chevron; clicking opens a Tk.Popover with a Tk.ColorSwatches over `colors`. Picking a swatch sets `color` and emits colorSelected(color); \"Custom…\" emits customRequested() (the host opens its picker and sets `color` itself). Control height (24; `small` 20). objectNames \"colorButtonSwatch\", \"colorButtonPopover\". AGENT-NOTE (D-318): \"Automatic\" and \"No Color\" are modes, not colours — a document stores \"use the automatic colour\" or \"no fill\", which no `color` value can say. They are opt-in entries above the swatches; `colorMode` (\"color\", \"automatic\", \"none\") is what the swatch shows.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ColorButton.qml",
@@ -8231,6 +8353,54 @@
           "required": false
         },
         {
+          "name": "automaticEntry",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "noColorEntry",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "automaticText",
+          "type": "string",
+          "default": "qsTr(\"Automatic\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "noColorText",
+          "type": "string",
+          "default": "qsTr(\"No Color\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "automaticColor",
+          "type": "color",
+          "default": "Tk.Theme.color.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "colorMode",
+          "type": "string",
+          "default": "\"color\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "controlHeight",
           "type": "real",
           "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
@@ -8255,9 +8425,26 @@
         {
           "name": "customRequested",
           "parameters": ""
+        },
+        {
+          "name": "automaticSelected",
+          "parameters": ""
+        },
+        {
+          "name": "noColorSelected",
+          "parameters": ""
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "chooseAutomatic",
+          "parameters": ""
+        },
+        {
+          "name": "chooseNoColor",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -8267,8 +8454,12 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "colorButtonAutomatic",
+        "colorButtonNoColor",
+        "colorButtonNoColorMark",
         "colorButtonPopover",
-        "colorButtonSwatch"
+        "colorButtonSwatch",
+        "colorButtonSwatches"
       ]
     },
     {
@@ -14229,6 +14420,14 @@
           "required": false
         },
         {
+          "name": "groupHeader",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "bodyWidth",
           "type": "real",
           "default": "Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))",
@@ -14289,6 +14488,10 @@
         {
           "name": "editCancelled",
           "parameters": ""
+        },
+        {
+          "name": "groupToggled",
+          "parameters": "string rowId, bool collapsed"
         }
       ],
       "methods": [
@@ -14331,6 +14534,18 @@
         {
           "name": "clampScroll",
           "parameters": ""
+        },
+        {
+          "name": "groupInfo",
+          "parameters": "rowId, index"
+        },
+        {
+          "name": "setGroupCollapsed",
+          "parameters": "rowId, collapsed"
+        },
+        {
+          "name": "toggleGroup",
+          "parameters": "rowId"
         },
         {
           "name": "beginCellEdit",
@@ -16783,10 +16998,434 @@
       ]
     },
     {
+      "name": "FormControlCanvas",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of FormDesigner (D-311): the form's positioned controls. In design mode it draws each as a FormControlShape and owns the gestures — click selects, drag moves, the eight handles resize (all snapped to `designer.gridSize`), arrows nudge, Shift+arrows size, Delete removes — and every finished gesture is ONE designer edit (one undo step with a design document). In preview and edit modes it hosts the live controls. A tab control shows the controls of its current page only; moving it moves them too (one edit).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormControlCanvas.qml",
+      "properties": [
+        {
+          "name": "designer",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "designing",
+          "type": "bool",
+          "default": "designer.mode === \"design\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controls",
+          "type": "var",
+          "default": "designer.controls",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pages",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "margin",
+          "type": "real",
+          "default": "Tk.Theme.space.xl",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "extent",
+          "type": "rect",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "rectFor",
+          "parameters": "control"
+        },
+        {
+          "name": "minimumSize",
+          "parameters": "control"
+        },
+        {
+          "name": "pageOf",
+          "parameters": "tabId"
+        },
+        {
+          "name": "showPage",
+          "parameters": "tabId, page"
+        },
+        {
+          "name": "shown",
+          "parameters": "control"
+        },
+        {
+          "name": "controlAt",
+          "parameters": "point"
+        },
+        {
+          "name": "commit",
+          "parameters": "control, rect"
+        },
+        {
+          "name": "nudge",
+          "parameters": "dx, dy, size"
+        },
+        {
+          "name": "cycle",
+          "parameters": "forward"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formCanvas",
+        "formCanvasBackground",
+        "formControl_",
+        "formHandle_",
+        "formSelection"
+      ]
+    },
+    {
+      "name": "FormControlLive",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of FormDesigner (D-311): one interactive form control of a previewed or edited record — a text, combo, list or check box bound to `fieldName` (values change through FormDesigner.setFieldValue, so only edit mode writes and every rule there applies), a calculated text box (`expression`, shown through FormDesigner.expressionEvaluator), a command button (controlCommandRequested), a subform (the host's subformComponent) or a tab control's page strip. Static types are FormControlShape's.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormControlLive.qml",
+      "properties": [
+        {
+          "name": "control",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "designer",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "String(control.type || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "field",
+          "type": "string",
+          "default": "String(control.fieldName || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "calculated",
+          "type": "bool",
+          "default": "String(control.expression || \"\").length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "var",
+          "default": "field.length ? designer.workingRecord[field] : undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "writable",
+          "type": "bool",
+          "default": "designer.mode === \"edit\" && field.length > 0 && !calculated",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "caption",
+          "type": "string",
+          "default": "String(control.caption || control.name || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "items",
+          "type": "var",
+          "default": "control.items || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageChosen",
+          "parameters": "int page"
+        }
+      ],
+      "methods": [
+        {
+          "name": "numericField",
+          "parameters": ""
+        },
+        {
+          "name": "display",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formLiveItem_",
+        "formLiveTabs",
+        "formLive_"
+      ]
+    },
+    {
+      "name": "FormControlShape",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of FormDesigner (D-311): one form control as design view draws it — what it shows (caption, bound field \"[name]\", \"=expression\", items, subform name, pages, image source) in a frame of its design size. It takes no input: FormControlCanvas selects, moves and resizes it. With `live` it draws the static types (label, line, rectangle, image) of a previewed form, without the design frame.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormControlShape.qml",
+      "properties": [
+        {
+          "name": "control",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "live",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "String(control.type || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputLike",
+          "type": "bool",
+          "default": "type === \"textBox\" || type === \"comboBox\" || type === \"listBox\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "boundText",
+          "type": "string",
+          "default": "control.expression ? String(control.expression)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "items",
+          "type": "var",
+          "default": "control.items || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pages",
+          "type": "var",
+          "default": "control.pages || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formShapeBinding",
+        "formShapeCaption",
+        "formShapeFrame",
+        "formShapeImage",
+        "formShapeLine",
+        "formShapePages",
+        "formShapeSubform"
+      ]
+    },
+    {
+      "name": "FormControlSheet",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "Internal part of FormDesigner (D-311): the property sheet of the selected form control. Every committed editor value is one designer edit (one undo step with a design document): name, caption, bound field, calculated expression, items and row source, subform and its link fields, command action, tab pages, the tab page a control sits on, picture source, line slant and the geometry.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormControlSheet.qml",
+      "properties": [
+        {
+          "name": "designer",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "control",
+          "type": "var",
+          "default": "designer.controlById(designer.selectedControlId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "String(control.type || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fieldChoices",
+          "type": "var",
+          "default": "[qsTr(\"(none)\")].concat(designer.fieldNames())",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeChoices",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "set",
+          "parameters": "key, value"
+        },
+        {
+          "name": "setText",
+          "parameters": "key, text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formControlAction",
+        "formControlCaption",
+        "formControlDelete",
+        "formControlExpression",
+        "formControlField",
+        "formControlFormName",
+        "formControlItems",
+        "formControlLinkChild",
+        "formControlLinkMaster",
+        "formControlName",
+        "formControlPages",
+        "formControlPlace",
+        "formControlRowSource",
+        "formControlSlant",
+        "formControlSource",
+        "formControl_",
+        "formPropertySheet"
+      ]
+    },
+    {
       "name": "FormDesigner",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Schema and record values are host snapshots. Edits are saved only by a host request; design mode never writes to the database. AGENT-CONTRACT (docs/forms-reports.md#designers): with `designDocument` set, the form layout is the document's form and every design edit (label, order, shown) is one LocalDataDesignDocument command, so undo, save and recovery cover it; without it the control only emits designChangeRequested and the host owns the design.",
+      "description": "Schema and record values are host snapshots. Edits are saved only by a host request; design mode never writes to the database. AGENT-CONTRACT (docs/forms-reports.md#designers): with `designDocument` set, the form layout is the document's form and every design edit (label, order, shown) is one LocalDataDesignDocument command, so undo, save and recovery cover it; without it the control only emits designChangeRequested and the host owns the design. AGENT-CONTRACT (D-311, docs/forms-reports.md#form-controls): positioned controls (`design.controls`: labels, bound text/combo/list/check boxes, subforms by form name, command buttons with an action id, tab controls, images, lines, rectangles, calculated text boxes with an opaque `expression`) are laid out on FormControlCanvas and edited in FormControlSheet. Each finished gesture or property edit is one LocalDataDesignDocument command, or one designChangeRequested(\"\", {controls}) carrying the whole next list when the host owns the design.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/FormDesigner.qml",
@@ -16902,6 +17541,54 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "controls",
+          "type": "var",
+          "default": "design.controls || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlsEnabled",
+          "type": "bool",
+          "default": "controls.length > 0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedControlId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gridSize",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "subformComponent",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "expressionEvaluator",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -16916,6 +17603,10 @@
         {
           "name": "recordSaveRequested",
           "parameters": "string requestId, string tableName, string recordId, var changes"
+        },
+        {
+          "name": "controlCommandRequested",
+          "parameters": "string controlId, string actionId"
         }
       ],
       "methods": [
@@ -16986,6 +17677,42 @@
         {
           "name": "updateTitle",
           "parameters": "title"
+        },
+        {
+          "name": "fieldNames",
+          "parameters": ""
+        },
+        {
+          "name": "controlById",
+          "parameters": "controlId"
+        },
+        {
+          "name": "selectControl",
+          "parameters": "controlId"
+        },
+        {
+          "name": "controlTitle",
+          "parameters": "type"
+        },
+        {
+          "name": "requestControls",
+          "parameters": "next"
+        },
+        {
+          "name": "addControl",
+          "parameters": "type, properties"
+        },
+        {
+          "name": "updateControl",
+          "parameters": "controlId, changes"
+        },
+        {
+          "name": "replaceControls",
+          "parameters": "next"
+        },
+        {
+          "name": "removeControl",
+          "parameters": "controlId"
         }
       ],
       "enums": {},
@@ -16997,11 +17724,13 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "formAdd_",
         "formBool_",
         "formDesignLabel_",
         "formDesigner",
         "formField_",
         "formLabel_",
+        "formLayout",
         "formMoveDown_",
         "formMoveUp_",
         "formRedo",
@@ -17010,6 +17739,7 @@
         "formShown_",
         "formStatus",
         "formTitle",
+        "formToolbox",
         "formType_",
         "formUndo",
         "formValue_"
@@ -17019,7 +17749,7 @@
       "name": "FormGroup",
       "kind": "qml",
       "base": "Item",
-      "description": "Labeled, collapsible form section. `validationItems` entries may provide {item, invalid, pending}; async pending is reported separately from errors.",
+      "description": "Labeled, collapsible form section. `validationItems` entries may provide {item, invalid, pending}; async pending is reported separately from errors. AGENT-CONTRACT (D-317, docs/controls.md): a user toggle (the header, or focusFirstInvalid expanding the group) is offered to the consumer first as toggled(collapsed). A consumer that binds `collapsed` updates the binding's source in onToggled and keeps its binding; only when `collapsed` is still unchanged after the signal does the group assign it itself (the behaviour before D-317), so an uncontrolled group still collapses on a click.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/FormGroup.qml",
@@ -17089,8 +17819,17 @@
           "required": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "toggled",
+          "parameters": "bool collapsed"
+        }
+      ],
       "methods": [
+        {
+          "name": "requestCollapsed",
+          "parameters": "next"
+        },
         {
           "name": "focusFirstInvalid",
           "parameters": ""
@@ -17496,6 +18235,140 @@
       ]
     },
     {
+      "name": "Gallery",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (D-327, docs/controls.md): an office gallery (Styles, Themes, Table Styles) — tiles of host-rendered previews. `model` is [{id, label, ...}]; `preview` is a Component the host renders each tile with (it gets `entry`, the model entry, and `selected`), so the toolkit never knows what a style or a theme looks like. The strip shows `rows` rows and scrolls by row with its arrows; \"More\" opens every tile in a popover. Hover or keyboard focus emits highlighted(id) (a host may preview live), a click, Return or Space emits activated(id); `currentId` is the host's state (a selection never writes it).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Gallery.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnail",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnailHeight + Tk.Theme.size.row",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Gallery\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "model ? model.length || 0 : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "focusIndex",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "activated",
+          "parameters": "string id"
+        },
+        {
+          "name": "highlighted",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "entryAt",
+          "parameters": "index"
+        },
+        {
+          "name": "idAt",
+          "parameters": "index"
+        },
+        {
+          "name": "activate",
+          "parameters": "index"
+        },
+        {
+          "name": "highlight",
+          "parameters": "index"
+        },
+        {
+          "name": "openMore",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "galleryAll",
+        "galleryCaption",
+        "galleryDown",
+        "galleryMore",
+        "galleryPopover",
+        "galleryPreview",
+        "galleryStrip",
+        "galleryTile_",
+        "galleryUp"
+      ]
+    },
+    {
       "name": "GanttBackdrop",
       "kind": "qml",
       "base": "Item",
@@ -17639,10 +18512,59 @@
       ]
     },
     {
+      "name": "GanttProgressLines",
+      "kind": "qml",
+      "base": "Canvas",
+      "description": "Internal part of GanttView (D-313): progress lines. `view.progressLines` is [{utc, role}] (role: a Tk.Theme.color role, default danger). For each line and each task row in view the polyline runs from the line's instant at the row's top to the task's progress point at its middle and back at its bottom, so a task behind schedule peaks left and one ahead peaks right. A row keeps the line straight when it is a group, a summary, complete, or not started and due after the line (MS Project's rule).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttProgressLines.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "contentY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "pointFor",
+          "parameters": "record, statusUtc, statusX"
+        },
+        {
+          "name": "pointsFor",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttProgressLines"
+      ]
+    },
+    {
       "name": "GanttRow",
       "kind": "qml",
       "base": "Item",
-      "description": "Internal part of GanttView (D-303): one recycled task row — the label column, the baseline, the bar (task, summary bracket or milestone diamond), progress, allocation overlay and the bar text. Stripes are the backdrop's; a row paints only its selection wash.",
+      "description": "Internal part of GanttView (D-303): one recycled task row — the label column, the bar (task, split pieces, summary bracket, milestone diamond or group span), progress and the bar text. Baseline lanes, slack, deadline and allocation are GanttRowLanes; stripes are the backdrop's; a row paints only its selection wash (and a group header its band, D-312).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/GanttRow.qml",
@@ -17696,6 +18618,22 @@
           "required": false
         },
         {
+          "name": "isGroup",
+          "type": "bool",
+          "default": "kind === \"group\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsed",
+          "type": "bool",
+          "default": "record.collapsed === true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "critical",
           "type": "bool",
           "default": "record.critical === true",
@@ -17728,6 +18666,22 @@
           "required": false
         },
         {
+          "name": "hasBaseline2",
+          "type": "bool",
+          "default": "!!record.baseline2StartUtc",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "segments",
+          "type": "var",
+          "default": "kind === \"task\" && record.segments && record.segments.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "endUtc",
           "type": "string",
           "default": "{ void view.calendarRevision; return view.endFor(record) }",
@@ -17752,9 +18706,17 @@
           "required": false
         },
         {
+          "name": "laneCount",
+          "type": "int",
+          "default": "(hasBaseline ? 1 : 0) + (hasBaseline2 ? 1 : 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "barHeight",
           "type": "real",
-          "default": "Math.round(height * (hasBaseline ? 0.42 : 0.5))",
+          "default": "Math.round(height * (laneCount === 2 ? 0.34 : laneCount === 1 ? 0.42 : 0.5))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -17762,7 +18724,15 @@
         {
           "name": "barY",
           "type": "real",
-          "default": "hasBaseline ? Math.round(height * 0.14) : Math.round((height - barHeight) / 2)",
+          "default": "laneCount === 2 ? Math.round(height * 0.1)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "laneHeight",
+          "type": "real",
+          "default": "Math.max(Tk.Theme.size.border * 2, Math.round(height * (laneCount === 2 ? 0.14 : 0.16)))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -17770,7 +18740,7 @@
         {
           "name": "diamond",
           "type": "real",
-          "default": "Math.round(height * (hasBaseline ? 0.5 : 0.58))",
+          "default": "Math.round(height * (laneCount > 0 ? 0.5 : 0.58))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -17779,6 +18749,94 @@
           "name": "barEnd",
           "type": "real",
           "default": "kind === \"milestone\" ? barX + diamond / 2 : barX + barWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "progressX",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "laneY",
+          "parameters": "lane"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttBarSegment",
+        "ganttBarText",
+        "ganttGroupBar",
+        "ganttGroupChevron",
+        "ganttGroupHeader",
+        "ganttGroupLabel",
+        "ganttGroupProgress",
+        "ganttGroupSummary",
+        "ganttGroupTitle",
+        "ganttMilestone",
+        "ganttProgress",
+        "ganttRow",
+        "ganttRowSelection",
+        "ganttSegmentProgress",
+        "ganttSplitGap",
+        "ganttSummaryBar",
+        "ganttSummaryProgress",
+        "ganttTaskBar",
+        "ganttTaskLabel",
+        "ganttTrack"
+      ]
+    },
+    {
+      "name": "GanttRowLanes",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of GanttView (D-303, D-313): what a task row draws around its bar — the baseline lane and the second baseline lane under it, the slack bars after it, the deadline marker and the allocation overlay. It fills GanttRow's track and reads every geometry from the row, so lane placement has one source (GanttRow.laneY).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttRowLanes.qml",
+      "properties": [
+        {
+          "name": "row",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "view",
+          "type": "var",
+          "default": "row.view",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "record",
+          "type": "var",
+          "default": "row.record",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "laneHeight",
+          "type": "real",
+          "default": "row.laneHeight",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -17796,17 +18854,9 @@
       "bridge": false,
       "objectNames": [
         "ganttAllocation",
-        "ganttBarText",
         "ganttBaseline",
-        "ganttMilestone",
-        "ganttProgress",
-        "ganttRow",
-        "ganttRowSelection",
-        "ganttSummaryBar",
-        "ganttSummaryProgress",
-        "ganttTaskBar",
-        "ganttTaskLabel",
-        "ganttTrack"
+        "ganttBaseline2",
+        "ganttDeadline"
       ]
     },
     {
@@ -17872,7 +18922,7 @@
       "name": "GanttView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: one recycled row carries the task label and interval, so timeline and grid identity both come from GanttTaskModel.taskId. The owner shares a SelectionModel with its DataTable and applies any grid sort to a source/proxy model before handing it to both views.  AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working days, markers), GanttRuler (header), GanttRow (one task) and GanttLinks (dependency canvas); all of them map instants through this root's xFor() so the \"working\" and \"calendar\" time scales stay one code path.",
+      "description": "AGENT-CONTRACT: one recycled row carries the task label and interval, so timeline and grid identity both come from GanttTaskModel.taskId. The owner shares a SelectionModel with its DataTable and applies any grid sort to a source/proxy model before handing it to both views.  AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working days, markers), GanttRuler (header), GanttRow (one task) with GanttRowLanes (baselines, slack, deadline), GanttLinks (dependency canvas) and GanttProgressLines (D-313); all of them map instants through this root's xFor() so the \"working\" and \"calendar\" time scales stay one path. AGENT-CONTRACT (D-312): `kind: \"group\"` rows are group headers of the host's projection. The view draws them and reports groupToggled(id, collapsed) — the state the user asked for; the host re-projects its rows (and the table beside the chart) and sets `collapsed` on the group row.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/GanttView.qml",
@@ -17974,6 +19024,14 @@
           "required": false
         },
         {
+          "name": "progressLines",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "\"\"",
@@ -18062,6 +19120,10 @@
         {
           "name": "previewRequested",
           "parameters": "string taskId, string startUtc"
+        },
+        {
+          "name": "groupToggled",
+          "parameters": "string groupId, bool collapsed"
         }
       ],
       "methods": [
@@ -18075,6 +19137,10 @@
         },
         {
           "name": "baselineEndFor",
+          "parameters": "record"
+        },
+        {
+          "name": "baseline2EndFor",
           "parameters": "record"
         },
         {
@@ -18092,6 +19158,14 @@
         {
           "name": "previewMove",
           "parameters": "taskId, startUtc"
+        },
+        {
+          "name": "setGroupCollapsed",
+          "parameters": "groupId, collapsed"
+        },
+        {
+          "name": "toggleGroup",
+          "parameters": "groupId"
         },
         {
           "name": "commitPreview",
@@ -18487,6 +19561,75 @@
       "objectNames": [
         "gridFillHandle",
         "gridFillPreview"
+      ]
+    },
+    {
+      "name": "GridGroupHeaders",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of EditableGrid (D-312): a band over every visible row the host marks as a group header (`grid.groupHeader(rowId, index)`): chevron, name and summary at the viewport's left edge, and per-column summary values right-aligned in their columns. Bands sit above the cells and under the selection and the editor; a body row's band is clipped below the frozen rows like the cells it covers. A tap selects the row's cell under the pointer; the chevron asks the host to collapse or expand the group.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GridGroupHeaders.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "frozen",
+          "type": "size",
+          "default": "grid.model && grid.dataEpoch >= 0 ? grid.model.frozenExtent() : Qt.size(0, 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groups",
+          "type": "var",
+          "default": "collect()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "info",
+          "parameters": "rowId, index"
+        },
+        {
+          "name": "request",
+          "parameters": "rowId, collapsed"
+        },
+        {
+          "name": "toggle",
+          "parameters": "rowId"
+        },
+        {
+          "name": "collect",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridGroupChevron",
+        "gridGroupHeader_",
+        "gridGroupLabel",
+        "gridGroupSummary",
+        "gridGroupValue_"
       ]
     },
     {
@@ -21856,11 +22999,44 @@
       "name": "MenuBar",
       "kind": "qml",
       "base": "T.MenuBar",
-      "description": "A 22px menu bar on the surface colour: small-font titles, the open one filled with the active control tint. Children are Tk.Menu { title }.",
+      "description": "A 22px menu bar on the surface colour: small-font titles, the open one filled with the active control tint. Children are Tk.Menu { title }. AGENT-CONTRACT (D-315, docs/controls.md): when the bar is narrower than its menus, the trailing menus move — as themselves, with their items, mnemonics and submenus — into a \"»\" menu (`overflowMenu`, objectName \"menuBarOverflow\") that is the bar's last entry, and move back when it widens. The bar reports the natural width of ALL its menus as implicitWidth, so a layout never shrinks it because menus moved. While menus overflow, `count`, `menuAt()` and `menus` describe the bar as shown (\"»\" included); `overflowMenus` lists the moved menus in order. Hosts keep adding and removing menus with insertMenu/removeMenu: the bar re-flows after every change, and a moved menu its host destroys is dropped.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MenuBar.qml",
-      "properties": [],
+      "properties": [
+        {
+          "name": "overflowEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflowCount",
+          "type": "int",
+          "default": "_overflowList.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflowMenus",
+          "type": "var",
+          "default": "_overflowList",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflowMenu",
+          "type": "Tk.Menu",
+          "default": "Tk.Menu {",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
       "signals": [],
       "methods": [],
       "enums": {},
@@ -21871,7 +23047,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "menuBarOverflow"
+      ]
     },
     {
       "name": "MenuButton",
@@ -22099,6 +23277,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "menuItemCheckFrame",
+        "menuItemIcon",
         "menuItemText"
       ]
     },
@@ -31493,6 +32673,10 @@
           "parameters": ""
         },
         {
+          "name": "isVisibleTab",
+          "parameters": "id"
+        },
+        {
           "name": "ensureCurrent",
           "parameters": ""
         },
@@ -40671,7 +41855,7 @@
       "name": "TextField",
       "kind": "qml",
       "base": "T.TextField",
-      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) single-line field on inputBg with a 1px inputBorder; focus paints inputFocusBorder plus the focus ring; `error` paints the danger colour. Optional leading `iconName`, a `clearable` × button (objectName \"fieldClear\") and a `trailing` slot for buttons or units. `cleared()` fires when the user clears the field through the button or Escape.",
+      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) single-line field on inputBg with a 1px inputBorder; focus paints inputFocusBorder plus the focus ring; `error` paints the danger colour. Optional leading `iconName`, a `clearable` × button (objectName \"fieldClear\") and a `trailing` slot for buttons or units. `cleared()` fires when the user clears the field through the button or Escape. AGENT-CONTRACT (D-314): `suggestions` is a host-fed completion list (strings or {label, detail, iconName, ...}). While it is non-empty and the field has focus a popup (objectName \"fieldSuggestions\") lists it; Up/Down/PageUp/PageDown move `suggestionIndex`, Return/Enter/Tab or a click choose, and suggestionChosen(entry) carries the whole entry. The field never edits its own text for a choice — the host inserts what the entry means (a formula bar replaces the token being typed). Escape closes the popup until the suggestions or the text change.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TextField.qml",
@@ -40733,6 +41917,46 @@
           "required": false
         },
         {
+          "name": "suggestions",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suggestionIndex",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxVisibleSuggestions",
+          "type": "int",
+          "default": "8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suggestionCount",
+          "type": "int",
+          "default": "suggestions ? suggestions.length || 0 : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suggestionsOpen",
+          "type": "bool",
+          "default": "suggestionCount > 0 && activeFocus && !_suggestionsDismissed",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "controlHeight",
           "type": "real",
           "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
@@ -40769,12 +41993,32 @@
         {
           "name": "cleared",
           "parameters": ""
+        },
+        {
+          "name": "suggestionChosen",
+          "parameters": "var value"
         }
       ],
       "methods": [
         {
           "name": "clearText",
           "parameters": ""
+        },
+        {
+          "name": "suggestionAt",
+          "parameters": "index"
+        },
+        {
+          "name": "chooseSuggestion",
+          "parameters": "index"
+        },
+        {
+          "name": "closeSuggestions",
+          "parameters": ""
+        },
+        {
+          "name": "moveSuggestion",
+          "parameters": "delta"
         }
       ],
       "enums": {},
@@ -40786,7 +42030,12 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "fieldClear"
+        "fieldClear",
+        "fieldSuggestionDetail",
+        "fieldSuggestionLabel",
+        "fieldSuggestionList",
+        "fieldSuggestion_",
+        "fieldSuggestions"
       ]
     },
     {
@@ -42044,6 +43293,10 @@
         {
           "name": "isDuplicate",
           "parameters": "token, list"
+        },
+        {
+          "name": "validateCandidate",
+          "parameters": "candidate"
         },
         {
           "name": "appendCandidates",
@@ -43899,6 +45152,62 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "dragEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragKey",
+          "type": "string",
+          "default": "\"qindatk-tree-row\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "acceptsChildren",
+          "type": "bool",
+          "default": "expandable",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "rowDrag.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropPosition",
+          "type": "string",
+          "default": "_dropPosition",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -43909,9 +45218,25 @@
         {
           "name": "renamed",
           "parameters": "string text"
+        },
+        {
+          "name": "dragStarted",
+          "parameters": ""
+        },
+        {
+          "name": "dragFinished",
+          "parameters": "bool dropped"
+        },
+        {
+          "name": "dropRequested",
+          "parameters": "string sourceId, string position"
         }
       ],
       "methods": [
+        {
+          "name": "dropPositionAt",
+          "parameters": "y"
+        },
         {
           "name": "toggle",
           "parameters": ""
@@ -43939,6 +45264,10 @@
       "bridge": false,
       "objectNames": [
         "treeChevron",
+        "treeDragGhost",
+        "treeDropArea",
+        "treeDropFrame",
+        "treeDropLine",
         "treeEditor",
         "treeFocusRing"
       ]
@@ -58438,6 +59767,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "implicitWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "implicitHeight",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [
@@ -58890,7 +60233,7 @@
       "name": "GanttTaskModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
-      "description": "AGENT-GUARD: source and preview rows retain identical stable task IDs and order. A DataTable can consume get(index), and a shared SelectionModel can select by taskId while view delegates are recycled.",
+      "description": "AGENT-GUARD: source and preview rows retain identical stable task IDs and order. A DataTable can consume get(index), and a shared SelectionModel can select by taskId while view delegates are recycled. AGENT-CONTRACT (D-312): a `kind: \"group\"` row is a group header in the host's projection: it has no dependencies, no row may depend on it, it is never previewed or moved, and collapsing it is the host's re-projection (GanttView only reports groupToggled).",
       "singleton": false,
       "attached": null,
       "file": "src/core/gantt_task_model.h",
@@ -62165,6 +63508,26 @@
           "parameters": "const QString &field, int index"
         },
         {
+          "name": "addFormControl",
+          "returns": "QString",
+          "parameters": "const QVariantMap &control"
+        },
+        {
+          "name": "setFormControl",
+          "returns": "bool",
+          "parameters": "const QString &controlId, const QVariantMap &changes"
+        },
+        {
+          "name": "removeFormControl",
+          "returns": "bool",
+          "parameters": "const QString &controlId"
+        },
+        {
+          "name": "setFormControls",
+          "returns": "bool",
+          "parameters": "const QVariantList &controls"
+        },
+        {
           "name": "setReportText",
           "returns": "bool",
           "parameters": "const QString &key, const QString &text"
@@ -62268,6 +63631,21 @@
           "name": "validate",
           "returns": "QVariantMap",
           "parameters": "const QVariantMap &design, LocalDatabaseProvider *provider = nullptr"
+        },
+        {
+          "name": "controlTypes",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "controlDefaults",
+          "returns": "QVariantMap",
+          "parameters": "const QString &type"
+        },
+        {
+          "name": "checkControls",
+          "returns": "QString",
+          "parameters": "const QVariantList &controls"
         }
       ],
       "enums": {},
@@ -62543,6 +63921,21 @@
           "name": "upsert",
           "returns": "QVariantMap",
           "parameters": "const QString &collection, const QVariantMap &record"
+        },
+        {
+          "name": "upsertMany",
+          "returns": "QVariantMap",
+          "parameters": "const QString &collection, const QVariantList &records"
+        },
+        {
+          "name": "indexOf",
+          "returns": "int",
+          "parameters": "const QString &collection, const QString &recordId"
+        },
+        {
+          "name": "record",
+          "returns": "QVariantMap",
+          "parameters": "const QString &collection, const QString &recordId"
         },
         {
           "name": "remove",
@@ -70129,12 +71522,25 @@
         {
           "name": "rejected",
           "parameters": "const QString &message"
+        },
+        {
+          "name": "undoRequested",
+          "parameters": ""
+        },
+        {
+          "name": "redoRequested",
+          "parameters": ""
         }
       ],
       "methods": [
         {
           "name": "tableSnapshot",
           "returns": "QVariantMap",
+          "parameters": "const QString &tableId"
+        },
+        {
+          "name": "removeTable",
+          "returns": "bool",
           "parameters": "const QString &tableId"
         },
         {
@@ -70368,6 +71774,16 @@
           "parameters": ""
         },
         {
+          "name": "requestUndo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "requestRedo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
           "name": "applyHistoryChanges",
           "returns": "bool",
           "parameters": "const QString &transactionId, bool reverse, const QString &expectedRevision"
@@ -70421,6 +71837,16 @@
           "name": "paragraphFormatMap",
           "returns": "QVariantMap",
           "parameters": "const QString &paragraphId"
+        },
+        {
+          "name": "paragraphData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &paragraphId"
+        },
+        {
+          "name": "setParagraphData",
+          "returns": "bool",
+          "parameters": "const QString &paragraphId, const QVariantMap &data"
         },
         {
           "name": "missingFontFamilies",
@@ -70676,6 +72102,20 @@
         },
         {
           "name": "colorMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "highlight",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "highlightMixed",
           "type": "bool",
           "default": "",
           "readonly": true,

@@ -37,7 +37,12 @@ QString stableFilePath(const QString &path)
 }
 }
 
-LocalProductivityStore::LocalProductivityStore(QObject *parent) : QObject(parent) {}
+LocalProductivityStore::LocalProductivityStore(QObject *parent) : QObject(parent)
+{
+    // AGENT-GUARD: every mutation emits dataChanged, so this is the one
+    // place the ID index goes stale; it rebuilds lazily on the next lookup.
+    connect(this, &LocalProductivityStore::dataChanged, this, [this] { m_idIndex.clear(); });
+}
 
 QString LocalProductivityStore::defaultPath() const
 {

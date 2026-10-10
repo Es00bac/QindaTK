@@ -49,6 +49,10 @@ Item {
     readonly property real bandHeight: stackRows * Tk.Theme.size.control + (stackRows - 1) * Tk.Theme.space.xs
     readonly property var squeezePlan: planSqueeze()
     readonly property int squeezeLevel: squeezePlan.level
+    // D-317: the tab to return to when the current contextual tab goes away —
+    // the one that was current before a contextual tab became current.
+    property string _returnTabId: ""
+    property string _lastTabId: ""
     signal tabChanged(string tabId)
     signal itemRequested(string tabId, string groupId, string itemId)
     signal collapseToggled(bool collapsed)
@@ -73,14 +77,23 @@ Item {
         }
         return result
     }
+    // AGENT-GUARD (D-317): tabs are matched by ID on a freshly filtered
+    // list. From onTabsChanged `visibleTabs` can still hold the previous
+    // array's objects, so an object lookup sent a host that rebuilt `tabs`
+    // (new objects, same IDs) back to the first tab.
+    function isVisibleTab(id) {
+        const visible = filteredTabs()
+        for (let i = 0; i < visible.length; ++i) if (String(visible[i].id) === String(id)) return true
+        return false
+    }
     function ensureCurrent() {
-        if (!visibleTabs || visibleTabs.length === 0) { currentTabId = ""; return }
-        if (!tabForId(currentTabId) || visibleTabs.indexOf(tabForId(currentTabId)) < 0)
-            currentTabId = String(visibleTabs[0].id)
+        const visible = filteredTabs()
+        if (visible.length === 0) { currentTabId = ""; return }
+        if (isVisibleTab(currentTabId)) return
+        currentTabId = isVisibleTab(_returnTabId) ? _returnTabId : String(visible[0].id)
     }
     function activateTab(id) {
-        const tab = tabForId(id)
-        if (!tab || visibleTabs.indexOf(tab) < 0) return false
+        if (!isVisibleTab(id)) return false
         currentTabId = String(id)
         tabChanged(currentTabId)
         return true
@@ -180,7 +193,7 @@ Item {
         }
         if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
             if (!visibleTabs.length) return false
-            let index = visibleTabs.indexOf(tabForId(currentTabId))
+            let index = visibleTabs.findIndex(tab => String(tab.id) === currentTabId)
             index = (index + (event.key === Qt.Key_Right ? 1 : -1) + visibleTabs.length) % visibleTabs.length
             activateTab(String(visibleTabs[index].id))
             const button = tabRepeater.itemAt(index)
@@ -188,6 +201,16 @@ Item {
             return true
         }
         return false
+    }
+    onCurrentTabIdChanged: {
+        const now = tabForId(currentTabId)
+        const before = tabForId(_lastTabId)
+        if (now && now.contextual === true) {
+            if (before && before.contextual !== true) _returnTabId = _lastTabId
+        } else {
+            _returnTabId = ""
+        }
+        _lastTabId = currentTabId
     }
     onTabsChanged: ensureCurrent()
     onContextIdsChanged: ensureCurrent()

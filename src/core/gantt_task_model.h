@@ -47,6 +47,10 @@ private:
 // AGENT-GUARD: source and preview rows retain identical stable task IDs and
 // order. A DataTable can consume get(index), and a shared SelectionModel can
 // select by taskId while view delegates are recycled.
+// AGENT-CONTRACT (D-312): a `kind: "group"` row is a group header in the
+// host's projection: it has no dependencies, no row may depend on it, it is
+// never previewed or moved, and collapsing it is the host's re-projection
+// (GanttView only reports groupToggled).
 class GanttTaskModel : public QAbstractListModel {
     Q_OBJECT
     QML_ELEMENT
@@ -61,7 +65,13 @@ public:
                 BaselineDurationMinutesRole, DependenciesRole,
                 // Optional presentation fields (docs/gantt.md "Host-scheduled rows").
                 FinishUtcRole, BaselineFinishUtcRole, KindRole, CriticalRole,
-                InactiveRole, OutlineLevelRole, BarTextRole, LinkTypesRole };
+                InactiveRole, OutlineLevelRole, BarTextRole, LinkTypesRole,
+                // Planning presentation (docs/gantt.md "Planning rows", D-312/D-313):
+                // group headers, slack, deadlines, progress points, split bars and
+                // a second baseline lane. Appended: earlier role values are stable.
+                CollapsedRole, SummaryTextRole, SlackFinishUtcRole, FreeSlackFinishUtcRole,
+                DeadlineUtcRole, ProgressUtcRole, SegmentsRole, Baseline2StartUtcRole,
+                Baseline2FinishUtcRole, Baseline2DurationMinutesRole };
     Q_ENUM(Role)
     explicit GanttTaskModel(QObject *parent = nullptr);
     int rowCount(const QModelIndex &parent = {}) const override;
@@ -92,6 +102,8 @@ signals:
 private:
     bool validate(const QVariantList &rows, QString *error) const;
     static bool validateOptional(const QVariantMap &row, qint64 start, QString *error);
+    // gantt_task_planning.cpp: the D-312/D-313 fields.
+    static bool validatePlanning(const QVariantMap &row, qint64 start, QString *error);
     void setError(const QString &message);
     QVariantList m_tasks;
     QHash<QString, int> m_index;

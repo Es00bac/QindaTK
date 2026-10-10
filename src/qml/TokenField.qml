@@ -75,6 +75,16 @@ T.Control {
         }
         return false
     }
+    // AGENT-CONTRACT (D-314): a validator declaring two parameters receives
+    // (label, suggestion) — the whole completion entry ({label, value, ...})
+    // or {label} for typed text — so a chosen suggestion's value survives
+    // validation. A one-parameter validator keeps validator(label).
+    function validateCandidate(candidate) {
+        const entry = typeof candidate === "object" && candidate !== null ? candidate : ({ label: String(candidate) })
+        const label = entry.label || String(candidate)
+        const result = validator.length >= 2 ? validator(label, entry) : validator(label)
+        return result === undefined || result === null ? entry : result
+    }
     function appendCandidates(candidates) {
         const next = tokens.slice()
         const added = []
@@ -82,7 +92,7 @@ T.Control {
         for (let i = 0; i < candidates.length; ++i) {
             let candidate = candidates[i]
             if (typeof validator === "function") {
-                candidate = validator(candidate.label || String(candidate))
+                candidate = validateCandidate(candidate)
                 if (candidate.valid === false) invalid = candidate.error || qsTr("Invalid entry: %1").arg(candidate.label)
             }
             const token = tokenService.createToken(candidate.label || String(candidate),

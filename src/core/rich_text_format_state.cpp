@@ -48,7 +48,7 @@ void RichTextFormatState::refresh()
     Tally<QString> family, link, alignment, list;
     Tally<double> size;
     Tally<bool> bold, italic, underline, strike, superscript, subscript;
-    Tally<QColor> color;
+    Tally<QColor> color, highlight;
     Tally<int> heading;
     if (doc) {
         const Selection selection = m_area->selection();
@@ -69,6 +69,7 @@ void RichTextFormatState::refresh()
             superscript.add(f.verticalAlign == VerticalAlign::Superscript);
             subscript.add(f.verticalAlign == VerticalAlign::Subscript);
             color.add(f.color);
+            highlight.add(f.background);
             link.add(f.href);
         };
         auto addParagraph = [&](const Paragraph &p) {
@@ -118,6 +119,8 @@ void RichTextFormatState::refresh()
     m_subscript = subscript.checkState();
     m_color = color.mixed ? QColor() : color.value;
     m_colorMixed = color.mixed;
+    m_highlight = highlight.mixed ? QColor() : highlight.value;
+    m_highlightMixed = highlight.mixed;
     m_link = link.mixed ? QString() : link.value;
     m_linkMixed = link.mixed;
     m_alignment = alignment.seen ? alignment.value : QStringLiteral("start");

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
@@ -48,6 +49,18 @@ public:
     Q_INVOKABLE bool loadFrom(const QString &path);
     Q_INVOKABLE bool saveTo(const QString &path);
     Q_INVOKABLE QVariantMap upsert(const QString &collection, const QVariantMap &record);
+    // AGENT-CONTRACT (D-324, docs/productivity-store.md#batch-upsert): inserts
+    // or replaces many records of one collection as ONE change — one
+    // revision, one dataChanged — matching stable IDs through the ID index
+    // (O(n + k), not O(n·k)). A later record with an ID earlier in the batch
+    // replaces it. A record without an ID refuses the whole batch and
+    // changes nothing. Returns {ok, error, revision, inserted, updated}.
+    Q_INVOKABLE QVariantMap upsertMany(const QString &collection, const QVariantList &records);
+    // The stable-ID index: a record's position in its collection (-1 when
+    // absent) and the record itself ({} when absent). Built lazily per
+    // collection and dropped on every dataChanged.
+    Q_INVOKABLE int indexOf(const QString &collection, const QString &recordId) const;
+    Q_INVOKABLE QVariantMap record(const QString &collection, const QString &recordId) const;
     Q_INVOKABLE QVariantMap remove(const QString &collection, const QString &recordId);
     Q_INVOKABLE QVariantMap moveTask(const QString &taskId, const QString &toStatus,
                                      int targetOrder = -1);
@@ -82,6 +95,7 @@ signals:
     void eventHistoryChanged();
 
 private:
+    const QHash<QString, int> &idIndex(const QString &name) const;
     QVariantList *collection(const QString &name);
     const QVariantList *collection(const QString &name) const;
     static QString idOf(const QVariantMap &record);
@@ -101,6 +115,7 @@ private:
     QByteArray m_expectedFileDigest;
     QString m_expectedDiskRevision;
     QVariantList m_messages, m_drafts, m_events, m_tasks;
+    mutable QHash<QString, QHash<QString, int>> m_idIndex; // collection -> id -> row
     QVector<QVariantList> m_taskUndo;
     QVector<QVariantList> m_eventUndo;
     quint64 m_revision = 0;

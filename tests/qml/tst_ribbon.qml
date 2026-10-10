@@ -216,4 +216,44 @@ TestCase {
         compare(ribbon.collapsed, true)
         verify(toggled.count >= 3)
     }
+
+    // D-317: a host that rebuilds `tabs` (new objects, same IDs) keeps its
+    // current tab; only a tab that is really gone falls back to the first.
+    function test_rebuilt_tab_list_keeps_current_tab() {
+        const ribbon = makeRibbon()
+        const plain = function(ids) { return ids.map(id => ({ id: id, label: id, groups: [] })) }
+        ribbon.tabs = plain(["home", "insert", "review"])
+        verify(ribbon.activateTab("insert"))
+        compare(ribbon.currentTabId, "insert")
+        ribbon.tabs = plain(["home", "insert", "review", "view"])
+        compare(ribbon.currentTabId, "insert")
+        ribbon.tabs = plain(["insert", "home"])
+        compare(ribbon.currentTabId, "insert")
+        compare(findChild(ribbon, "ribbonTab_insert").current, true)
+        ribbon.tabs = plain(["home", "review"])
+        compare(ribbon.currentTabId, "home")
+        // A contextual tab keeps its place while its context stays; when it
+        // goes, the ribbon returns to the tab that was current before it.
+        const contextual = function(id, context) { return { id: id, label: id, contextual: true, contextId: context, groups: [] } }
+        ribbon.tabs = plain(["home", "view"]).concat([contextual("table", "table")])
+        ribbon.contextIds = ["table"]
+        verify(ribbon.activateTab("view"))
+        verify(ribbon.activateTab("table"))
+        ribbon.tabs = plain(["home", "view", "review"]).concat([contextual("table", "table")])
+        compare(ribbon.currentTabId, "table")
+        ribbon.contextIds = []
+        compare(ribbon.currentTabId, "view")
+        // Moving between contextual tabs keeps the first return point.
+        ribbon.tabs = plain(["home", "view"]).concat([contextual("design", "picture"), contextual("format", "picture")])
+        ribbon.contextIds = ["picture"]
+        verify(ribbon.activateTab("home"))
+        verify(ribbon.activateTab("design"))
+        verify(ribbon.activateTab("format"))
+        ribbon.tabs = plain(["home", "view"]).concat([contextual("design", "picture")])
+        compare(ribbon.currentTabId, "home")
+        // A plain tab that goes away falls back to the first tab.
+        verify(ribbon.activateTab("view"))
+        ribbon.tabs = plain(["home", "review"])
+        compare(ribbon.currentTabId, "home")
+    }
 }

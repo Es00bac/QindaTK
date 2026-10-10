@@ -86,6 +86,56 @@ TestCase {
         tryVerify(function() { return invalid.activeFocus })
     }
 
+    Component {
+        id: boundGroupComponent
+        Item {
+            id: boundHost
+            property bool closed: true
+            property alias group: boundGroup
+            width: 260
+            height: 120
+            Tk.FormGroup {
+                id: boundGroup
+                width: 260
+                title: "Bound"
+                collapsed: boundHost.closed
+                onToggled: function(collapsed) { boundHost.closed = collapsed }
+                Tk.Label { text: "Body" }
+            }
+        }
+    }
+    Component { id: toggleSpyComponent; SignalSpy { signalName: "toggled" } }
+
+    // D-317: a user toggle reaches the consumer first, so a bound `collapsed`
+    // keeps its binding; an uncontrolled group still owns its state.
+    function test_form_group_toggle_keeps_consumer_binding() {
+        const host = createTemporaryObject(boundGroupComponent, root)
+        verify(host)
+        const group = host.group
+        const spy = createTemporaryObject(toggleSpyComponent, root, { target: group })
+        const header = findChild(group, "formGroupHeader")
+        compare(group.collapsed, true)
+        header.toggle()
+        compare(spy.count, 1)
+        compare(spy.signalArguments[0][0], false)
+        compare(host.closed, false)
+        compare(group.collapsed, false)
+        compare(header.collapsed, false)
+        host.closed = true
+        compare(group.collapsed, true)
+        compare(header.collapsed, true)
+        compare(findChild(group, "formGroupBody").visible, false)
+        compare(spy.count, 1)
+        const plain = createTemporaryObject(groupComponent, root)
+        const plainHeader = findChild(plain, "formGroupHeader")
+        plainHeader.toggle()
+        compare(plain.collapsed, false)
+        plain.collapsed = true
+        compare(plainHeader.collapsed, true)
+        plainHeader.toggle()
+        compare(plain.collapsed, false)
+    }
+
     function test_invalid_unit_metadata_is_rejected() {
         const field = createTemporaryObject(unitComponent, root)
         field.units = [{ id: "bad", label: "bad", scale: 0, offset: 0 }]

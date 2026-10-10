@@ -22,7 +22,7 @@ set(qindatk_text_data_sources
     core/rich_text_edit.cpp core/rich_text_history.cpp
     core/rich_text_ops.cpp core/rich_text_ops_p.h
     core/rich_text_structure.cpp core/rich_text_fragment.cpp core/rich_text_table_edit.cpp
-    core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_frames.cpp
+    core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_paragraph_data.cpp core/rich_text_frames.cpp
     core/rich_text_publishing.cpp core/rich_text_publishing.h
     core/rich_text_page_setup_mm.cpp
     core/rich_text_review.cpp core/rich_text_review.h core/rich_text_review_edit.cpp
@@ -98,6 +98,6 @@ set(qindatk_text_data_sources
     core/local_report_spec.cpp core/local_report_spec.h core/local_report_engine.cpp
     core/sqlite_query_source.cpp core/sqlite_query_source.h
     core/local_data_design_document.cpp core/local_data_design_document.h
-    core/local_data_design_edits.cpp core/local_data_design_codec.cpp
+    core/local_data_design_edits.cpp core/local_data_design_codec.cpp core/local_data_design_controls.cpp
     core/recurrence_service.cpp core/recurrence_service.h
     core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h)

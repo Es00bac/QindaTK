@@ -241,3 +241,24 @@ leave it from its far edge, and range selection grows to whole merged areas.
 The view exposes `pasteMatrix` and `fillSelection` as host integration points
 for clipboard and fill-handle adapters; the model validates and commits either
 operation atomically.
+
+<a id="group-header-rows"></a>
+## Group header rows (D-312)
+
+`EditableGrid.groupHeader` is a function `(rowId, index)` returning
+`{label, summary, collapsed, level, values: {columnId: text}}` for a row that
+is a group header of the host's projection (MS Project's and Access's group
+bands), and null for every other row. The grid draws such a row as a band
+across the viewport (`GridGroupHeaders`): a chevron indented by `level`, the
+bold name and the summary at the viewport's left edge, and each `values`
+entry right-aligned in its column where it does not run under the title.
+The band lies above the cells and under the selection and the editor; a
+body row's band is clipped under the frozen rows like the cells it covers.
+The grid never edits a group row (`beginCellEdit` refuses it); a tap selects
+its cell under the pointer, and the chevron, Return/Enter/F2 or Space emit
+`groupToggled(rowId, collapsed)` — the state the user asked for. The host
+re-projects its rows (`setRowIds` without a collapsed group's members) and
+its `groupHeader` answer, which keeps a grid beside a `GanttView` on the
+same rows ([gantt.md](gantt.md#planning-rows-d-312-d-313)). The model is
+unchanged: group rows are ordinary row IDs whose cells the host leaves
+empty or read-only.

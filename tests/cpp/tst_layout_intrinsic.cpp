@@ -4,6 +4,7 @@
 
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQmlProperty>
 #include <QFont>
 #include <QQuickItem>
 #include <QQuickView>
@@ -52,6 +53,39 @@ private:
 class TstLayoutIntrinsic final : public QObject {
     Q_OBJECT
 private slots:
+    // D-316: an implicit size assigned to a Flex is what it reports to its
+    // parent; the content is still laid out in the real size, and resetting
+    // to undefined goes back to the measured content size.
+    void flexHonoursDeclaredImplicitSize()
+    {
+        IntrinsicScene scene(QStringLiteral(R"qml(
+            Tk.Flex { direction: Tk.Flex.Row; align: Tk.Flex.Start
+                Tk.Flex { objectName: "declared"; direction: Tk.Flex.Column; implicitWidth: 180; implicitHeight: 40
+                    Item { objectName: "wide"; implicitWidth: 300; implicitHeight: 12 }
+                }
+                Tk.Flex { objectName: "measured"; direction: Tk.Flex.Column
+                    Item { implicitWidth: 70; implicitHeight: 16 }
+                }
+            })qml"), QSize(400, 300));
+        QVERIFY(scene.exposed());
+        QQuickItem *declared = scene.item(QStringLiteral("declared"));
+        QQuickItem *measured = scene.item(QStringLiteral("measured"));
+        QTRY_COMPARE(measured->x(), 180.0);
+        QCOMPARE(declared->implicitWidth(), 180.0);
+        QCOMPARE(declared->implicitHeight(), 40.0);
+        QCOMPARE(declared->width(), 180.0);
+        QCOMPARE(declared->height(), 40.0);
+        QCOMPARE(scene.item(QStringLiteral("wide"))->width(), 180.0);
+        QCOMPARE(measured->implicitWidth(), 70.0);
+        QCOMPARE(scene.root()->implicitWidth(), 250.0);
+        // A later assignment wins again; undefined restores the measurement.
+        QVERIFY(declared->setProperty("implicitWidth", 120.0));
+        QTRY_COMPARE(measured->x(), 120.0);
+        QQmlProperty(declared, QStringLiteral("implicitWidth")).reset();
+        QTRY_COMPARE(declared->implicitWidth(), 300.0);
+        QTRY_COMPARE(measured->x(), 300.0);
+        QCOMPARE(declared->implicitHeight(), 40.0);
+    }
     void nestedFlexAndBoxFollowWrappedTextAndFontMetrics()
     {
         IntrinsicScene scene(R"QML(

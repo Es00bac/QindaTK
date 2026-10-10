@@ -42,6 +42,42 @@ replacement and `lastError` names the field. Each is also a model role.
 The fields change drawing only. Scheduling — lag, constraints, typed links,
 levelling — is the host engine's (see *Transaction boundary*).
 
+## Planning rows (D-312, D-313)
+
+More optional fields, validated like the D-303 ones (one bad value rejects
+the whole replacement and `lastError` names the field) and exposed as model
+roles appended after `linkTypes`, so earlier role numbers are unchanged:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `kind: "group"` | — | A group header of the host's projection (MS Project's Group By). It may carry `startUtc`/`finishUtc` (the group's span, drawn as `ganttGroupBar` with `progress` as `ganttGroupProgress`), `outlineLevel` (indent) and the fields below. It has no `dependencies`, no row may depend on it, and `previewMove` refuses it; the reference scheduler leaves it alone. |
+| `collapsed` | bool | The group's state, drawn as its chevron (`ganttGroupChevron`). |
+| `summaryText` | string | The group's summary ("4 tasks · 12 d"), after its name in the label column (`ganttGroupSummary`) or, without a label column, in the bar text. |
+| `slackFinishUtc`, `freeSlackFinishUtc` | UTC ms string ≥ `startUtc` | Total and free slack: thin bars from the end of the task bar (`ganttSlack` in `textMuted`, `ganttFreeSlack` in `success` over its start). |
+| `deadlineUtc` | UTC ms string | A down arrow at the instant (`ganttDeadline`), `success`, or `danger` once the bar ends after it. |
+| `progressUtc` | UTC ms string ≥ `startUtc` | The progress point (complete-through instant). Without it the point is `progress` along the bar — along the pieces of a split bar. The bar's progress fill ends there. |
+| `segments` | 1–256 `{startUtc, finishUtc}` | A split task: ordered, non-overlapping pieces from the task's start. The bar (`ganttTaskBar`, still the drag surface) draws them as `ganttBarSegment` (with `ganttSegmentProgress`) joined by `ganttSplitGap`. The reference scheduler drops `segments` (with `finishUtc`) from a task it moves. |
+| `baseline2StartUtc` with `baseline2FinishUtc` or `baseline2DurationMinutes` | UTC ms string; minutes | A second baseline lane (`ganttBaseline2`, `info`) under the first, e.g. Project's Baseline 1 beside Baseline. With two lanes the bar is thinner; with one the D-303 geometry is unchanged. |
+
+**Group headers are the host's projection.** The view draws a group row as
+a band (`ganttGroupHeader`) with its chevron, bold name and summary, and
+reports `groupToggled(groupId, collapsed)` — the state the user asked for —
+from the chevron, Left/Right (collapse/expand) or Space on the selected
+group row. The host then re-projects its rows: it leaves the members of a
+collapsed group out of the rows it gives both this model and the table
+beside it, and sets `collapsed` on the group row, so the two views keep the
+same rows in the same order. `setGroupCollapsed(id, collapsed)` and
+`toggleGroup(id)` raise the same request from code.
+
+**Progress lines.** `progressLines: [{utc, role}]` (role a `Tk.Theme.color`
+role, default `danger`) draws, for each line and each task row in view, a
+polyline from the line's instant at the row's top to the task's progress
+point at its middle and back at its bottom: a task behind schedule peaks
+left, one ahead peaks right. A row keeps the line straight when it is a
+group or summary, complete, or not started and due after the line (MS
+Project's rule). The canvas (`ganttProgressLines`) exposes
+`pointsFor(index)`, the vertices of line `index` over the rows in view.
+
 ## Calendar mapping
 
 `GanttCalendar` uses an IANA `timeZoneId`, a weekday bitmask (Monday bit 0),

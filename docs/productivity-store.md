@@ -23,6 +23,20 @@ The versioned JSON envelope is `qindatk.productivity/1`; collections are
 `messages`, `drafts`, `events` and `tasks`. Unknown record fields survive a
 save/load round trip. Revisions are decimal strings at the QML boundary.
 
+<a id="batch-upsert"></a>
+## Batch upsert and the ID index (D-324)
+
+`upsertMany(collection, records)` inserts or replaces many records of one
+collection as one change: one revision and one `dataChanged`, so QML
+re-evaluates its bindings once for a whole sync instead of once per record.
+Records are matched by `id` through the store's ID index (O(n + k)); a record
+whose ID appears earlier in the batch replaces that one, and a record
+without an ID refuses the whole batch with nothing changed. The result is
+`{ok, error, revision, inserted, updated}`; a batch holds at most 100,000
+records. `indexOf(collection, id)` and `record(collection, id)` read the same
+index — built lazily per collection, dropped on every `dataChanged` — for an
+O(1) lookup by stable ID.
+
 ## Rich draft bodies
 
 `RichMailComposer` edits its body with `RichTextEditor` and `FormatBar`. Its

@@ -220,6 +220,44 @@ OperationError RichTextDocument::applyTable(const StepTable &step, bool forward,
     return {};
 }
 
+std::optional<Position> RichTextDocument::deleteTable(const QUuid &tableId)
+{
+    if (refuseWhileTracking(tr("Deleting a table"))) return std::nullopt;
+    const TablePtr current = livePointer(*this, table(tableId));
+    if (!current) {
+        reject(ErrorCode::InvalidArgument, QStringLiteral("Unknown table"));
+        return std::nullopt;
+    }
+    AutoTransaction transaction(this, tr("Delete table"));
+    if (!transaction.valid) return std::nullopt;
+    const int index = current->blockIndex;
+    const QVector<Block> whole{m_blocks.at(index)};
+    bool ok = !apply(StepBlocks{{}, index, whole, objectsIn(whole), false});
+    if (ok && m_blocks.isEmpty()) {
+        auto empty = std::make_shared<Paragraph>();
+        empty->id = QUuid::createUuid();
+        ok = !apply(StepBlocks{{}, 0, {Block{empty, {}}}, {}, true});
+    }
+    Position caret;
+    if (ok) {
+        paragraphsInOrder();
+        // A table's top-left slot is always an anchor cell with a paragraph.
+        const auto startOf = [](const Block &block) {
+            return block.paragraph ? Position{block.paragraph->id, 0}
+                                   : Position{block.table->rows.first().cells.first().paragraphs.first()->id, 0};
+        };
+        if (index < m_blocks.size()) {
+            caret = startOf(m_blocks.at(index));
+        } else {
+            const Block &before = m_blocks.last();
+            caret = before.paragraph ? Position{before.paragraph->id, int(before.paragraph->text.size())}
+                                     : startOf(before);
+        }
+    }
+    if (!transaction.finish(ok, caret)) return std::nullopt;
+    return caret;
+}
+
 bool RichTextDocument::insertTableRow(const QString &tableId, int index)
 {
     if (refuseWhileTracking(tr("Inserting a table row"))) return false;

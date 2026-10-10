@@ -33,8 +33,10 @@ before touching anything; read `docs/` for the module you touch.
    layout model with CSS semantics (see `docs/layout.md`). `anchors` are
    fine for overlays and for filling a parent.
 5. **Flex/Grid/Stack own their implicit size.** Binding `implicitWidth` on
-   one of them is overwritten by the layout. Wrap in an `Item` (see
-   `SectionHeader.qml`) when a component must report a fixed size.
+   a `Grid` or `Stack` is overwritten by the layout; wrap in an `Item` (see
+   `SectionHeader.qml`) when such a component must report a fixed size. A
+   `Flex` reports an implicit size assigned to it instead of its measured
+   one (D-316, `docs/layout.md#explicit-implicit-size`).
 6. **Dock arrangement lives in `DockModel` (C++).** QML draws it and reports
    gestures. Never keep panel placement state in QML.
 7. **Every control has a `tooltip`/accessible name path** and sets

@@ -115,3 +115,9 @@ QindaQt desktop and check:
 - HiDPI: icons and 1px borders are crisp at 200%.
 - Reduced motion: with `Tk.Theme.reducedMotion` on, hover transitions are
   instant.
+- Office controls (M85): narrow the window until the menu bar shows "»"
+  and open a moved menu through it; type in a `TextField` with suggestions
+  and choose with the arrows and Return; drag a tree row onto another
+  (line before/after, frame inside); in a `FormDesigner` with controls,
+  drag and resize a control and undo it in one step; hover a `Gallery` tile
+  and pick a character from the `CharacterMap`.

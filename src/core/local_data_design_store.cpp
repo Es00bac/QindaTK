@@ -43,8 +43,14 @@ QString LocalDataDesignStore::defaultPath() const
 QStringList LocalDataDesignStore::referencedFields(const QVariantMap &design)
 {
     QStringList out;
-    for (const QVariant &field : design.value(QStringLiteral("form")).toMap().value(QStringLiteral("fields")).toList())
+    const QVariantMap form = design.value(QStringLiteral("form")).toMap();
+    for (const QVariant &field : form.value(QStringLiteral("fields")).toList())
         out.append(field.toMap().value(QStringLiteral("fieldName")).toString());
+    // A bound control (text box, combo box, list box, check box) names a field.
+    for (const QVariant &control : form.value(QStringLiteral("controls")).toList()) {
+        const QString name = control.toMap().value(QStringLiteral("fieldName")).toString();
+        if (!name.isEmpty()) out.append(name);
+    }
     const QVariantMap report = design.value(QStringLiteral("report")).toMap();
     for (const QString &key : {QStringLiteral("filterField"), QStringLiteral("groupField"), QStringLiteral("sumField")}) {
         const QString name = report.value(key).toString();
@@ -105,6 +111,12 @@ QString LocalDataDesignStore::checkStructure(const QVariantMap &design)
         const QString name = field.toMap().value(QStringLiteral("fieldName")).toString();
         if (formFields.contains(name)) return tr("Form fields must resolve to unique bound field names");
         formFields.insert(name);
+    }
+    const QVariant controls = design.value(QStringLiteral("form")).toMap().value(QStringLiteral("controls"));
+    if (controls.isValid() && !controls.isNull()) {
+        if (controls.metaType().id() != QMetaType::QVariantList) return tr("Form controls must be a list");
+        const QString problem = checkFormControls(controls.toList());
+        if (!problem.isEmpty()) return problem;
     }
     for (const QString &name : referencedFields(design))
         if (!fields.contains(name)) return tr("Design references an unbound field: %1").arg(name);

@@ -11,9 +11,14 @@ import QindaTK as Tk
 // source/proxy model before handing it to both views.
 //
 // AGENT-NOTE (D-303): parts live in GanttBackdrop (stripes, non-working
-// days, markers), GanttRuler (header), GanttRow (one task) and GanttLinks
-// (dependency canvas); all of them map instants through this root's xFor()
-// so the "working" and "calendar" time scales stay one code path.
+// days, markers), GanttRuler (header), GanttRow (one task) with
+// GanttRowLanes (baselines, slack, deadline), GanttLinks (dependency canvas)
+// and GanttProgressLines (D-313); all of them map instants through this
+// root's xFor() so the "working" and "calendar" time scales stay one path.
+// AGENT-CONTRACT (D-312): `kind: "group"` rows are group headers of the
+// host's projection. The view draws them and reports groupToggled(id,
+// collapsed) — the state the user asked for; the host re-projects its rows
+// (and the table beside the chart) and sets `collapsed` on the group row.
 T.Control {
     id: root
     objectName: "ganttView"
@@ -34,6 +39,8 @@ T.Control {
     // Vertical lines such as today or a status date: [{utc, label, role}],
     // role = a Tk.Theme.color role name (default "accent").
     property var markers: []
+    // Progress lines (D-313): [{utc, role}], role a Tk.Theme.color role (default danger).
+    property var progressLines: []
     property string tooltip: ""
     property alias contentY: rows.contentY
     readonly property real contentHeight: rows.contentHeight
@@ -54,6 +61,7 @@ T.Control {
     property int calendarRevision: 0
     signal taskActivated(string taskId)
     signal previewRequested(string taskId, string startUtc)
+    signal groupToggled(string groupId, bool collapsed)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 2
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -62,7 +70,7 @@ T.Control {
     activeFocusOnTab: enabled
     Accessible.role: Accessible.Pane
     Accessible.name: tooltip.length ? tooltip : qsTr("Gantt schedule")
-    Accessible.description: qsTr("Up and Down select tasks. Left and Right preview a one hour move. Enter commits; Escape cancels; Control Z requests undo.")
+    Accessible.description: qsTr("Up and Down select tasks. Left and Right preview a one hour move, or collapse and expand a group. Enter commits; Escape cancels; Control Z requests undo.")
     Accessible.focusable: enabled
     Accessible.focused: activeFocus
     background: Rectangle {
@@ -96,9 +104,16 @@ T.Control {
             record.baselineDurationMinutes !== undefined ? record.baselineDurationMinutes
                                                          : record.durationMinutes) : ""
     }
+    function baseline2EndFor(record) {
+        if (!record || !record.baseline2StartUtc) return ""
+        if (record.baseline2FinishUtc) return record.baseline2FinishUtc
+        return calendar ? calendar.addWorkingMinutes(record.baseline2StartUtc,
+            record.baseline2DurationMinutes !== undefined ? record.baseline2DurationMinutes
+                                                          : record.durationMinutes) : ""
+    }
     function kindOf(record) {
         if (!record) return "task"
-        if (record.kind === "summary" || record.kind === "milestone") return record.kind
+        if (record.kind === "summary" || record.kind === "milestone" || record.kind === "group") return record.kind
         const zero = Number(record.durationMinutes || 0) === 0
             && (!record.finishUtc || record.finishUtc === record.startUtc)
         return zero ? "milestone" : "task"
@@ -117,6 +132,20 @@ T.Control {
         const accepted = taskModel.previewMove(taskId, startUtc)
         if (accepted) previewRequested(taskId, startUtc)
         return accepted
+    }
+    // Asks the host to collapse or expand a group header (D-312); returns
+    // false for a row that is not a group or already in that state.
+    function setGroupCollapsed(groupId, collapsed) {
+        const row = taskModel ? taskModel.indexOfId(groupId) : -1
+        if (row < 0) return false
+        const record = taskModel.get(row)
+        if (record.kind !== "group" || (record.collapsed === true) === collapsed) return false
+        groupToggled(groupId, collapsed)
+        return true
+    }
+    function toggleGroup(groupId) {
+        const row = taskModel ? taskModel.indexOfId(groupId) : -1
+        return row >= 0 && setGroupCollapsed(groupId, taskModel.get(row).collapsed !== true)
     }
     function commitPreview() { return taskModel ? taskModel.commitPreview() : false }
     function cancelPreview() { if (taskModel) taskModel.cancelPreview() }
@@ -144,6 +173,12 @@ T.Control {
                 root.selectId(root.taskModel.get(row).taskId)
                 rows.positionViewAtIndex(row, ListView.Contain)
             }
+            event.accepted = true
+        } else if (row >= 0 && root.taskModel.get(row).kind === "group"
+                   && (event.key === Qt.Key_Left || event.key === Qt.Key_Right || event.key === Qt.Key_Space)) {
+            const group = root.taskModel.get(row)
+            if (event.key === Qt.Key_Space) root.toggleGroup(group.taskId)
+            else root.setGroupCollapsed(group.taskId, event.key === Qt.Key_Left)
             event.accepted = true
         } else if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && row >= 0) {
             const record = root.taskModel.get(row)
@@ -200,6 +235,14 @@ T.Control {
             }
         }
         Tk.GanttLinks {
+            view: root
+            x: root.labelWidth
+            y: root.headerHeight
+            width: root.trackWidth
+            height: rows.height
+            contentY: rows.contentY
+        }
+        Tk.GanttProgressLines {
             view: root
             x: root.labelWidth
             y: root.headerHeight

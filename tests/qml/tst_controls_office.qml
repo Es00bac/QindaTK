@@ -48,6 +48,13 @@ TestCase {
         }
     }
     Component {
+        id: iconMenuComponent
+        Tk.Menu {
+            Tk.MenuItem { objectName: "boldItem"; text: "Bold"; iconName: "bold"; checkable: true }
+            Tk.MenuItem { objectName: "plainCheck"; text: "Ruler"; checkable: true }
+        }
+    }
+    Component {
         id: viewportComponent
         Tk.Viewport {
             width: 400; height: 300; contentPadding: 20
@@ -189,6 +196,55 @@ TestCase {
         compare(selected.count, 1)
     }
 
+    // D-318: "Automatic" and "No Color" are opt-in modes above the swatches.
+    function test_color_button_automatic_and_no_color_entries() {
+        const plain = make(colorButtonComponent)
+        mouseClick(plain)
+        const plainPopover = findChild(plain, "colorButtonPopover")
+        tryCompare(plainPopover, "opened", true)
+        compare(findChild(plainPopover.contentItem, "colorButtonAutomatic").visible, false)
+        compare(findChild(plainPopover.contentItem, "colorButtonNoColor").visible, false)
+        plainPopover.close()
+        tryVerify(function() { return !plainPopover.visible })
+
+        const button = make(colorButtonComponent, { automaticEntry: true, noColorEntry: true, automaticColor: "#202020" })
+        const automatic = createTemporaryObject(signalSpyComponent, root, { target: button, signalName: "automaticSelected" })
+        const none = createTemporaryObject(signalSpyComponent, root, { target: button, signalName: "noColorSelected" })
+        const picked = createTemporaryObject(signalSpyComponent, root, { target: button, signalName: "colorSelected" })
+        const popover = findChild(button, "colorButtonPopover")
+        const swatch = findChild(button, "colorButtonSwatch")
+        compare(button.colorMode, "color")
+        mouseClick(button)
+        tryCompare(popover, "opened", true)
+        const automaticEntry = findChild(popover.contentItem, "colorButtonAutomatic")
+        const noColorEntry = findChild(popover.contentItem, "colorButtonNoColor")
+        verify(automaticEntry.visible && noColorEntry.visible)
+        verify(automaticEntry.y < findChild(popover.contentItem, "swatch_0").mapToItem(popover.contentItem, 0, 0).y)
+        mouseClick(automaticEntry)
+        compare(automatic.count, 1)
+        compare(button.colorMode, "automatic")
+        verify(Qt.colorEqual(swatch.color, "#202020"))
+        compare(button.Accessible.description, "Automatic")
+        tryVerify(function() { return !popover.visible })
+
+        mouseClick(button)
+        tryCompare(popover, "opened", true)
+        mouseClick(noColorEntry)
+        compare(none.count, 1)
+        compare(button.colorMode, "none")
+        compare(findChild(button, "colorButtonNoColorMark").visible, true)
+        tryVerify(function() { return !popover.visible })
+
+        mouseClick(button)
+        tryCompare(popover, "opened", true)
+        mouseClick(findChild(popover.contentItem, "swatch_1"))
+        compare(picked.count, 1)
+        compare(button.colorMode, "color")
+        verify(Qt.colorEqual(swatch.color, "#1c62d4"))
+        compare(findChild(button, "colorButtonNoColorMark").visible, false)
+        compare(automatic.count + none.count, 2)
+    }
+
     function test_tree_row_inline_rename() {
         const row = make(treeComponent)
         const spy = createTemporaryObject(signalSpyComponent, root, { target: row, signalName: "renamed" })
@@ -238,6 +294,32 @@ TestCase {
         verify(pen !== null && eraser !== null)
         verify(pen.radio && pen.checked)
         verify(eraser.radio && !eraser.checked)
+        menu.close()
+    }
+
+    // D-323: a checkable item with an icon keeps it and frames it when checked.
+    function test_checkable_menu_item_keeps_its_icon() {
+        const menu = make(iconMenuComponent)
+        menu.popup(10, 10)
+        tryCompare(menu, "opened", true)
+        const bold = findChild(menu.contentItem, "boldItem")
+        const plain = findChild(menu.contentItem, "plainCheck")
+        const boldIcon = findChild(bold, "menuItemIcon")
+        const boldFrame = findChild(bold, "menuItemCheckFrame")
+        compare(boldIcon.name, "bold")
+        verify(boldIcon.visible)
+        verify(!boldFrame.visible)
+        bold.checked = true
+        compare(boldIcon.name, "bold")
+        verify(boldIcon.visible && boldFrame.visible)
+        compare(String(boldIcon.color), String(Tk.Theme.color.accent))
+        verify(bold.Accessible.checked)
+        const plainIcon = findChild(plain, "menuItemIcon")
+        compare(plainIcon.name, "check")
+        verify(!plainIcon.visible)
+        plain.checked = true
+        verify(plainIcon.visible)
+        verify(!findChild(plain, "menuItemCheckFrame").visible)
         menu.close()
     }
 

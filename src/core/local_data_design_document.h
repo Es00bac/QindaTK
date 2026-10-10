@@ -76,6 +76,17 @@ public:
     Q_INVOKABLE bool setFormFieldLabel(const QString &field, const QString &label);
     Q_INVOKABLE bool setFormFieldHidden(const QString &field, bool hidden);
     Q_INVOKABLE bool moveFormField(const QString &field, int index);
+    // Form controls (D-311, local_data_design_controls.cpp): `control` is
+    // {type, ...properties}; missing properties take the type's defaults, a
+    // missing id or name is generated. Returns the new control's id, or ""
+    // with lastError. Each call is one undo step.
+    Q_INVOKABLE QString addFormControl(const QVariantMap &control);
+    // Merges `changes` into one control (an undefined value removes the
+    // property); geometry-only changes are labelled "Move or size".
+    Q_INVOKABLE bool setFormControl(const QString &controlId, const QVariantMap &changes);
+    // Removes a control, and the controls on its pages for a tab control.
+    Q_INVOKABLE bool removeFormControl(const QString &controlId);
+    Q_INVOKABLE bool setFormControls(const QVariantList &controls);
     // key: headerText or footerText
     Q_INVOKABLE bool setReportText(const QString &key, const QString &text);
     Q_INVOKABLE bool setReportColumns(const QStringList &fields);

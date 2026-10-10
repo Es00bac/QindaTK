@@ -164,7 +164,9 @@ struct Reader {
         checkKeys(o, path, {"align", "direction", "indentStartPt", "indentEndPt", "firstLineIndentPt",
                             "spaceBeforePt", "spaceAfterPt", "lineHeight", "lineHeightPt", "heading",
                             "list", "listLevel", "keepWithNext", "keepTogether", "pageBreakBefore", "style",
-                            "overrides"});
+                            "overrides", "data"});
+        if (!RichTextCodec::readParagraphData(o.value(QStringLiteral("data")), &f->data))
+            return fail(path + QStringLiteral(".data"), QStringLiteral("Invalid paragraph data"));
         f->listId = o.value(QStringLiteral("list")).toString();
         f->styleId = o.value(QStringLiteral("style")).toString();
         if (!f->styleId.isEmpty() && !styleOfKind(f->styleId, StyleKind::Paragraph))

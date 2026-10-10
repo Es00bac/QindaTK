@@ -204,6 +204,15 @@ signals:
     void editRejected(const QString &message);
 
 protected:
+    // AGENT-CONTRACT (D-320, docs/rich-text.md#keyboard): a focused, editable
+    // area accepts the ShortcutOverride for the keys it types and edits with —
+    // printable text without Ctrl, Alt or Meta, and Backspace, Delete, the
+    // arrows, Home, End, Return and Enter without Ctrl, Alt or Meta — so a
+    // host's one-letter shortcut (P, H, E, T) never steals typing. Read-only
+    // and unfocused areas, Alt+letter mnemonics and Ctrl/Meta chords stay the
+    // host's.
+    bool event(QEvent *event) override;
+    bool claimsShortcutOverride(const QKeyEvent *event) const;
     void keyPressEvent(QKeyEvent *event) override;
     void inputMethodEvent(QInputMethodEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;

@@ -46,6 +46,10 @@ QVariantMap GanttSimpleScheduleAdapter::previewMove(const QString &taskId,
         const QString id = ready.at(head);
         const int i = index.value(id);
         QVariantMap row = result.at(i).toMap();
+        if (row.value(QStringLiteral("kind")).toString() == QLatin1String("group")) {
+            ++visited; // a group header is the host's projection, never scheduled
+            continue;
+        }
         const QVariantList dependencies = row.value(QStringLiteral("dependencies")).toList();
         const QString requested = id == taskId ? startUtc : row.value(QStringLiteral("startUtc")).toString();
         const QString snapped = calendar->snapForward(requested);
@@ -63,8 +67,11 @@ QVariantMap GanttSimpleScheduleAdapter::previewMove(const QString &taskId,
             startMs = std::max(startMs, endMs);
         }
         const QString newStart = calendar->snapForward(QString::number(startMs));
-        if (newStart != row.value(QStringLiteral("startUtc")).toString())
-            row.remove(QStringLiteral("finishUtc")); // the reference planner owns no exact finish
+        if (newStart != row.value(QStringLiteral("startUtc")).toString()) {
+            // The reference planner owns no exact finish and no split pieces.
+            row.remove(QStringLiteral("finishUtc"));
+            row.remove(QStringLiteral("segments"));
+        }
         row.insert(QStringLiteral("startUtc"), newStart);
         result[i] = row;
         ++visited;
@@ -101,7 +108,12 @@ QHash<int, QByteArray> GanttTaskModel::roleNames() const
         {BaselineFinishUtcRole, "baselineFinishUtc"}, {KindRole, "kind"},
         {CriticalRole, "critical"}, {InactiveRole, "inactive"},
         {OutlineLevelRole, "outlineLevel"}, {BarTextRole, "barText"},
-        {LinkTypesRole, "linkTypes"}};
+        {LinkTypesRole, "linkTypes"}, {CollapsedRole, "collapsed"},
+        {SummaryTextRole, "summaryText"}, {SlackFinishUtcRole, "slackFinishUtc"},
+        {FreeSlackFinishUtcRole, "freeSlackFinishUtc"}, {DeadlineUtcRole, "deadlineUtc"},
+        {ProgressUtcRole, "progressUtc"}, {SegmentsRole, "segments"},
+        {Baseline2StartUtcRole, "baseline2StartUtc"}, {Baseline2FinishUtcRole, "baseline2FinishUtc"},
+        {Baseline2DurationMinutesRole, "baseline2DurationMinutes"}};
 }
 QVariant GanttTaskModel::data(const QModelIndex &index, int role) const
 {
@@ -163,13 +175,24 @@ bool GanttTaskModel::validate(const QVariantList &rows, QString *error) const
         if (!validateOptional(row, instant, error)) return false;
         ids.insert(id);
     }
+    QSet<QString> groups;
+    for (const QVariant &value : rows)
+        if (value.toMap().value(QStringLiteral("kind")).toString() == QLatin1String("group"))
+            groups.insert(value.toMap().value(QStringLiteral("taskId")).toString());
     QHash<QString, QStringList> links;
     for (const QVariant &value : rows) {
         const QVariantMap row = value.toMap();
         const QString id = row.value(QStringLiteral("taskId")).toString();
         QSet<QString> unique;
-        for (const QVariant &dep : row.value(QStringLiteral("dependencies")).toList()) {
+        const QVariantList dependencies = row.value(QStringLiteral("dependencies")).toList();
+        if (groups.contains(id) && !dependencies.isEmpty()) {
+            *error = QStringLiteral("A group row has no dependencies"); return false;
+        }
+        for (const QVariant &dep : dependencies) {
             const QString predecessor = dep.toString();
+            if (groups.contains(predecessor)) {
+                *error = QStringLiteral("Dependencies cannot name a group row"); return false;
+            }
             if (!ids.contains(predecessor) || predecessor == id || unique.contains(predecessor)) {
                 *error = QStringLiteral("Dependencies must identify distinct other tasks"); return false;
             }
@@ -224,9 +247,9 @@ bool GanttTaskModel::validateOptional(const QVariantMap &row, qint64 start, QStr
     if (row.contains(QStringLiteral("kind"))) {
         const QVariant kind = row.value(QStringLiteral("kind"));
         if (kind.metaType().id() != QMetaType::QString
-            || !QStringList{QStringLiteral("task"), QStringLiteral("summary"), QStringLiteral("milestone")}
-                    .contains(kind.toString())) {
-            *error = QStringLiteral("kind must be task, summary or milestone"); return false;
+            || !QStringList{QStringLiteral("task"), QStringLiteral("summary"), QStringLiteral("milestone"),
+                            QStringLiteral("group")}.contains(kind.toString())) {
+            *error = QStringLiteral("kind must be task, summary, milestone or group"); return false;
         }
     }
     for (const char *key : {"critical", "inactive"}) {
@@ -247,6 +270,7 @@ bool GanttTaskModel::validateOptional(const QVariantMap &row, qint64 start, QStr
         && row.value(QStringLiteral("barText")).metaType().id() != QMetaType::QString) {
         *error = QStringLiteral("barText must be a string"); return false;
     }
+    if (!validatePlanning(row, start, error)) return false;
     if (row.contains(QStringLiteral("linkTypes"))) {
         const QVariant types = row.value(QStringLiteral("linkTypes"));
         if (types.metaType().id() != QMetaType::QVariantList
@@ -291,6 +315,9 @@ bool GanttTaskModel::previewMove(const QString &taskId, const QString &startUtc)
 {
     if (!m_adapter || !m_calendar) { setError(QStringLiteral("Calendar and transaction adapter are required")); return false; }
     if (indexOfId(taskId) < 0) { setError(QStringLiteral("Unknown task ID")); return false; }
+    if (get(indexOfId(taskId)).value(QStringLiteral("kind")).toString() == QLatin1String("group")) {
+        setError(QStringLiteral("A group row is not scheduled")); return false;
+    }
     cancelPreview();
     QVariantMap preview = m_adapter->previewMove(taskId, startUtc, m_tasks, m_calendar);
     QString error;

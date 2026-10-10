@@ -43,6 +43,7 @@ const CommandInfo Commands[] = {
     {"paragraph.indent", "Increase list level", "list-indent-increase", "", false, true},
     {"paragraph.outdent", "Decrease list level", "list-indent-decrease", "", false, true},
     {"insert.table", "Insert table", "table", "", false, true},
+    {"table.delete", "Delete table", "trash-2", "", false, true},
     {"insert.pageBreak", "Page break", "file-plus", "Ctrl+Return", false, true},
     {"insert.object", "Insert object", "image", "", false, true},
     {"edit.undo", "Undo", "undo-2", "Ctrl+Z", false, true},
@@ -91,18 +92,23 @@ QVariantMap RichTextArea::commandState(const QString &commandId) const
     else if (commandId == u"text.fontFamily") value = s->fontFamily();
     else if (commandId == u"text.fontSize") value = s->fontSize();
     else if (commandId == u"text.color") value = s->color();
+    else if (commandId == u"text.highlight") value = s->highlightMixed() ? QVariant() : QVariant(s->highlight());
     else if (commandId == u"text.link") { check = s->linkMixed() ? 1 : s->link().isEmpty() ? 0 : 2; value = s->link(); }
     else if (commandId == u"paragraph.align") value = s->alignment();
     else if (commandId == u"paragraph.heading") value = s->heading();
     else if (commandId == u"paragraph.bulletList") check = s->list() == u"bullet" ? 2 : s->list() == u"mixed" ? 1 : 0;
     else if (commandId == u"paragraph.numberedList") check = s->list() == u"number" ? 2 : s->list() == u"mixed" ? 1 : 0;
     else if (commandId == u"paragraph.indent" || commandId == u"paragraph.outdent") enabled = enabled && s->list() != u"none";
-    else if (commandId == u"edit.undo") enabled = m_document && m_document->canUndo();
-    else if (commandId == u"edit.redo") enabled = m_document && m_document->canRedo();
+    // With externalUndo the host decides (D-321): the command asks it.
+    else if (commandId == u"edit.undo") enabled = m_document && (m_document->canUndo() || m_document->forwardsHistory());
+    else if (commandId == u"edit.redo") enabled = m_document && (m_document->canRedo() || m_document->forwardsHistory());
     else if (commandId == u"edit.cut" || commandId == u"edit.copy") enabled = enabled && hasSelection();
     else if (commandId == u"insert.pageBreak" || commandId == u"insert.table") {
         const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
         enabled = enabled && p && !p->table;
+    } else if (commandId == u"table.delete") {
+        const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
+        enabled = enabled && p && p->table;
     } else if (commandId == u"paragraph.style" || commandId == u"text.style") {
         const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
         if (p) value = commandId == u"paragraph.style" ? p->format.styleId
@@ -199,6 +205,11 @@ bool RichTextArea::invokeCommand(const QString &id, const QVariantMap &args)
                                    qMax(1, args.value(QStringLiteral("columns"), 2).toInt()),
                                    args.value(QStringLiteral("headerRows"), 0).toInt());
         });
+    if (id == u"table.delete") {
+        const Paragraph *p = m_document->paragraph(m_focus.position.paragraph);
+        const QUuid tableId = p && p->table ? p->table->id : QUuid();
+        return edit(tr(info->label), {}, [&](RichTextDocument &doc) { return doc.deleteTable(tableId); });
+    }
     if (id == u"insert.pageBreak")
         return edit(tr(info->label), {}, [this](RichTextDocument &doc) { return doc.insertPageBreak(m_focus.position); });
     if (id == u"insert.object") {
@@ -212,8 +223,8 @@ bool RichTextArea::invokeCommand(const QString &id, const QVariantMap &args)
         object.placement = placement < 0 ? Placement::Inline : Placement(placement);
         return edit(tr(info->label), {}, [&](RichTextDocument &doc) { return doc.insertObject(m_focus.position, object); });
     }
-    if (id == u"edit.undo") return m_document->undo();
-    if (id == u"edit.redo") return m_document->redo();
+    if (id == u"edit.undo") return m_document->requestUndo();
+    if (id == u"edit.redo") return m_document->requestRedo();
     if (id == u"edit.copy") return copySelection(false);
     if (id == u"edit.cut") return copySelection(true);
     if (id == u"edit.paste") return paste();

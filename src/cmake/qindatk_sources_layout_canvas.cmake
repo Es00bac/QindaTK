@@ -43,7 +43,7 @@ set(qindatk_layout_canvas_sources
     core/chart_histogram.cpp core/chart_histogram.h
     core/distribution_model.cpp core/distribution_model.h
     core/gantt_calendar.cpp core/gantt_calendar.h
-    core/gantt_task_model.cpp core/gantt_task_model.h
+    core/gantt_task_model.cpp core/gantt_task_planning.cpp core/gantt_task_model.h
     core/heatmap_model.cpp core/heatmap_model.h
     core/heatmap_renderer.cpp core/heatmap_renderer.h
     core/ohlc_model.cpp core/ohlc_model.h

@@ -42,6 +42,9 @@ private slots:
     void optionalFieldsReachRoles();
     void referenceAdapterDropsExactFinish();
     void localDateHelpers();
+    void planningFieldsValidate();
+    void planningFieldsReachRoles();
+    void groupRowsAreNeverScheduled();
 };
 
 void TstGantt::calendarSkipsWeekendAndDst()
@@ -264,6 +267,115 @@ void TstGantt::localDateHelpers()
     const QString start = havana.dayStartUtc(QStringLiteral("2025-03-09"));
     QVERIFY(!start.isEmpty());
     QCOMPARE(havana.localDate(start), QStringLiteral("2025-03-09"));
+}
+
+// D-312/D-313: group headers, slack, deadlines, progress points, split bars
+// and the second baseline lane are validated with the rest of the row.
+void TstGantt::planningFieldsValidate()
+{
+    const QString g = QStringLiteral("00000000-0000-0000-0000-000000000003");
+    GanttTaskModel model;
+    QVariantMap group = task(g, "2025-03-10T13:00:00Z", 960);
+    group.insert(QStringLiteral("kind"), QStringLiteral("group"));
+    group.insert(QStringLiteral("collapsed"), false);
+    group.insert(QStringLiteral("summaryText"), QStringLiteral("2 tasks · 16 h"));
+    group.insert(QStringLiteral("finishUtc"), utc("2025-03-11T21:00:00Z"));
+    QVariantMap first = task(a, "2025-03-10T13:00:00Z", 480);
+    first.insert(QStringLiteral("slackFinishUtc"), utc("2025-03-12T21:00:00Z"));
+    first.insert(QStringLiteral("freeSlackFinishUtc"), utc("2025-03-11T21:00:00Z"));
+    first.insert(QStringLiteral("deadlineUtc"), utc("2025-03-09T21:00:00Z"));
+    first.insert(QStringLiteral("progressUtc"), utc("2025-03-10T17:00:00Z"));
+    first.insert(QStringLiteral("segments"), QVariantList{
+        QVariantMap{{QStringLiteral("startUtc"), utc("2025-03-10T13:00:00Z")}, {QStringLiteral("finishUtc"), utc("2025-03-10T17:00:00Z")}},
+        QVariantMap{{QStringLiteral("startUtc"), utc("2025-03-11T13:00:00Z")}, {QStringLiteral("finishUtc"), utc("2025-03-11T17:00:00Z")}}});
+    first.insert(QStringLiteral("baseline2StartUtc"), utc("2025-03-03T13:00:00Z"));
+    first.insert(QStringLiteral("baseline2FinishUtc"), utc("2025-03-03T21:00:00Z"));
+    QVariantMap second = task(b, "2025-03-11T13:00:00Z", 480, {a});
+    second.insert(QStringLiteral("baseline2StartUtc"), utc("2025-03-04T13:00:00Z"));
+    second.insert(QStringLiteral("baseline2DurationMinutes"), 480);
+    QVERIFY2(model.replaceTasks({group, first, second}), qPrintable(model.lastError()));
+    QCOMPARE(model.count(), 3);
+
+    const auto rejects = [&](const QVariantMap &bad, int at, const QString &needle) {
+        QVariantList rows{group, first, second};
+        rows[at] = bad;
+        return !model.replaceTasks(rows) && model.lastError().contains(needle) && model.count() == 3;
+    };
+    const auto with = [](QVariantMap row, const QString &key, const QVariant &value) {
+        row.insert(key, value);
+        return row;
+    };
+    QVERIFY(rejects(with(first, QStringLiteral("slackFinishUtc"), utc("2025-03-09T13:00:00Z")), 1, QStringLiteral("slackFinishUtc")));
+    QVERIFY(rejects(with(first, QStringLiteral("freeSlackFinishUtc"), 7), 1, QStringLiteral("freeSlackFinishUtc")));
+    QVERIFY(rejects(with(first, QStringLiteral("deadlineUtc"), QStringLiteral("soon")), 1, QStringLiteral("deadlineUtc")));
+    QVERIFY(rejects(with(first, QStringLiteral("progressUtc"), utc("2025-03-01T13:00:00Z")), 1, QStringLiteral("progressUtc")));
+    QVERIFY(rejects(with(group, QStringLiteral("collapsed"), QStringLiteral("yes")), 0, QStringLiteral("collapsed")));
+    QVERIFY(rejects(with(group, QStringLiteral("summaryText"), 3), 0, QStringLiteral("summaryText")));
+    QVERIFY(rejects(with(group, QStringLiteral("dependencies"), QVariantList{a}), 0, QStringLiteral("group row has no")));
+    QVERIFY(rejects(with(second, QStringLiteral("dependencies"), QVariantList{g}), 2, QStringLiteral("group row")));
+    QVERIFY(rejects(with(second, QStringLiteral("baseline2FinishUtc"), utc("2025-03-01T13:00:00Z")), 2, QStringLiteral("baseline2FinishUtc")));
+    QVERIFY(rejects(with(second, QStringLiteral("baseline2DurationMinutes"), -1), 2, QStringLiteral("baseline2DurationMinutes")));
+    QVariantMap orphanLane = task(b, "2025-03-11T13:00:00Z", 480, {a});
+    orphanLane.insert(QStringLiteral("baseline2FinishUtc"), utc("2025-03-12T13:00:00Z"));
+    QVERIFY(rejects(orphanLane, 2, QStringLiteral("baseline2StartUtc")));
+    const QVariantMap piece{{QStringLiteral("startUtc"), utc("2025-03-10T13:00:00Z")},
+                            {QStringLiteral("finishUtc"), utc("2025-03-10T15:00:00Z")}};
+    QVERIFY(rejects(with(first, QStringLiteral("segments"), QVariantList{}), 1, QStringLiteral("segments")));
+    QVERIFY(rejects(with(first, QStringLiteral("segments"), QVariantList{piece, piece}), 1, QStringLiteral("segments")));
+    QVariantMap backwards = piece;
+    backwards.insert(QStringLiteral("finishUtc"), utc("2025-03-10T12:00:00Z"));
+    QVERIFY(rejects(with(first, QStringLiteral("segments"), QVariantList{backwards}), 1, QStringLiteral("segments")));
+    QVariantMap early = piece;
+    early.insert(QStringLiteral("startUtc"), utc("2025-03-10T12:00:00Z"));
+    QVERIFY(rejects(with(first, QStringLiteral("segments"), QVariantList{early}), 1, QStringLiteral("segments")));
+    QVERIFY(rejects(with(first, QStringLiteral("kind"), QStringLiteral("band")), 1, QStringLiteral("group")));
+    // A rejected replacement left the accepted rows in place.
+    QCOMPARE(model.get(0).value(QStringLiteral("kind")).toString(), QStringLiteral("group"));
+}
+
+void TstGantt::planningFieldsReachRoles()
+{
+    GanttTaskModel model;
+    QVariantMap row = task(a, "2025-03-10T13:00:00Z", 60);
+    row.insert(QStringLiteral("deadlineUtc"), utc("2025-03-12T13:00:00Z"));
+    row.insert(QStringLiteral("summaryText"), QStringLiteral("late"));
+    QVERIFY(model.replaceTasks({row}));
+    const QHash<int, QByteArray> roles = model.roleNames();
+    for (const char *name : {"collapsed", "summaryText", "slackFinishUtc", "freeSlackFinishUtc", "deadlineUtc",
+                             "progressUtc", "segments", "baseline2StartUtc", "baseline2FinishUtc",
+                             "baseline2DurationMinutes"}) {
+        QVERIFY2(roles.values().contains(QByteArray(name)), name);
+    }
+    QCOMPARE(model.data(model.index(0), GanttTaskModel::DeadlineUtcRole).toString(), utc("2025-03-12T13:00:00Z"));
+    QCOMPARE(model.data(model.index(0), GanttTaskModel::SummaryTextRole).toString(), QStringLiteral("late"));
+    // Earlier roles keep their values (appended enum).
+    QCOMPARE(int(GanttTaskModel::LinkTypesRole), int(Qt::UserRole) + 16);
+}
+
+void TstGantt::groupRowsAreNeverScheduled()
+{
+    const QString g = QStringLiteral("00000000-0000-0000-0000-000000000003");
+    GanttCalendar calendar;
+    calendar.setTimeZoneId(QStringLiteral("America/New_York"));
+    GanttSimpleScheduleAdapter adapter;
+    GanttTaskModel model;
+    model.setCalendar(&calendar);
+    model.setTransactionAdapter(&adapter);
+    // The group header starts on a Saturday: a scheduler would snap it.
+    QVariantMap group = task(g, "2025-03-08T15:00:00Z", 0);
+    group.insert(QStringLiteral("kind"), QStringLiteral("group"));
+    QVariantMap first = task(a, "2025-03-10T13:00:00Z", 60);
+    first.insert(QStringLiteral("segments"), QVariantList{
+        QVariantMap{{QStringLiteral("startUtc"), utc("2025-03-10T13:00:00Z")}, {QStringLiteral("finishUtc"), utc("2025-03-10T13:30:00Z")}},
+        QVariantMap{{QStringLiteral("startUtc"), utc("2025-03-10T15:00:00Z")}, {QStringLiteral("finishUtc"), utc("2025-03-10T15:30:00Z")}}});
+    QVERIFY2(model.replaceTasks({group, first}), qPrintable(model.lastError()));
+    QVERIFY(!model.previewMove(g, utc("2025-03-10T13:00:00Z")));
+    QVERIFY(model.lastError().contains(QStringLiteral("group")));
+    QVERIFY2(model.previewMove(a, utc("2025-03-10T14:00:00Z")), qPrintable(model.lastError()));
+    QCOMPARE(model.displayGet(0), group);
+    QVERIFY(!model.displayGet(1).contains(QStringLiteral("segments")));
+    QVERIFY(model.commitPreview());
+    QCOMPARE(model.get(0), group);
 }
 
 QTEST_MAIN(TstGantt)

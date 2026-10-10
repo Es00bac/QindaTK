@@ -208,6 +208,36 @@ void Flex::relayout()
     doLayout();
 }
 
+void Flex::setDeclaredImplicitWidth(qreal value)
+{
+    m_declaredImplicitWidth = std::isfinite(value) ? std::max<qreal>(0, value) : -1;
+    if (m_declaredImplicitWidth >= 0) {
+        setImplicitWidth(m_declaredImplicitWidth);
+    }
+    invalidateLayout();
+}
+
+void Flex::resetDeclaredImplicitWidth()
+{
+    m_declaredImplicitWidth = -1;
+    invalidateLayout();
+}
+
+void Flex::setDeclaredImplicitHeight(qreal value)
+{
+    m_declaredImplicitHeight = std::isfinite(value) ? std::max<qreal>(0, value) : -1;
+    if (m_declaredImplicitHeight >= 0) {
+        setImplicitHeight(m_declaredImplicitHeight);
+    }
+    invalidateLayout();
+}
+
+void Flex::resetDeclaredImplicitHeight()
+{
+    m_declaredImplicitHeight = -1;
+    invalidateLayout();
+}
+
 void Flex::componentComplete()
 {
     QQuickItem::componentComplete();
@@ -458,7 +488,12 @@ void Flex::doLayout()
 
     const qreal implicitMain = maxContentMain + (horizontal ? padL + padR : padT + padB);
     const qreal implicitCross = naturalCross + (horizontal ? padT + padB : padL + padR);
-    setImplicitSize(horizontal ? implicitMain : implicitCross, horizontal ? implicitCross : implicitMain);
+    // AGENT-GUARD (D-316): a declared implicit size wins; only the measured
+    // axes are written, or a QML `implicitWidth:` would be overwritten here.
+    const qreal measuredW = horizontal ? implicitMain : implicitCross;
+    const qreal measuredH = horizontal ? implicitCross : implicitMain;
+    setImplicitSize(m_declaredImplicitWidth >= 0 ? m_declaredImplicitWidth : measuredW,
+                    m_declaredImplicitHeight >= 0 ? m_declaredImplicitHeight : measuredH);
     const qreal contentW = (horizontal ? std::max(extentMain, maxContentMain) : std::max(extentCross, naturalCross)) + padL + padR;
     const qreal contentH = (horizontal ? std::max(extentCross, naturalCross) : std::max(extentMain, maxContentMain)) + padT + padB;
     const int newLineCount = static_cast<int>(lines.size());

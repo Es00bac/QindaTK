@@ -2,6 +2,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
+import "FormControls.js" as FormControls
 
 // Schema and record values are host snapshots. Edits are saved only by a
 // host request; design mode never writes to the database.
@@ -10,6 +11,14 @@ import QindaTK as Tk
 // (label, order, shown) is one LocalDataDesignDocument command, so undo,
 // save and recovery cover it; without it the control only emits
 // designChangeRequested and the host owns the design.
+// AGENT-CONTRACT (D-311, docs/forms-reports.md#form-controls): positioned
+// controls (`design.controls`: labels, bound text/combo/list/check boxes,
+// subforms by form name, command buttons with an action id, tab controls,
+// images, lines, rectangles, calculated text boxes with an opaque
+// `expression`) are laid out on FormControlCanvas and edited in
+// FormControlSheet. Each finished gesture or property edit is one
+// LocalDataDesignDocument command, or one designChangeRequested("",
+// {controls}) carrying the whole next list when the host owns the design.
 Tk.Box {
     id: control
     objectName: "formDesigner"
@@ -29,9 +38,22 @@ Tk.Box {
     property var schemaSnapshot: ({ ok: false, fields: [] })
     // Schema fields in design order; hidden fields only in design mode.
     readonly property var displayFields: control.orderedFields()
+    readonly property var controls: design.controls || []
+    // The toolbox, canvas and property sheet; on when the design has controls.
+    property bool controlsEnabled: controls.length > 0
+    property string selectedControlId: ""
+    // Design snap for moving and sizing controls (0: free).
+    property real gridSize: Tk.Theme.space.md
+    // Preview/edit: created in a subform's frame (FormControlLive's contract).
+    property Component subformComponent: null
+    // function(expression, record) -> value of a calculated control.
+    property var expressionEvaluator: null
+    readonly property Tk.LocalDataDesignStore _controlRules: Tk.LocalDataDesignStore { }
     signal designChangeRequested(string fieldName, var value)
     signal designSaveRequested(string requestId, var design)
     signal recordSaveRequested(string requestId, string tableName, string recordId, var changes)
+    // A command button was pressed in preview or edit mode.
+    signal controlCommandRequested(string controlId, string actionId)
 
     Accessible.role: Accessible.Form
     Accessible.name: tooltip
@@ -161,6 +183,62 @@ Tk.Box {
         return true
     }
 
+    // --- form controls (D-311)
+    function fieldNames() {
+        return designDocument ? designDocument.boundFields : (schemaSnapshot.fields || []).map(field => String(field.name))
+    }
+    function controlById(controlId) {
+        for (let i = 0; i < controls.length; ++i) if (String(controls[i].id) === String(controlId)) return controls[i]
+        return ({})
+    }
+    function selectControl(controlId) { selectedControlId = controlId && controlById(controlId).id ? String(controlId) : "" }
+    function controlTitle(type) {
+        return ({ label: qsTr("Label"), textBox: qsTr("Text box"), comboBox: qsTr("Combo box"), listBox: qsTr("List box"),
+                  checkBox: qsTr("Check box"), subform: qsTr("Subform"), commandButton: qsTr("Command button"),
+                  tabControl: qsTr("Tab control"), image: qsTr("Image"), line: qsTr("Line"), rectangle: qsTr("Rectangle") })[type] || type
+    }
+    // Host-owned design: the whole next list, checked like a document's.
+    function requestControls(next) {
+        const problem = _controlRules.checkControls(next)
+        if (problem.length) { requestState = "invalid"; requestMessage = problem; return false }
+        designChangeRequested("", { controls: next })
+        return true
+    }
+    function addControl(type, properties) {
+        const props = Object.assign({}, properties || {}, { type: type })
+        const at = FormControls.nextPosition(controls, gridSize)
+        if (props.x === undefined) props.x = at.x
+        if (props.y === undefined) props.y = at.y
+        let id = ""
+        if (designDocument) {
+            id = designDocument.addFormControl(props)
+            if (!id.length) { reportEdit(false); return "" }
+        } else {
+            const created = Object.assign(_controlRules.controlDefaults(type), props)
+            if (!created.id) created.id = "ctl-" + Math.random().toString(16).slice(2, 14)
+            if (!created.name) created.name = FormControls.uniqueName(controls, type)
+            if (!requestControls(controls.concat([created]))) return ""
+            id = created.id
+        }
+        selectedControlId = id
+        return id
+    }
+    function updateControl(controlId, changes) {
+        if (!controlById(controlId).id) return false
+        if (designDocument) return reportEdit(designDocument.setFormControl(controlId, changes))
+        return requestControls(controls.map(entry => String(entry.id) === String(controlId) ? FormControls.merged(entry, changes) : entry))
+    }
+    function replaceControls(next) {
+        return designDocument ? reportEdit(designDocument.setFormControls(next)) : requestControls(next)
+    }
+    function removeControl(controlId) {
+        if (!controlById(controlId).id) return false
+        const ok = designDocument ? reportEdit(designDocument.removeFormControl(controlId))
+                                  : requestControls(controls.filter(entry => entry.id !== controlId && entry.parentId !== controlId))
+        if (ok && selectedControlId === controlId) selectedControlId = ""
+        return ok
+    }
+
     Connections {
         target: control.provider
         function onChanged() { control.refreshSchema() }
@@ -198,6 +276,35 @@ Tk.Box {
             Tk.Button { text: qsTr("Edit record"); tooltip: qsTr("Edit the selected database record"); onClicked: control.mode = "edit" }
         }
         Tk.Notice { visible: control.requestState === "invalid" || control.requestState === "rejected" || control.requestState === "refused"; variant: "danger"; title: qsTr("Form update"); text: control.requestMessage }
+        Tk.Flex {
+            objectName: "formToolbox"
+            visible: control.mode === "design" && control.controlsEnabled
+            direction: Tk.Flex.Row; wrap: Tk.Flex.Wrap; align: Tk.Flex.Center; gap: Tk.Theme.space.xs
+            Tk.Caption { text: qsTr("Add") }
+            Repeater {
+                model: FormControls.types()
+                delegate: Tk.IconButton {
+                    required property string modelData
+                    objectName: "formAdd_" + modelData
+                    iconName: FormControls.iconFor(modelData)
+                    small: true
+                    tooltip: qsTr("Add %1").arg(control.controlTitle(modelData))
+                    onClicked: control.addControl(modelData)
+                }
+            }
+        }
+        Tk.Flex {
+            objectName: "formLayout"
+            visible: control.controlsEnabled && (control.mode === "design" || control.controls.length > 0)
+            direction: Tk.Flex.Row; gap: Tk.Theme.space.md; align: Tk.Flex.Start
+            Tk.FormControlCanvas { designer: control; Tk.Flex.grow: 1 }
+            Tk.FormControlSheet {
+                designer: control
+                visible: control.mode === "design" && control.selectedControlId.length > 0
+                Tk.Flex.basis: Tk.Theme.size.panelMinWidth
+                Tk.Flex.shrink: 0
+            }
+        }
         Repeater {
             model: control.displayFields
             delegate: Tk.Flex {
@@ -206,6 +313,8 @@ Tk.Box {
                 required property int index
                 property string fieldName: String(modelData.name || "")
                 objectName: "formField_" + fieldName
+                // With positioned controls, preview and edit show the canvas only.
+                visible: control.mode === "design" || !control.controlsEnabled || control.controls.length === 0
                 direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
                 opacity: control.isHidden(fieldName) ? Tk.Theme.opacity.disabled : 1
                 // AGENT-NOTE: a Label's implicit width is read-only, so the label

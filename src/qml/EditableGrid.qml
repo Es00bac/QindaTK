@@ -37,6 +37,10 @@ T.Control {
     property string editingColumnId: ""
     // Shows the fill handle (Tk.GridFillHandle) on the selection's corner.
     property bool fillHandleEnabled: true
+    // D-312: function(rowId, index) -> {label, summary, collapsed, level,
+    // values: {columnId: text}} for a group header row of the host's
+    // projection, else null. Drawn by GridGroupHeaders; never edited.
+    property var groupHeader: null
     readonly property real bodyWidth: Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))
     readonly property real bodyHeight: Math.max(0, height - (showHeaders ? headerHeight : 0))
     readonly property var visibleCellRecords: collectVisibleCells()
@@ -47,6 +51,8 @@ T.Control {
     signal currentCellChanged(string rowId, string columnId)
     signal editCommitted(string rowId, string columnId, var value)
     signal editCancelled()
+    // The user asked for a group header's state; the host re-projects its rows.
+    signal groupToggled(string rowId, bool collapsed)
 
     implicitWidth: Tk.Theme.size.panelMinWidth
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -192,13 +198,8 @@ T.Control {
     function ensureCurrentVisible() {
         if (!model || activeRow < 0 || activeColumn < 0) return
         const rect = model.cellRect(activeRow, activeColumn, scrollX, scrollY)
-        const frozenWidth = model.frozenColumns > 0
-                                ? model.cellRect(model.frozenRows > 0 ? 0 : 0,
-                                                 model.frozenColumns - 1, 0, 0).x
-                                  + model.cellRect(0, model.frozenColumns - 1, 0, 0).width : 0
-        const frozenHeight = model.frozenRows > 0
-                                 ? model.cellRect(model.frozenRows - 1, 0, 0, 0).y
-                                   + model.cellRect(model.frozenRows - 1, 0, 0, 0).height : 0
+        const frozen = model.frozenExtent()
+        const frozenWidth = frozen.width, frozenHeight = frozen.height
         if (activeColumn >= model.frozenColumns) {
             if (rect.x < frozenWidth) scrollX = Math.max(0, scrollX - (frozenWidth - rect.x))
             else if (rect.x + rect.width > bodyWidth)
@@ -221,8 +222,13 @@ T.Control {
         scrollY = Math.max(0, Math.min(scrollY, Math.max(0, last.y + last.height - bodyHeight)))
     }
 
+    // Group headers (D-312): the host's state for a row, and toggle requests.
+    function groupInfo(rowId, index) { return groupBands.info(rowId, index) }
+    function setGroupCollapsed(rowId, collapsed) { return groupBands.request(rowId, collapsed) }
+    function toggleGroup(rowId) { return groupBands.toggle(rowId) }
+
     function beginCellEdit() {
-        if (!model || activeRow < 0 || activeColumn < 0 || !enabled || model.readOnly) return false
+        if (!model || activeRow < 0 || activeColumn < 0 || !enabled || model.readOnly || groupInfo(activeRowId)) return false
         // The source's edit text (a formula), not its computed display (G-1).
         setEditorText(String(model.editValue(activeRowId, activeColumnId) ?? ""))
         editingRowId = activeRowId
@@ -310,7 +316,9 @@ T.Control {
         case Qt.Key_PageUp: moveCurrent(-Math.max(1, Math.floor(bodyHeight / model.defaultRowSize) - 1), 0, extend); break
         case Qt.Key_PageDown: moveCurrent(Math.max(1, Math.floor(bodyHeight / model.defaultRowSize) - 1), 0, extend); break
         case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_F2:
-            beginCellEdit(); break
+            if (groupInfo(activeRowId)) toggleGroup(activeRowId)
+            else beginCellEdit()
+            break
         case Qt.Key_Escape:
             if (cellEditing) cancelCellEdit()
             else if (rangePreview && model.rowIndex(selectionRestoreRowId) >= 0
@@ -327,6 +335,7 @@ T.Control {
             else return
             break
         default:
+            if (event.key === Qt.Key_Space && groupInfo(activeRowId)) { toggleGroup(activeRowId); break }
             // Type-to-edit: printable text replaces the cell's content.
             if (event.text.length === 0 || event.text.charCodeAt(0) < 32 || event.text.charCodeAt(0) === 127
                     || (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
@@ -449,6 +458,12 @@ T.Control {
             // put is covered by it. The selection draws above every pane and
             // the editor above the selection, each clipped to its own pane;
             // under the cells they were hidden by opaque cell backgrounds.
+            Tk.GridGroupHeaders {
+                id: groupBands
+                anchors.fill: parent
+                z: 3.5
+                grid: grid
+            }
             Tk.RangeSelectionOverlay {
                 objectName: "gridRangeOverlay"
                 anchors.fill: parent
@@ -507,16 +522,6 @@ T.Control {
         }
     }
 
-    Binding {
-        target: grid.model
-        property: "defaultRowSize"
-        value: Tk.Theme.size.row
-        when: grid.model !== null
-    }
-    Binding {
-        target: grid.model
-        property: "defaultColumnSize"
-        value: Tk.Theme.size.tableColumn
-        when: grid.model !== null
-    }
+    Binding { target: grid.model; property: "defaultRowSize"; value: Tk.Theme.size.row; when: grid.model !== null }
+    Binding { target: grid.model; property: "defaultColumnSize"; value: Tk.Theme.size.tableColumn; when: grid.model !== null }
 }

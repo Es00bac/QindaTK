@@ -30,6 +30,10 @@ class RichTextFormatState : public QObject {
     Q_PROPERTY(int subscript READ subscript NOTIFY changed)
     Q_PROPERTY(QColor color READ color NOTIFY changed)
     Q_PROPERTY(bool colorMixed READ colorMixed NOTIFY changed)
+    // The run highlight (CharFormat background; text.highlight). Invalid: none,
+    // or mixed (highlightMixed) — FormatBar and ribbons show "No Color" for none.
+    Q_PROPERTY(QColor highlight READ highlight NOTIFY changed)
+    Q_PROPERTY(bool highlightMixed READ highlightMixed NOTIFY changed)
     Q_PROPERTY(QString link READ link NOTIFY changed)
     Q_PROPERTY(bool linkMixed READ linkMixed NOTIFY changed)
     Q_PROPERTY(QString alignment READ alignment NOTIFY changed)
@@ -56,6 +60,8 @@ public:
     int subscript() const { return m_subscript; }
     QColor color() const { return m_color; }
     bool colorMixed() const { return m_colorMixed; }
+    QColor highlight() const { return m_highlight; }
+    bool highlightMixed() const { return m_highlightMixed; }
     QString link() const { return m_link; }
     bool linkMixed() const { return m_linkMixed; }
     QString alignment() const { return m_alignment; }
@@ -79,6 +85,8 @@ private:
     int m_bold = 0, m_italic = 0, m_underline = 0, m_strike = 0, m_superscript = 0, m_subscript = 0;
     QColor m_color;
     bool m_colorMixed = false;
+    QColor m_highlight;
+    bool m_highlightMixed = false;
     QString m_link;
     bool m_linkMixed = false;
     QString m_alignment = QStringLiteral("start");

@@ -87,6 +87,31 @@ void RichTextArea::selectAll()
     if (m_document) setSelection({m_document->startPosition(), m_document->endPosition()});
 }
 
+bool RichTextArea::claimsShortcutOverride(const QKeyEvent *event) const
+{
+    if (!m_document || m_readOnly || m_document->readOnly() || !hasActiveFocus()) return false;
+    if (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) return false;
+    const QString text = event->text();
+    if (!text.isEmpty() && (text.at(0).isPrint() || text.at(0).isSurrogate())) return true;
+    switch (event->key()) {
+    case Qt::Key_Backspace: case Qt::Key_Delete: case Qt::Key_Left: case Qt::Key_Right:
+    case Qt::Key_Up: case Qt::Key_Down: case Qt::Key_Home: case Qt::Key_End:
+    case Qt::Key_Return: case Qt::Key_Enter:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool RichTextArea::event(QEvent *event)
+{
+    if (event->type() == QEvent::ShortcutOverride && claimsShortcutOverride(static_cast<QKeyEvent *>(event))) {
+        event->accept();
+        return true;
+    }
+    return QQuickItem::event(event);
+}
+
 void RichTextArea::keyPressEvent(QKeyEvent *event)
 {
     if (!m_document) {

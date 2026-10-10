@@ -58,6 +58,7 @@ QJsonObject paragraphFormatJson(const ParagraphFormat &f)
     if (!f.styleId.isEmpty()) o.insert(QStringLiteral("style"), f.styleId);
     if (!f.styleId.isEmpty() && f.overrides)
         o.insert(QStringLiteral("overrides"), QJsonArray::fromStringList(overrideNames(f.overrides)));
+    if (!f.data.isEmpty()) o.insert(QStringLiteral("data"), f.data);
     return o;
 }
 
@@ -293,6 +294,16 @@ QJsonObject RichTextCodec::fragmentToJson(const Fragment &fragment)
                      {QStringLiteral("blocks"), blocks}};
     if (!fragment.styles.isEmpty()) root.insert(QStringLiteral("styles"), stylesJson(fragment.styles));
     return root;
+}
+
+bool RichTextCodec::readParagraphData(const QJsonValue &value, QJsonObject *out)
+{
+    if (value.isUndefined()) return true;
+    if (!value.isObject()
+        || QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact).size() > MaximumParagraphData)
+        return false;
+    *out = value.toObject();
+    return true;
 }
 
 QVariantMap RichTextCodec::paragraphFormatToMap(const ParagraphFormat &format)

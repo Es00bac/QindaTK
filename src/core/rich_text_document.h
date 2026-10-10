@@ -181,6 +181,12 @@ public:
     bool setObject(const RichText::RichObject &object);
     std::optional<RichText::Position> insertTable(const RichText::Position &at, int rows,
                                                   int columns, int headerRows = 0);
+    // Deletes a whole table — its rows, cells, their paragraphs and anchored
+    // objects — as one undoable step (D-322); refused while tracking changes.
+    // Returns the caret: the start of the block now in the table's place, or
+    // the end of the one before it. A lone table leaves an empty paragraph.
+    std::optional<RichText::Position> deleteTable(const QUuid &tableId);
+    Q_INVOKABLE bool removeTable(const QString &tableId) { return deleteTable(QUuid(tableId)).has_value(); }
     Q_INVOKABLE bool insertTableRow(const QString &tableId, int index);
     Q_INVOKABLE bool removeTableRow(const QString &tableId, const QString &rowId);
     Q_INVOKABLE bool insertTableColumn(const QString &tableId, int index);
@@ -324,6 +330,18 @@ public:
     // --- QML
     Q_INVOKABLE bool undo() { return undoTransaction().has_value(); }
     Q_INVOKABLE bool redo() { return redoTransaction().has_value(); }
+    // AGENT-CONTRACT (D-321, docs/rich-text.md#host-history): what the area's
+    // edit.undo/edit.redo commands, Ctrl+Z and Ctrl+Shift+Z call. Without
+    // externalUndo they are undo()/redo(). With it the host owns the history,
+    // so they emit undoRequested()/redoRequested() for the host to step its
+    // own and return true; undo()/redo() keep doing nothing there. A request
+    // made while the host handles one is refused, so a host that answers
+    // with requestUndo() cannot recurse.
+    Q_INVOKABLE bool requestUndo();
+    Q_INVOKABLE bool requestRedo();
+    // True when undo()/redo() hand the request to the host (externalUndo on
+    // a writable document); the host's history decides what happens.
+    bool forwardsHistory() const { return m_externalUndo && !m_readOnly; }
     // AGENT-CONTRACT (D-050): with externalUndo the host records each
     // committed(transactionId) step and replays it here with the document's
     // current revision; a mismatched revision or unknown ID changes nothing.
@@ -339,6 +357,11 @@ public:
     Q_INVOKABLE QStringList paragraphIds() const;
     Q_INVOKABLE QString paragraphText(const QString &paragraphId) const;
     Q_INVOKABLE QVariantMap paragraphFormatMap(const QString &paragraphId) const;
+    // Per-paragraph host data (D-325, docs/rich-text.md#paragraph-data): a
+    // JSON-compatible map (tags, …) of at most 64 KiB, never drawn; setting
+    // it is one undo step (not a tracked change). {} for an unknown ID.
+    Q_INVOKABLE QVariantMap paragraphData(const QString &paragraphId) const;
+    Q_INVOKABLE bool setParagraphData(const QString &paragraphId, const QVariantMap &data);
     Q_INVOKABLE QStringList missingFontFamilies() const;
     Q_INVOKABLE bool applyPageSetupMm(const QVariantMap &settings);
 
@@ -349,6 +372,9 @@ signals:
     void committed(const QString &transactionId, const QString &label);
     void historyNavigated(const QindaTK::RichText::Selection &selection, bool undo);
     void rejected(const QString &message);
+    // externalUndo only: the user asked to undo or redo (D-321).
+    void undoRequested();
+    void redoRequested();
 
 private:
     friend class RichTextCodec;
@@ -441,6 +467,7 @@ private:
     QString m_lastError;
     bool m_readOnly = false;
     bool m_externalUndo = false;
+    bool m_forwardingHistory = false;  // re-entrancy guard of undo()/redo() forwarding
 };
 
 } // namespace QindaTK

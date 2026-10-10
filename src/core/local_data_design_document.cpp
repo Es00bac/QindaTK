@@ -309,6 +309,17 @@ bool LocalDataDesignDocument::bindTable(LocalDatabaseProvider *provider, const Q
             formFields.append(QVariantMap{{QStringLiteral("fieldName"), field}, {QStringLiteral("label"), field}});
     form.insert(QStringLiteral("fields"), formFields);
     form.insert(QStringLiteral("tableName"), table);
+    // A control bound to a field that is no longer bound keeps its place, unbound.
+    if (form.contains(QStringLiteral("controls"))) {
+        QVariantList controls;
+        for (const QVariant &entry : form.value(QStringLiteral("controls")).toList()) {
+            QVariantMap control = entry.toMap();
+            if (!fields.contains(control.value(QStringLiteral("fieldName")).toString()))
+                control.remove(QStringLiteral("fieldName"));
+            controls.append(control);
+        }
+        form.insert(QStringLiteral("controls"), controls);
+    }
     next.insert(QStringLiteral("form"), form);
 
     QVariantMap report = mapAt(next, QStringLiteral("report"));

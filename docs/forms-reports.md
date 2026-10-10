@@ -34,7 +34,7 @@ A design is a JSON map with `format: "qindatk.local-data-design"` and
 | --- | --- |
 | `designId` | A stable name for the design |
 | `binding` | `{provider: "sqlite", schema: "main", table, fields: [...], types: {field: "integer" \| "number" \| "text" \| "boolean"}}`. `types` records the column types when the design was bound. A new document is unbound, with an empty `table` and no fields |
-| `form` | `{title, tableName, fields: [{fieldName, label, hidden}]}`, listed in form order |
+| `form` | `{title, tableName, fields: [{fieldName, label, hidden}], controls: [...]}`: fields in form order, and the optional positioned [form controls](#form-controls) |
 | `report` | The report definition below |
 
 Every field the form or report names must be a bound field. The document
@@ -168,6 +168,7 @@ rules, it returns false, sets `lastError` and changes nothing:
 | --- | --- |
 | `bindTable(provider, table, fields)` | Bind to *table*: binds the table and records the live column types. Form fields, columns, groups, totals and a filter that name an unbound field are dropped |
 | `setFormTitle`, `setFormFieldLabel`, `setFormFieldHidden`, `moveFormField` | Form layout |
+| `addFormControl(control)` (returns the id), `setFormControl(id, changes)`, `removeFormControl(id)`, `setFormControls(list)` | Add *type*, Move or size *name*, Change *name*, Delete *name*, Set form controls ([form controls](#form-controls)) |
 | `setReportText(headerText \| footerText \| pageHeaderText \| pageFooterText)`, `setReportColumns`, `setReportDetail` | Report and page bands |
 | `setReportGroups`, `setReportTotal(groupField, field, function, enabled)`, `setGroupPageBreak` | Groups and totals (`groupField` empty: the report footer) |
 | `setReportFilter(predicate, parameters)` | The filter. `QueryEngine::fromJson` checks it first |
@@ -217,6 +218,47 @@ plan may copy rows with `INSERT INTO t SELECT ...` only into a table the same
 plan creates, the copy step of SQLite's table rebuild, so relationship
 changes on a table with rows can be planned.
 
+<a id="form-controls"></a>
+## Form controls
+
+A form may carry positioned controls (D-311), as an Access form does:
+`form.controls` is a list of maps, each `{id, type, name, x, y, width,
+height}` in design units (logical pixels of the form at 100 %, 0–20,000)
+plus its type's properties:
+
+| `type` | Properties | Live (preview and edit mode) |
+| --- | --- | --- |
+| `label` | `caption` | Text |
+| `textBox` | `fieldName` (bound) or `expression` (calculated, opaque, ≤ 4,000 characters) | A text field; bound ones write the record in edit mode, calculated ones show `expressionEvaluator(expression, record)` (the expression itself without one) |
+| `comboBox`, `listBox` | `fieldName`, `items` (≤ 1,000 values), `rowSource` (opaque, for the host to fill `items`) | A combo box or a list; choosing writes the field in edit mode |
+| `checkBox` | `fieldName`, `caption` | A check box; on a number column it writes 1 or 0 |
+| `subform` | `formName`, `linkMasterFields`, `linkChildFields` | The host's `subformComponent`, given those of `formName`, `controlId`, `linkMasterFields`, `linkChildFields` and `masterRecord` its root declares; a placeholder without one |
+| `commandButton` | `caption`, `actionId` | A button emitting `controlCommandRequested(controlId, actionId)` |
+| `tabControl` | `pages` (1–32 names) | A tab strip; each page shows its own controls |
+| `image` | `source` | The picture when it is a `data:image`, `file:`, `qrc:` or `image:` URL, else a placeholder (never a network fetch) |
+| `line` | `slant` (`down`, `up`) | A line between the box's corners (height 0: horizontal) |
+| `rectangle` | — | An outline |
+
+A control on a tab page has `parentId` (the tab control) and `page` (its
+index); its coordinates are still form coordinates, and moving the tab
+control moves it in the same edit. Only the bound types may name a
+`fieldName`, which must be a bound field; extra keys are kept for hosts.
+`LocalDataDesignStore::checkStructure` refuses a malformed list (unknown
+type, duplicate id, geometry out of range, a missing tab page, …), so files
+and edits obey the same rules, and `bindTable` unbinds the controls whose
+field it drops. `LocalDataDesignStore.controlTypes()`,
+`controlDefaults(type)` (default size and properties) and
+`checkControls(list)` serve hosts that own the design.
+
+In design mode `FormDesigner` shows a toolbox, the canvas and, for the
+selected control, a property sheet — see [controls](controls.md) for the
+gestures and object names. Every finished gesture and every committed
+property is one edit: one document command (one undo step), or without a
+document one `designChangeRequested("", {controls})` carrying the whole next
+list, checked first. The toolkit evaluates no expression and opens no
+subform; record values change only through `setFieldValue`, so the edit
+mode rules above apply to every live control.
+
 ## Verification
 
 - `tst_local_report_design`: nested groups with null keys and values, every
@@ -245,6 +287,10 @@ changes on a table with rows can be planned.
   `DatabaseSchemaView` through a relationship plan, a failed commit and a
   successful one.
 - `tst_local_data_design_output`.
+- `tst_local_data_design_document` `formControlsAreUndoableDesignData` and
+  `tst_form_designer_controls.qml`: every control type, refused edits, undo,
+  rebinding, canvas gestures snapped to the grid, the property sheet, live
+  preview and edit, and the host-owned path.
 
 Performance, other platforms, screen readers and output-fidelity comparison
 belong to the qualification packages WP-088 to WP-094.
