@@ -254,6 +254,7 @@ QVariantMap SmtpMailProvider::composeMessage(const QVariantMap &draft) const
     if (error.isEmpty()) message.cc = Mime::parseAddressList(draft.value(QStringLiteral("cc")).toString(), &error);
     const QList<Mime::Address> bcc = error.isEmpty()
         ? Mime::parseAddressList(draft.value(QStringLiteral("bcc")).toString(), &error) : QList<Mime::Address>();
+    if (error.isEmpty()) message.replyTo = Mime::parseAddressList(draft.value(QStringLiteral("replyTo")).toString(), &error);
     if (!error.isEmpty()) return rejection(error);
     QStringList recipients;
     for (const QList<Mime::Address> *list :
@@ -262,6 +263,10 @@ QVariantMap SmtpMailProvider::composeMessage(const QVariantMap &draft) const
             if (!recipients.contains(address.address, Qt::CaseInsensitive)) recipients.append(address.address);
     if (recipients.isEmpty()) return rejection(QStringLiteral("The draft has no recipient"));
 
+    message.importance = draft.value(QStringLiteral("importance")).toString().toLower();
+    if (!message.importance.isEmpty() && message.importance != QLatin1String("high")
+        && message.importance != QLatin1String("normal") && message.importance != QLatin1String("low"))
+        return rejection(QStringLiteral("Importance must be high, normal or low"));
     message.subject = draft.value(QStringLiteral("subject")).toString();
     message.plain = draft.value(QStringLiteral("body")).toString();
     message.html = draft.value(QStringLiteral("bodyHtml")).toString();
@@ -320,6 +325,35 @@ bool SmtpMailProvider::send(const QString &requestId, const QVariantMap &draft)
                               completed.insert(QStringLiteral("messageId"), messageId);
                               finish(requestId, draft, completed);
                           });
+    return true;
+}
+
+bool SmtpMailProvider::sendPrepared(const QString &requestId, const QByteArray &message,
+                                      const QString &envelopeFrom, const QStringList &recipients)
+{
+    QString error;
+    if (!Mime::validAddress(envelopeFrom) || recipients.isEmpty())
+        error = QStringLiteral("Invalid prepared-message envelope");
+    for (const QString &recipient : recipients)
+        if (!Mime::validAddress(recipient)) error = QStringLiteral("Invalid recipient address");
+    QByteArray withoutCrLf = message;
+    withoutCrLf.replace("\r\n", "");
+    if (message.isEmpty() || message.size() > MaximumMessageBytes || message.contains('\0')
+        || !message.contains("\r\n\r\n") || !message.endsWith("\r\n")
+        || withoutCrLf.contains('\r') || withoutCrLf.contains('\n'))
+        error = QStringLiteral("Prepared message must be at most 32 MiB with CRLF headers and lines");
+    ++m_pending;
+    m_state = QStringLiteral("sending");
+    emit stateChanged();
+    if (!error.isEmpty()) {
+        const QVariantMap result = rejection(error);
+        QMetaObject::invokeMethod(this, [this, requestId, result] { finish(requestId, {}, result); }, Qt::QueuedConnection);
+        return false;
+    }
+    const SmtpJob job{{m_host, static_cast<quint16>(m_port), m_security, m_timeoutMs, m_allowInsecureAuth},
+                     {m_userName, m_secret, m_mechanism}, m_heloName.toLatin1(), envelopeFrom, recipients, message};
+    Protocol::startWorker(this, [job] { return runSmtp(job); },
+        [this, requestId](const QVariantMap &result) { finish(requestId, {}, result); });
     return true;
 }
 

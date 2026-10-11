@@ -30,6 +30,7 @@ struct Job {
     QString accountId;
     int fetchLimit = 200;
     qint64 maximumMessageBytes = 8 * 1024 * 1024;
+    bool keepHtml = false;
     bool leaveOnServer = true;
     int deleteAfterDays = 0;
     bool canImportAttachments = false;   // an attachment store is configured

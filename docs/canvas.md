@@ -870,3 +870,15 @@ cancels the preview instead of requesting a no-op commit.
 tools, picking or render boundary. Keep it for page-like content (documents,
 scores). Use `Tk.CanvasView` when you need rotation, synchronized views,
 picking or large spatial documents.
+
+### LayerTree without CanvasDocument (D-337)
+
+`LayerTree.model` accepts a hierarchical QAbstractItemModel implementing the
+CanvasLayerTreeModel public contract. It uses the same roles (`key`, `kind`,
+`itemId`, `label`, `detail`, `iconName`, `shown`, `locked`, `effectiveVisible`,
+`effectiveLocked`, `selected`, `active`, `childCount`, `parentKey`) and methods
+`groupKeys`, `ancestorKeys`, `nodeInfo`, `select`, `activate`, `setShown`,
+`setLocked`, `rename`, `canMove`, `move`, `step`, `indent`, `outdent`, `addLayer`,
+`groupLayers`, `ungroup`, `remove`. Expose `lastError`, `structureChanged` and
+`revealRequested(key)`; the host owns edits/undo and selection. No CanvasDocument
+is required. Null `model` retains the built-in document adapter.

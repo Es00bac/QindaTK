@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
@@ -135,14 +136,23 @@ Item {
         Tk.Overline { title: qsTr("OUTPUT SETTINGS") }
         Tk.Grid {
             id: settingsGrid
+            objectName: "printSettingsGrid"
             // AGENT-NOTE: the paired rows (Paper | Orientation, ...) go two
             // up only when each editor keeps a field's width next to its
             // label; a narrower panel stacks them, because two 35px combos
             // elide every label away (comfortable density at 320px).
             // AGENT-GUARD: the full-width rows' columnSpan follows `twoUp`;
             // a span of 2 in a one-column grid adds an implicit column.
-            readonly property bool twoUp: width >= 2 * (Tk.Theme.size.labelWidth + Tk.Theme.space.sm
-                                                         + Tk.Theme.size.fieldWidth) + columnGap
+            property bool twoUp: false
+            readonly property real twoUpMinimumWidth: 2 * (Tk.Theme.size.labelWidth + Tk.Theme.space.sm
+                                                          + Tk.Theme.size.fieldWidth) + columnGap
+            // Grid changes may resize an enclosing Scroll synchronously.
+            // Re-evaluate outside that layout transaction to avoid re-entering
+            // this property's own evaluation through width/implicitHeight.
+            function updateColumns() { twoUp = control.width >= twoUpMinimumWidth }
+            onTwoUpMinimumWidthChanged: Qt.callLater(updateColumns)
+            Component.onCompleted: Qt.callLater(updateColumns)
+            Connections { target: control; function onWidthChanged() { Qt.callLater(settingsGrid.updateColumns) } }
             columns: twoUp ? "1fr 1fr" : "1fr"
             gap: Tk.Theme.space.xs
             columnGap: Tk.Theme.space.md

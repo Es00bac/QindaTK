@@ -2,6 +2,8 @@
 #include "imap_mail_provider.h"
 
 #include "imap_folders.h"
+#include "imap_keywords.h"
+#include "imap_messages.h"
 #include "imap_mail_jobs.h"
 #include "protocol_client.h"
 
@@ -112,9 +114,30 @@ QVariantMap ImapMailProvider::prepareMessageJob(Operation operation, const QVari
         || message.value(QStringLiteral("remoteAccount")).toString() != m_accountId
         || message.value(QStringLiteral("remoteMailbox")).toString() != m_mailbox)
         return rejection(QStringLiteral("The message is not stored from this IMAP mailbox"));
+    job->uids = {job->uid};
+    if (operation == Operation::Flags) {
+        job->addFlags = input.value(QStringLiteral("addFlags")).toStringList();
+        job->removeFlags = input.value(QStringLiteral("removeFlags")).toStringList();
+        job->setCategories = input.contains(QStringLiteral("categories"));
+        job->categories = input.value(QStringLiteral("categories")).toStringList();
+        for (const QString &flag : job->addFlags + job->removeFlags)
+            if (!ImapKeywords::validFlag(flag)) return rejection(QStringLiteral("Invalid IMAP flag"));
+        for (const QString &name : job->categories)
+            if (!ImapKeywords::validKeyword(ImapKeywords::keywordForCategory(name)))
+                return rejection(QStringLiteral("Invalid or oversized category name"));
+        return {};
+    }
+    if (operation == Operation::Headers) {
+        job->headerFields = input.value(QStringLiteral("fields")).toStringList();
+        if (job->headerFields.size() > ImapMessages::MaximumHeaderFields)
+            return rejection(QStringLiteral("Too many header fields"));
+        for (const QString &field : job->headerFields)
+            if (!ImapMessages::validHeaderField(field)) return rejection(QStringLiteral("Invalid header field"));
+        return {};
+    }
     job->action = input.value(QStringLiteral("action")).toString();
     if (operation == Operation::Action) {
-        if (job->action == QLatin1String("move")) {
+        if ((job->action == QLatin1String("move") || job->action == QLatin1String("copy"))) {
             job->targetMailbox = input.value(QStringLiteral("targetMailbox")).toString();
             if (job->targetMailbox.trimmed().isEmpty() || job->targetMailbox == m_mailbox)
                 return rejection(QStringLiteral("Choose a different mailbox to move the message to"));
@@ -149,6 +172,9 @@ bool ImapMailProvider::start(Operation operation, const QString &requestId, cons
     job.archiveMailbox = m_archiveMailbox;
     job.fetchLimit = m_fetchLimit;
     job.maximumMessageBytes = m_maximumMessageBytes;
+    job.keepHtml = m_keepHtml;
+    job.keywordCategories = m_keywordCategories;
+    job.wireNames = m_wireNames;
 
     QVariantMap early;
     if (operation == Operation::Mailboxes) {
@@ -176,7 +202,9 @@ bool ImapMailProvider::start(Operation operation, const QString &requestId, cons
                 continue;
             job.knownUidValidity = row.value(QStringLiteral("remoteUidValidity")).toLongLong();
             job.known.insert(row.value(QStringLiteral("remoteUid")).toLongLong(),
-                             {row.value(QStringLiteral("unread")).toBool(), row.value(QStringLiteral("flagged")).toBool()});
+                             {row.value(QStringLiteral("unread")).toBool(), row.value(QStringLiteral("flagged")).toBool(),
+                              row.value(QStringLiteral("answered")).toBool(), row.value(QStringLiteral("keywords")).toStringList(),
+                              row.value(QStringLiteral("categories")).toStringList()});
         }
     } else {
         early = prepareMessageJob(operation, input, &job);
@@ -201,6 +229,8 @@ bool ImapMailProvider::start(Operation operation, const QString &requestId, cons
     case Operation::Attachment: kind = ImapJobs::Kind::Attachment; break;
     case Operation::Mailboxes: kind = ImapJobs::Kind::Mailboxes; break;
     case Operation::Append: kind = ImapJobs::Kind::Append; break;
+    case Operation::Flags: kind = ImapJobs::Kind::Flags; break;
+    case Operation::Headers: kind = ImapJobs::Kind::Headers; break;
     }
     Protocol::startWorker(this, [kind, job] { return ImapJobs::run(kind, job); },
                           [this, operation, requestId, echoed](const QVariantMap &result) {
@@ -247,8 +277,9 @@ QVariantMap ImapMailProvider::applySyncResult(QVariantMap result)
         QVariantMap row = findMessage(ImapJobs::recordId(m_accountId, m_mailbox, validity,
                                                          change.value(QStringLiteral("uid")).toLongLong()));
         if (row.isEmpty()) continue;
-        row.insert(QStringLiteral("unread"), change.value(QStringLiteral("unread")));
-        row.insert(QStringLiteral("flagged"), change.value(QStringLiteral("flagged")));
+        QVariantMap fields = change;
+        fields.remove(QStringLiteral("uid"));
+        row.insert(fields);
         updatedCount += m_store->upsert(QStringLiteral("messages"), row).value(QStringLiteral("ok")).toBool();
     }
     QStringList addedIds;
@@ -274,7 +305,7 @@ QVariantMap ImapMailProvider::applyActionResult(QVariantMap result)
     if (row.isEmpty()) return persist(result);        // removed locally meanwhile; remote change stands
     if (action == QLatin1String("archive") || action == QLatin1String("move") || action == QLatin1String("delete")) {
         m_store->remove(QStringLiteral("messages"), row.value(QStringLiteral("id")).toString());
-    } else {
+    } else if (action != QLatin1String("copy")) {
         if (action == QLatin1String("read") || action == QLatin1String("unread"))
             row.insert(QStringLiteral("unread"), action == QLatin1String("unread"));
         else
@@ -323,6 +354,24 @@ void ImapMailProvider::complete(Operation operation, const QString &requestId, Q
         else if (operation == Operation::Action) result = applyActionResult(result);
         else if (operation == Operation::Attachment) result = applyAttachmentResult(result);
     }
+    if (result.value(QStringLiteral("ok")).toBool() && operation == Operation::Mailboxes) {
+        m_wireNames.clear();
+        for (const QVariant &entry : result.value(QStringLiteral("mailboxes")).toList()) {
+            const QVariantMap box = entry.toMap();
+            if (box.value(QStringLiteral("selectable")).toBool())
+                m_wireNames.insert(box.value(QStringLiteral("name")).toString(), box.value(QStringLiteral("rawName")).toString().toUtf8());
+        }
+    }
+    if (result.value(QStringLiteral("ok")).toBool() && operation == Operation::Flags && m_store) {
+        QVariantMap row = findMessage(result.value(QStringLiteral("messageId")).toString());
+        if (!row.isEmpty()) {
+            for (const QString &key : {QStringLiteral("unread"), QStringLiteral("flagged"), QStringLiteral("answered"),
+                                      QStringLiteral("keywords"), QStringLiteral("categories")})
+                if (result.contains(key)) row.insert(key, result.value(key));
+            m_store->upsert(QStringLiteral("messages"), row);
+            result = persist(result);
+        }
+    }
     result.remove(QStringLiteral("bytes"));
     result.insert(QStringLiteral("requestId"), requestId);
     m_lastError = Protocol::redact(result.value(QStringLiteral("error")).toString(), {m_secret});
@@ -336,6 +385,8 @@ void ImapMailProvider::complete(Operation operation, const QString &requestId, Q
     case Operation::Attachment: emit attachmentFinished(requestId, result); break;
     case Operation::Mailboxes: emit mailboxesFinished(requestId, result); break;
     case Operation::Append: emit appendFinished(requestId, result); break;
+    case Operation::Flags: emit flagsFinished(requestId, result); break;
+    case Operation::Headers: emit headersFinished(requestId, result); break;
     }
 }
 

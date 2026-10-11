@@ -2410,3 +2410,181 @@ stays the host's. `CharacterMap` lists Unicode blocks by code point (no
 character-name database) and emits `characterChosen(text)`; the host
 inserts it and keeps the recent list.
 
+## D-328 — Toast widths include their message and remain inside the window
+
+Notice exposes unconstrained text measurement independently of its wrapping
+layout. Toast clamps that natural width by themed minima/maxima and window
+anchor margins; a content-sized parent cannot create a width feedback loop.
+
+## D-329 — Decimal number displays never re-enter their computed binding
+
+NumberField synchronizes display text from the source value and the shared
+clamp() function. Reading clampedValue from a configuration-change handler or
+from its own notification re-enters that computed binding during initialization.
+Direct derivation preserves immediate display updates and host value bindings.
+
+## D-330 — Design history getters are pure
+
+LocalDataDesignDocument history capability/text getters only inspect the
+attached service. They never attach a service or emit notifications. Explicit
+edits may recover local history after detachment; switching or loading a form
+cannot start a recursive canRedo binding through historyAttached.
+
+## D-331 — Reports derive independent interval keys for up to ten groups
+
+An immutable QuerySource facade adds one private key per report level; repeated
+source fields remain distinct levels. Prefix, date and numeric interval keys
+feed the existing QueryEngine aggregation. A stable group ordering follows the
+engine's detail sort without raising its general four-key query limit. Running
+sums are report detail columns. Unknown group metadata and unavailable fields
+remain in saved designs; invalid live schema references fail explicitly.
+
+## D-332 — Report page controls are part of the generated document
+
+Section breaks and keep constraints are generated with the report, shared by
+preview, print and PDF. Whole-group spans are measured with RichTextLayout;
+a span fitting one page moves to a new page when it otherwise crosses one.
+Oversized groups flow. Applications need no knowledge of rich-text block shapes.
+
+## D-333 — Value lists select the grid editor without owning cell data
+
+EditableGrid.valueList supplies values and Limit To List from host schema.
+GridCellEditor switches between the existing named text field and a toolkit
+ComboBox. Validation happens before beginning the model transaction. The host's
+cell model, selection and commit/cancel semantics remain authoritative.
+
+## D-334 — Side docks constrain display geometry without changing saved sizes
+
+DockHost computes both side zones against the available viewport, reserves
+canvas space and proportionally shares excess width above a themed minimum.
+Below the minimum floor panes share constrained space equally. Model lane
+extents remain untouched and reappear when the host expands.
+
+## D-335 — Border previews propose independent document-edge styles
+
+BorderEditor emits a complete proposed edge map. Each click toggles just one
+edge, using the current style, colour and document-point width for new edges.
+The host owns undo and persistence. The icon catalog includes case-sensitive.
+
+## D-336 — Task cards render host category colours and named extra fields
+
+TaskBoard delegates optional metadata to TaskCardDetails, preserving the old
+appearance when no metadata exists. Colours are record data, with a themed
+fallback; names and values remain accessible text and wrap in narrow cards.
+
+## D-337 — LayerTree can consume an independent hierarchical model
+
+A host may provide a QAbstractItemModel with the published layer roles and
+request methods. CanvasLayerTreeModel remains the default adapter when model
+is null. The view never owns document or selection mutations.
+
+## D-340 — IMAP keywords and message operations share provider jobs
+
+ImapKeywords validates RFC atoms and provides the existing QindaMail category
+mapping. Provider APIs expose flags, categories, chosen header fields and COPY;
+PERMANENTFLAGS and read-only selection are enforced before keyword STORE.
+Header blocks remain bytes. UIDVALIDITY guards remain in every message job.
+
+## D-341 — Noncanonical mailbox encodings preserve server wire names
+
+Modified UTF-7 runs encoding printable ASCII are accepted. LIST retains raw
+names and the provider uses that server spelling for later selected, copied,
+moved and appended mailboxes. Public mailbox names remain decoded text.
+
+## D-342 — SMTP accepts prepared messages with an explicit envelope
+
+sendPrepared validates envelope addresses, CRLF framing, header separation,
+size and NULs, then applies only SMTP dot-stuffing. It never rebuilds headers or
+body. Ordinary draft composition now writes Reply-To and importance headers.
+
+## D-344 — Calendar categories are mapped text lists
+
+VEVENT and VTODO map CATEGORIES to categories. Escaped commas/backslashes and
+multiple properties round-trip; edits replace the managed property and affect
+the CalDAV digest. Empty categories preserve compatibility with earlier hashes.
+
+## D-345 — Recurrence overrides retain the established shared mapping
+
+The existing RECURRENCE-ID/EXDATE codec and LocalCalendarProjectionModel already
+map retimed, moved, retitled and cancelled instances. M98 uses those contracts
+and their CalDAV, ICS and local-calendar regression gates rather than a second
+recurrence implementation.
+
+## D-346 — iMIP conversion never implies sender authentication or acceptance
+
+CalendarMail builds REQUEST/REPLY/CANCEL as multipart/alternative with matching
+calendar METHOD and MIME method. Parsing exposes event, organizer, attendee and
+sequence metadata with authenticated=false. Replies change one existing
+attendee's participation status and preserve scheduling identity. Sending and
+trust/acceptance decisions remain explicit host operations.
+
+## D-347 — Downloaded HTML remains opt-in untrusted content
+
+IMAP and POP3 share MIME parsing and MailRecord output. keepHtml defaults false;
+when enabled bounded raw HTML is marked untrusted-html for the host sanitizer.
+Attachment metadata records Content-ID, inline usage and disposition. Calendar
+parts, Reply-To and importance use the same record shape across both providers.
+
+## D-343 — ManageSieve jobs isolate protocol state and enforce TLS
+
+ManageSieveClient uses one Protocol::Channel worker session per request. It
+refreshes capabilities after STARTTLS before AUTHENTICATE PLAIN; absence of
+required TLS fails before credentials. Quoted strings and bounded literals are
+parsed independently of line framing. Script bodies and authentication payloads
+never enter transcripts. Response codes remain available to the host. No server
+script is activated implicitly after upload.
+
+## D-348 — Desktop notifications are optional and never start a server
+
+DesktopNotifications uses asynchronous session-bus calls when QtDBus is present.
+Availability follows the service owner; post is a no-op when absent. Calls disable
+D-Bus auto-start, and neither constructing the helper nor receiving mail emits a
+notification by itself. Tests run a fake server on a private dbus-run-session bus.
+
+## D-338 — Filter lists, field wells and gallery sections keep host ownership
+
+SearchChecklist edits a proposed checked-ID set, preserving selections hidden
+by search. FieldWells emits assignment/removal requests from mouse drag or
+keyboard selection. SectionedGallery wraps host previews in collapse-request
+headers and never edits its section/selection snapshots. None of these controls
+embeds spreadsheet, pivot, or slide document types.
+
+## D-339 — Gantt group disclosure survives a hidden label column
+
+GanttRow keeps one persistent ganttGroupChevron and reparents it into the chart
+when labelWidth is zero. A companion task sheet may render the labels without
+removing the chart's mouse/accessibility group toggle. The name and activation
+signal remain unchanged; chart captions leave space for the control. A themed
+opaque backing keeps its glyph visible over a same-colour summary bar.
+
+## D-349 — Office follow-up keeps defaults and rebuilds ABI consumers together
+
+Additive QML/provider APIs retain existing defaults; opt-in raw HTML stays
+untrusted and mail mutations stay explicit. C++ layout additions require the
+coordinated r18 subslot/reverse-dependency rebuild. Tests and pixel checks use
+headless builds, and notifications tests use a private bus.
+
+## D-350 — Applications can consume an uninstalled toolkit build coherently
+
+The separate cmake-build package exports the live qindatk and agent targets,
+QML module directory and generated public-header symlinks inside the build
+folder. The installed config remains relocatable and unchanged. Consumers of
+this development package compile and run against one build, with no home-prefix
+installation or live system ABI replacement. The source/build directories must
+remain present until those consumers are rebuilt against a packaged toolkit.
+
+## D-351 — Stylus begin grabs stay within the canvas input branch
+
+The underlying pointer-device handler must not take over a press already
+claimed by an item in a different visual branch. Its CanTakeOverFromItems
+permission permits canvas delivery interactions, not popup/dialog/overlay
+buttons. A regression exercises modal and ordinary overlay actions above ink,
+including modal background presses and resuming strokes after dismissal.
+
+## D-352 — Print settings follow the settled host width
+
+PrintPreview chooses one or two settings columns after the current layout
+transaction. A parent Scroll can change the control's width synchronously in
+response to its implicit height; evaluating the column predicate within that
+transaction re-enters its own binding. Deferred, coalesced updates use the final
+host width and respond to theme threshold changes without feedback warnings.

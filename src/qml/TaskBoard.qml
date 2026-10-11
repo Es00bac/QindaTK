@@ -14,6 +14,8 @@ Tk.Box {
     id: control
     objectName: "taskBoard"
     property var columns: [] // [{status,label,tasks:[{taskId,title,assignee,dueDate,priority,syncState}]}]
+    // Category names resolve through this host palette; color is document data.
+    property var categoryColors: ({})
     property var conflicts: []
     property bool offline: false
     property string errorText: ""
@@ -217,6 +219,12 @@ Tk.Box {
                                         Tk.Icon { name: "grip-vertical"; size: Tk.Theme.size.iconSm; color: Tk.Theme.color.textMuted }
                                         Tk.Label { text: String(card.modelData.title || qsTr("Untitled task")); wrapMode: Text.Wrap; font.weight: Font.DemiBold; Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
                                         Tk.Badge { objectName: "taskSyncState"; visible: card.conflicted; text: qsTr("Conflict"); variant: "warning" }
+                                    }
+                                    Tk.TaskCardDetails {
+                                        width: parent.width
+                                        categories: card.modelData.categories || []
+                                        categoryColors: control.categoryColors
+                                        fields: card.modelData.extraFields || []
                                     }
                                     Tk.Label { text: [card.modelData.assignee, card.modelData.dueDate, card.modelData.priority].filter(Boolean).join(" · "); muted: true }
                                     Tk.Flex {

@@ -6,6 +6,7 @@
 // total. Bands are walked from the ordered rows; totals are looked up by the
 // engine's stable group IDs, so a printed total is the engine's value.
 #include "local_report_spec.h"
+#include "local_report_groups.h"
 
 #include "sqlite_query_source.h"
 
@@ -31,7 +32,7 @@ QString failure(const QueryResult &result, const SqliteTableSource &source)
     return tr("Report query failed: %1").arg(result.diagnostic);
 }
 
-QuerySpec baseSpec(const SqliteTableSource &source, const Spec &spec, const QString &id)
+QuerySpec baseSpec(const QuerySource &source, const Spec &spec, const QString &id)
 {
     const QuerySchema schema = source.schema();
     QuerySpec query;
@@ -124,26 +125,34 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
     Output out;
     out.stage = QStringLiteral("query");
     for (const Column &column : spec.columns) out.columnLabels.append(column.label);
-    QStringList groupFields;
-    for (const Group &group : spec.groups) groupFields.append(group.field);
+    const GroupSource groupedSource(source, spec.groups);
+    const QStringList groupFields = groupedSource.keys();
+    for (const RunningSum &sum : spec.runningSums) out.columnLabels.append(sum.label);
 
-    QuerySpec detail = baseSpec(source, spec, QStringLiteral("report-detail"));
+    QuerySpec detail = baseSpec(groupedSource, spec, QStringLiteral("report-detail"));
     for (const Column &column : spec.columns) detail.projection.append(column.field);
-    for (const QString &field : groupFields)
-        if (!detail.projection.contains(field)) detail.projection.append(field);
-    for (const QString &field : groupFields) detail.sort.append({field, true, true});
-    for (const QuerySort &entry : spec.sort)
-        if (!groupFields.contains(entry.fieldId)) detail.sort.append(entry);
+    for (const Group &group : spec.groups)
+        if (!detail.projection.contains(group.field)) detail.projection.append(group.field);
+    for (const RunningSum &sum : spec.runningSums)
+        if (!sum.field.isEmpty() && !detail.projection.contains(sum.field)) detail.projection.append(sum.field);
+    detail.sort = spec.sort;
     QueryLimits detailLimits;
     detailLimits.maxGroups = MaximumDetailRows;
     detailLimits.maxOutputCells = detailLimits.maxProvenanceIds = qsizetype(MaximumDetailRows) * 64;
-    const QueryResult rows = QueryEngine::execute(source, detail, detailLimits);
+    QueryResult rows = QueryEngine::execute(source, detail, detailLimits);
     if (rows.status != QueryResult::Status::Complete) {
         out.error = failure(rows, source);
         return out;
     }
 
-    QuerySpec grouped = baseSpec(source, spec, QStringLiteral("report-totals"));
+    // Derived keys are added after detail projection so existing 64-column
+    // reports do not spend projection slots on private grouping fields.
+    for (const QString &row : rows.rowIds)
+        for (int i = 0; i < spec.groups.size(); ++i)
+            rows.cells.insert(queryCellKey(row, QStringLiteral("field:") + groupFields[i]),
+                groupValue(rows.cell(row, QStringLiteral("field:") + spec.groups[i].field), spec.groups[i]));
+    sortGroupRows(&rows, groupFields, spec.groups);
+    QuerySpec grouped = baseSpec(groupedSource, spec, QStringLiteral("report-totals"));
     grouped.rowFields = groupFields;
     grouped.measures.append({QStringLiteral("countRows"), {}, QueryMeasure::Function::CountRows});
     QSet<QString> measureIds{QStringLiteral("countRows")};
@@ -156,13 +165,17 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
     };
     for (const Group &group : spec.groups) addMeasures(group.totals);
     addMeasures(spec.totals);
-    const QueryResult sums = QueryEngine::execute(source, grouped);
+    QueryLimits groupLimits;
+    groupLimits.maxGroups = qMax(groupLimits.maxGroups, qsizetype(MaximumDetailRows) * (spec.groups.size() + 1));
+    groupLimits.maxOutputCells = qMax(groupLimits.maxOutputCells, groupLimits.maxGroups * grouped.measures.size());
+    const QueryResult sums = QueryEngine::execute(groupedSource, grouped, groupLimits);
     if (sums.status != QueryResult::Status::Complete) {
         out.error = failure(sums, source);
         return out;
     }
 
-    out.bands.append({Band::Kind::ReportHeader, -1, spec.title, {}, false, false});
+    out.bands.append({Band::Kind::ReportHeader, -1, spec.title, {}, spec.reportHeader.before(), false,
+                      spec.reportHeader.after(), spec.reportHeader.keepTogether});
     QStringList info{tr("Source: main.%1").arg(spec.table), tr("%1 rows").arg(rows.rowIds.size())};
     QStringList parameterIds = spec.parameters.keys();
     parameterIds.sort();
@@ -173,11 +186,16 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
     const int levels = spec.groups.size();
     QVector<QueryValue> previous;
     bool first = true;
+    QVector<int> headers(levels, -1);
+    QVector<double> running(spec.runningSums.size(), 0);
     auto footer = [&](int level) {
         const QString rowId = queryAxisId(QStringLiteral("row"), previous.mid(0, level + 1));
         const Group &group = spec.groups.at(level);
         const QString lead = tr("%1 %2 total").arg(group.label, displayValue(previous.at(level)));
-        out.bands.append({Band::Kind::GroupFooter, level, totalsText(lead, sums, rowId, group.totals), {}, false, true});
+        out.bands.append({Band::Kind::GroupFooter, level, totalsText(lead, sums, rowId, group.totals), {},
+                          group.footer.before(), true, group.footer.after(), group.footer.keepTogether});
+        if (group.keepTogether == QLatin1String("wholeGroup") && headers[level] >= 0)
+            out.bands[headers[level]].keepWith = out.bands.size() - headers[level] - 1;
     };
     for (const QString &rowId : rows.rowIds) {
         QVector<QueryValue> key;
@@ -192,17 +210,27 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
             const Group &group = spec.groups.at(level);
             // Only the outermost group that changes may start a page, so a
             // header never lands on the page before its first inner group.
-            const bool breakPage = group.pageBreakBefore && !first && level == changed;
+            const bool breakPage = group.header.before() || (group.pageBreakBefore && !first && level == changed);
+            headers[level] = out.bands.size();
             out.bands.append({Band::Kind::GroupHeader, level,
                               QStringLiteral("%1: %2").arg(group.label, displayValue(key.at(level))), {},
-                              breakPage, false});
+                              breakPage, false, group.header.after(), group.header.keepTogether,
+                              group.keepTogether == QLatin1String("withFirstDetail") ? levels - level : 0});
             if (level == levels - 1) ++out.groupCount;
+        }
+        for (int i = 0; i < spec.runningSums.size(); ++i) {
+            const RunningSum &sum = spec.runningSums[i];
+            if (changed < levels && sum.over == QLatin1String("group")) running[i] = 0;
+            const auto value = rows.cell(rowId, QStringLiteral("field:") + sum.field);
+            running[i] += sum.field.isEmpty() ? 1 : value.type == QueryType::Null ? 0 : value.data.toDouble();
         }
         if (spec.detail) {
             QStringList cells;
             for (const Column &column : spec.columns)
                 cells.append(displayValue(rows.cell(rowId, QStringLiteral("field:") + column.field), column.format));
-            out.bands.append({Band::Kind::Detail, levels - 1, {}, cells, false, false});
+            for (double sum : running) cells.append(displayValue(QueryValue::number(sum)));
+            out.bands.append({Band::Kind::Detail, levels - 1, {}, cells, spec.detailSection.before(), false,
+                              spec.detailSection.after(), spec.detailSection.keepTogether});
         }
         previous = key;
         first = false;
@@ -220,6 +248,18 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec)
     if (!spec.footer.isEmpty())
         out.bands.append({Band::Kind::ReportFooter, -1, spec.footer, {}, false, false});
     out.stage.clear();
+    int firstFooter = -1, lastFooter = -1;
+    for (int i = 0; i < out.bands.size(); ++i)
+        if (out.bands[i].kind == Band::Kind::ReportFooter) {
+            if (firstFooter < 0) firstFooter = i;
+            lastFooter = i;
+            out.bands[i].keepTogether = spec.reportFooter.keepTogether;
+        }
+    if (firstFooter >= 0) {
+        out.bands[firstFooter].pageBreakBefore = spec.reportFooter.before();
+        out.bands[lastFooter].pageBreakAfter = spec.reportFooter.after();
+        if (spec.reportFooter.keepTogether) out.bands[firstFooter].keepWith = lastFooter - firstFooter;
+    }
     return out;
 }
 
@@ -235,39 +275,62 @@ QJsonObject documentJson(const Output &output, const Spec &spec, const QString &
     auto add = [&blocks](const QString &text, bool bold, const QJsonObject &format) {
         blocks.append(QJsonObject{{QStringLiteral("paragraph"), paragraph(text, bold, format)}});
     };
-    for (const Band &band : output.bands) {
+    QVector<QPair<int, int>> ranges;
+    QVector<int> starts(output.bands.size()), ends(output.bands.size());
+    QSet<int> boundaries;
+    for (int i = 0; i < output.bands.size(); ++i)
+        if (output.bands[i].keepWith > 0) boundaries.insert(qMin(i + output.bands[i].keepWith, int(output.bands.size()) - 1));
+    bool pendingBreak = false;
+    for (int index = 0; index < output.bands.size(); ++index) {
+        const Band &band = output.bands[index];
+        const bool breakBefore = pendingBreak || band.pageBreakBefore;
+        pendingBreak = band.pageBreakAfter;
+        if (band.kind != Band::Kind::Detail || breakBefore || band.keepTogether) flush();
+        starts[index] = blocks.size();
         if (band.kind == Band::Kind::Detail) {
+            if (breakBefore || band.keepTogether) {
+                QJsonObject format{{QStringLiteral("spaceAfterPt"), 0}, {QStringLiteral("keepWithNext"), true},
+                                   {QStringLiteral("lineHeightPt"), 1}};
+                if (breakBefore) format.insert(QStringLiteral("pageBreakBefore"), true);
+                add(QString(), false, format);
+            }
             pending.append(band.cells);
+            ends[index] = blocks.size(); // the table is the next block when flushed
+            if (band.keepTogether) { flush(); ranges.append({starts[index], ends[index]}); }
+            if (band.pageBreakAfter || boundaries.contains(index)) flush();
             continue;
         }
-        flush();
+        QJsonObject format;
         switch (band.kind) {
         case Band::Kind::ReportHeader:
-            add(band.text, false, {{QStringLiteral("heading"), 1}, {QStringLiteral("spaceAfterPt"), 4}});
+            format = {{QStringLiteral("heading"), 1}, {QStringLiteral("spaceAfterPt"), 4}};
             break;
         case Band::Kind::ReportInfo:
-            add(band.text, false, {{QStringLiteral("spaceAfterPt"), 8}});
+            format = {{QStringLiteral("spaceAfterPt"), 8}};
             break;
-        case Band::Kind::GroupHeader: {
-            QJsonObject format{{QStringLiteral("heading"), qMin(6, 2 + band.level)},
-                               {QStringLiteral("keepWithNext"), true}, {QStringLiteral("spaceBeforePt"), 8}};
+        case Band::Kind::GroupHeader:
+            format = {{QStringLiteral("heading"), qMin(6, 2 + band.level)},
+                      {QStringLiteral("keepWithNext"), true}, {QStringLiteral("spaceBeforePt"), 8}};
             if (band.level > 0) format.insert(QStringLiteral("indentStartPt"), 12 * band.level);
-            if (band.pageBreakBefore) format.insert(QStringLiteral("pageBreakBefore"), true);
-            add(band.text, false, format);
             break;
-        }
         case Band::Kind::GroupFooter:
-            add(band.text, true, {{QStringLiteral("spaceBeforePt"), 3}, {QStringLiteral("spaceAfterPt"), 6},
-                                  {QStringLiteral("indentStartPt"), 12 * qMax(0, band.level)}});
+            format = {{QStringLiteral("spaceBeforePt"), 3}, {QStringLiteral("spaceAfterPt"), 6},
+                      {QStringLiteral("indentStartPt"), 12 * qMax(0, band.level)}};
             break;
         case Band::Kind::ReportFooter:
         case Band::Kind::Empty:
-            add(band.text, band.strong, {{QStringLiteral("spaceBeforePt"), 8}});
+            format = {{QStringLiteral("spaceBeforePt"), 8}};
             break;
-        case Band::Kind::Detail:
-            break;
+        case Band::Kind::Detail: break;
         }
+        if (breakBefore) format.insert(QStringLiteral("pageBreakBefore"), true);
+        if (band.keepTogether) format.insert(QStringLiteral("keepTogether"), true);
+        add(band.text, band.strong, format);
+        ends[index] = blocks.size() - 1;
     }
+    for (int i = 0; i < output.bands.size(); ++i)
+        if (output.bands[i].keepWith > 0)
+            ranges.append({starts[i], ends[qMin(i + output.bands[i].keepWith, int(output.bands.size()) - 1)]});
     flush();
     // AGENT-GUARD: a qindatk.richtext body must end with a paragraph; a
     // report that ends in a detail table gets an empty closing paragraph.
@@ -286,7 +349,7 @@ QJsonObject documentJson(const Output &output, const Spec &spec, const QString &
     if (!spec.pageHeader.isEmpty()) page.insert(QStringLiteral("headerText"), spec.pageHeader);
     if (!spec.pageFooter.isEmpty()) page.insert(QStringLiteral("footerText"), spec.pageFooter);
     const bool regions = !spec.pageHeader.isEmpty() || !spec.pageFooter.isEmpty();
-    return QJsonObject{
+    QJsonObject json{
         {QStringLiteral("schema"), QStringLiteral("qindatk.richtext")}, {QStringLiteral("version"), regions ? 2 : 1},
         {QStringLiteral("documentId"), documentId},
         {QStringLiteral("page"), page},
@@ -294,6 +357,7 @@ QJsonObject documentJson(const Output &output, const Spec &spec, const QString &
                                                  {QStringLiteral("sizePt"), 9}}},
         {QStringLiteral("formats"), QJsonArray{QJsonObject{}, QJsonObject{{QStringLiteral("weight"), 700}}}},
         {QStringLiteral("blocks"), blocks}};
+    return ranges.isEmpty() ? json : keepReportGroups(json, ranges);
 }
 
 } // namespace QindaTK::LocalReport

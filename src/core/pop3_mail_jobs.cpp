@@ -152,7 +152,7 @@ QString recordId(const QString &accountId, const QString &uidl)
 QVariantMap messageRecord(const Job &job, const QString &uidl, qint64 size, const QByteArray &source,
                           bool truncated)
 {
-    QVariantMap record = MailRecord::fromParsed(recordId(job.accountId, uidl), Mime::parse(source), truncated);
+    QVariantMap record = MailRecord::fromParsed(recordId(job.accountId, uidl), Mime::parse(source), truncated, {job.keepHtml});
     record.insert(QVariantMap{{QStringLiteral("unread"), true}, {QStringLiteral("flagged"), false},
                               {QStringLiteral("localMailbox"), QStringLiteral("INBOX")},
                               {QStringLiteral("remoteAccount"), job.accountId},

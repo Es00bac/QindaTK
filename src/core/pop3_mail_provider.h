@@ -39,6 +39,7 @@ class Pop3MailProvider : public QObject {
     Q_PROPERTY(int fetchLimit MEMBER m_fetchLimit NOTIFY configChanged)
     Q_PROPERTY(int maximumMessageBytes MEMBER m_maximumMessageBytes NOTIFY configChanged)
     Q_PROPERTY(bool allowInsecureAuth MEMBER m_allowInsecureAuth NOTIFY configChanged)
+    Q_PROPERTY(bool keepHtml MEMBER m_keepHtml NOTIFY configChanged)
     Q_PROPERTY(bool autoSave MEMBER m_autoSave NOTIFY configChanged)
     Q_PROPERTY(bool leaveOnServer MEMBER m_leaveOnServer NOTIFY configChanged)
     Q_PROPERTY(int deleteAfterDays MEMBER m_deleteAfterDays NOTIFY configChanged)
@@ -98,6 +99,7 @@ private:
     QVariantMap findMessage(const QString &messageId) const;
     void configure(Pop3Jobs::Job *job) const;
 
+    bool m_keepHtml = false;
     QString m_host, m_security = QStringLiteral("tls"), m_userName;
     QString m_accountId = QStringLiteral("pop3");
     int m_port = 995, m_timeoutMs = 15000, m_fetchLimit = 200, m_maximumMessageBytes = 8 * 1024 * 1024;

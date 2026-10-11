@@ -25,6 +25,7 @@ option(QINDATK_ENABLE_FFMPEG "Enable the optional FFmpeg media decode/encode bac
 # installed. OFF means "not searched", not merely "not linked".
 option(QINDATK_ENABLE_QUICK3D "Enable the optional Qt Quick 3D renderers (SceneView3D, material and 3D plot views)" ON)
 option(QINDATK_ENABLE_SHADER_TOOLS "Compile the optional GPU volume raycasting shaders with Qt Shader Tools" ON)
+option(QINDATK_ENABLE_DBUS "Enable native desktop notifications when Qt DBus is available" ON)
 option(QINDATK_ENABLE_WIDGETS "Build the optional qindatk_widgets adapters (native file dialog) with Qt Widgets" ON)
 option(QINDATK_ENABLE_NATIVE_PRINT "Add the native print backend (Qt PrintSupport) to qindatk_widgets" ON)
 
@@ -197,6 +198,21 @@ write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/QindaTKConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion)
+# Build-tree consumers must compile against the same headers and ABI as the
+# library they run. Keep this separate from the relocatable installed config.
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/qindatk")
+file(GLOB qindatk_public_headers CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/agent/*.h")
+foreach(header IN LISTS qindatk_public_headers)
+    get_filename_component(header_name "${header}" NAME)
+    if(NOT header_name MATCHES "_p\\.h$")
+        file(CREATE_LINK "${header}" "${CMAKE_BINARY_DIR}/include/qindatk/${header_name}" SYMBOLIC COPY_ON_ERROR)
+    endif()
+endforeach()
+export(EXPORT QindaTKTargets NAMESPACE QindaTK:: FILE "${CMAKE_BINARY_DIR}/cmake-build/QindaTKTargets.cmake")
+configure_file(cmake/QindaTKBuildTreeConfig.cmake.in "${CMAKE_BINARY_DIR}/cmake-build/QindaTKConfig.cmake" @ONLY)
+configure_file("${CMAKE_BINARY_DIR}/QindaTKConfigVersion.cmake"
+    "${CMAKE_BINARY_DIR}/cmake-build/QindaTKConfigVersion.cmake" COPYONLY)
 set(QINDATK_QML_INSTALL_DIR "${QINDATK_QML_INSTALL_DIR}/QindaTK")
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QindaTKConfig.cmake.in"

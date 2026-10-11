@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-10-09",
+  "generated": "2026-10-10",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -3238,6 +3238,104 @@
       "objectNames": [
         "blockRichPreview_",
         "blockText_"
+      ]
+    },
+    {
+      "name": "BorderEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "D-335: borders are document data. The host owns the map and applies each bordersEdited proposal as one undo step. Style changes affect the next clicked edge; toggling an existing edge removes it without changing others.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BorderEditor.qml",
+      "properties": [
+        {
+          "name": "borders",
+          "type": "var",
+          "default": "({}) // top/right/bottom/left/insideHorizontal/insideVertical: {style,color,width}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineStyle",
+          "type": "string",
+          "default": "\"solid\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineColor",
+          "type": "color",
+          "default": "Tk.Theme.color.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "real",
+          "default": "1 // document points",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "innerLines",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Borders and shading\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeNames",
+          "type": "var",
+          "default": "innerLines",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "bordersEdited",
+          "parameters": "var borders"
+        }
+      ],
+      "methods": [
+        {
+          "name": "toggleEdge",
+          "parameters": "edge"
+        },
+        {
+          "name": "edgeLabel",
+          "parameters": "edge"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "borderColor",
+        "borderEdge_",
+        "borderPreview",
+        "borderStyle",
+        "borderWidth"
       ]
     },
     {
@@ -12383,6 +12481,22 @@
           "required": false
         },
         {
+          "name": "minimumSidePaneWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.panelMinWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumCanvasWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.panelMinWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "dragging",
           "type": "bool",
           "default": "false",
@@ -12508,6 +12622,10 @@
         },
         {
           "name": "laneExtent",
+          "parameters": "zone, lane"
+        },
+        {
+          "name": "visibleSideExtent",
           "parameters": "zone, lane"
         },
         {
@@ -14428,6 +14546,14 @@
           "required": false
         },
         {
+          "name": "valueList",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "bodyWidth",
           "type": "real",
           "default": "Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))",
@@ -14589,11 +14715,9 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "gridCellEditor",
         "gridCellViewport",
         "gridColumnHeaders",
         "gridCornerHeader",
-        "gridEditorPane",
         "gridRangeOverlay",
         "gridRowHeaders",
         "gridWheel"
@@ -15849,6 +15973,100 @@
         "faderTrack",
         "faderUnityMark",
         "faderValue"
+      ]
+    },
+    {
+      "name": "FieldWells",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "D-338: model-independent pivot assignment. Select a source field then a destination with the keyboard, or drag the field onto a well. The host handles assignment/removal and supplies a fresh wells snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FieldWells.qml",
+      "properties": [
+        {
+          "name": "fields",
+          "type": "var",
+          "default": "[] // [{id,label}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "wells",
+          "type": "var",
+          "default": "[ {id:\"filters\",label:qsTr(\"Filters\"),fieldIds:[]},",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedFieldId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Field list and assignment areas\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draggingFieldId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragPoint",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "assignmentRequested",
+          "parameters": "string fieldId, string wellId, int index"
+        }
+      ],
+      "methods": [
+        {
+          "name": "labelFor",
+          "parameters": "id"
+        },
+        {
+          "name": "assign",
+          "parameters": "wellId"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "fieldWellAssign_",
+        "fieldWellAssigned_",
+        "fieldWellDragPreview",
+        "fieldWellSource_",
+        "fieldWell_"
       ]
     },
     {
@@ -18782,6 +19000,7 @@
         "ganttBarText",
         "ganttGroupBar",
         "ganttGroupChevron",
+        "ganttGroupChevronBacking",
         "ganttGroupHeader",
         "ganttGroupLabel",
         "ganttGroupProgress",
@@ -19475,6 +19694,141 @@
         "gridCellIcon",
         "gridCellText",
         "gridCell_"
+      ]
+    },
+    {
+      "name": "GridCellEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Editor lifetime and commit semantics belong to EditableGrid. This pane chooses a keyboard-operable picker only for cells with a host value list.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GridCellEditor.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "row",
+          "type": "int",
+          "default": "grid.model && grid.dataEpoch >= 0 ? grid.model.rowIndex(grid.editingRowId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "column",
+          "type": "int",
+          "default": "grid.model && grid.dataEpoch >= 0 ? grid.model.columnIndex(grid.editingColumnId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frozen",
+          "type": "size",
+          "default": "grid.model && grid.dataEpoch >= 0 ? grid.model.frozenExtent() : Qt.size(0, 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frozenRow",
+          "type": "bool",
+          "default": "row >= 0 && row < grid.model.frozenRows",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frozenColumn",
+          "type": "bool",
+          "default": "column >= 0 && column < grid.model.frozenColumns",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "choices",
+          "type": "var",
+          "default": "grid.valueList && grid.cellEditing ? grid.valueList(grid.editingRowId, grid.editingColumnId) : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listed",
+          "type": "bool",
+          "default": "choices !== null && choices !== undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editorHasFocus",
+          "type": "bool",
+          "default": "input.activeFocus || picker.activeFocus",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "alias",
+          "default": "input.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cursorPosition",
+          "type": "alias",
+          "default": "input.cursorPosition",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "clear",
+          "parameters": ""
+        },
+        {
+          "name": "insert",
+          "parameters": "at, value"
+        },
+        {
+          "name": "selectAll",
+          "parameters": ""
+        },
+        {
+          "name": "focusEditor",
+          "parameters": ""
+        },
+        {
+          "name": "accepts",
+          "parameters": "value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridCellEditor",
+        "gridEditorPane",
+        "gridValueListEditor"
       ]
     },
     {
@@ -21353,6 +21707,22 @@
       "file": "src/qml/LayerTree.qml",
       "properties": [
         {
+          "name": "model",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layerModel",
+          "type": "var",
+          "default": "model || canvasModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "document",
           "type": "var",
           "default": "null          // Tk.CanvasDocument",
@@ -21402,8 +21772,8 @@
         },
         {
           "name": "treeModel",
-          "type": "alias",
-          "default": "layerModel",
+          "type": "var",
+          "default": "control.layerModel",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -25605,6 +25975,14 @@
           "type": "alias",
           "default": "actionsHost.data",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "naturalWidth",
+          "type": "real",
+          "default": "Math.ceil(row.implicitWidth",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -30183,6 +30561,7 @@
         "printRefreshPreview",
         "printScaleMode",
         "printScalePercent",
+        "printSettingsGrid",
         "printSubmit"
       ]
     },
@@ -31790,6 +32169,14 @@
           "required": false
         },
         {
+          "name": "groupLevels",
+          "type": "var",
+          "default": "[] // up to ten complete group maps; first-row controls preserve later levels",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "sumField",
           "type": "string",
           "default": "\"\"",
@@ -31980,6 +32367,10 @@
         {
           "name": "applyText",
           "parameters": "key, text"
+        },
+        {
+          "name": "applyGroups",
+          "parameters": "levels"
         },
         {
           "name": "applyGroup",
@@ -36411,6 +36802,103 @@
       "objectNames": []
     },
     {
+      "name": "SearchChecklist",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "D-338: a filter checklist. Hosts own checkedIds; every user edit proposes the complete set. Select All affects only currently visible enabled rows.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SearchChecklist.qml",
+      "properties": [
+        {
+          "name": "items",
+          "type": "var",
+          "default": "[] // [{id,label,disabled?}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "checkedIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Filter values\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleItems",
+          "type": "var",
+          "default": "items.filter(entry => String(entry.label || entry.id).toLowerCase().indexOf(searchText.toLowerCase()) >= 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectableItems",
+          "type": "var",
+          "default": "visibleItems.filter(entry => entry.disabled !== true)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allSelected",
+          "type": "bool",
+          "default": "selectableItems.length > 0 && selectableItems.every(entry => checkedIds.indexOf(String(entry.id)) >= 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "checkedIdsEdited",
+          "parameters": "var ids"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setChecked",
+          "parameters": "id, checked"
+        },
+        {
+          "name": "selectVisible",
+          "parameters": "checked"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "checklistAll",
+        "checklistItem_",
+        "checklistItems",
+        "checklistSearch"
+      ]
+    },
+    {
       "name": "SearchField",
       "kind": "qml",
       "base": "Tk.TextField",
@@ -36529,6 +37017,100 @@
       "objectNames": [
         "sectionCount_",
         "sectionTitle"
+      ]
+    },
+    {
+      "name": "SectionedGallery",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "D-338: slide-sorter sections with host-rendered previews and host-owned collapse/selection. Collapsing never changes selection or removes entries.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SectionedGallery.qml",
+      "properties": [
+        {
+          "name": "sections",
+          "type": "var",
+          "default": "[] // [{id,label,items:[{id,label,...}]}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsedIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnail",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnailHeight + Tk.Theme.size.row",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Sections\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sectionToggled",
+          "parameters": "string id, bool collapsed"
+        },
+        {
+          "name": "activated",
+          "parameters": "string id"
+        },
+        {
+          "name": "highlighted",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gallerySectionItems_",
+        "gallerySection_"
       ]
     },
     {
@@ -41120,6 +41702,14 @@
           "required": false
         },
         {
+          "name": "categoryColors",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "conflicts",
           "type": "var",
           "default": "[]",
@@ -41302,6 +41892,56 @@
         "taskRequestState",
         "taskSyncState",
         "taskUseRemote"
+      ]
+    },
+    {
+      "name": "TaskCardDetails",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "D-336: card metadata remains host-owned; category colours are record data.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TaskCardDetails.qml",
+      "properties": [
+        {
+          "name": "categories",
+          "type": "var",
+          "default": "[] // names, or {name, color}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categoryColors",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fields",
+          "type": "var",
+          "default": "[] // [{label, value}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "taskCategorySwatch_",
+        "taskCategory_",
+        "taskExtraField_"
       ]
     },
     {
@@ -43046,6 +43686,30 @@
           "name": "tickInterval",
           "type": "int",
           "default": "Math.max(Tk.Theme.motion.fast, Tk.Theme.motion.base)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.menuMinWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.dialogWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "availableWidth",
+          "type": "real",
+          "default": "control.Window.width > 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -45208,6 +45872,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "idKeyPrefix",
+          "type": "string",
+          "default": "\"qindatk-tree-row-id:\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -45251,6 +45923,10 @@
         },
         {
           "name": "activate",
+          "parameters": ""
+        },
+        {
+          "name": "placeGhost",
           "parameters": ""
         }
       ],
@@ -52192,6 +52868,43 @@
       "bridge": false
     },
     {
+      "name": "CalendarMail",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "RFC 6047 iMIP conversion only: no network, store mutation or implicit acceptance. The caller decides whether the sender is trusted before changing calendar data, and sends reviewed bytes through sendPrepared.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/calendar_mail.h",
+      "properties": [],
+      "signals": [],
+      "methods": [
+        {
+          "name": "parse",
+          "returns": "QVariantMap",
+          "parameters": "const QByteArray &message"
+        },
+        {
+          "name": "compose",
+          "returns": "QVariantMap",
+          "parameters": "const QString &method, const QByteArray &calendar, const QVariantMap &draft"
+        },
+        {
+          "name": "reply",
+          "returns": "QVariantMap",
+          "parameters": "const QByteArray &calendar, const QString &address, const QString &partstat"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasAlignmentModel",
       "kind": "cpp",
       "base": "QObject",
@@ -56855,6 +57568,78 @@
           "name": "capabilities",
           "returns": "QVariantMap",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DesktopNotifications",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "An optional org.freedesktop.Notifications client. It never starts a server; outside a desktop session available stays false and post() is a no-op. All calls/replies belong to this object's thread. Destruction drops replies.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/desktop_notifications.h",
+      "properties": [
+        {
+          "name": "applicationName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "availableChanged",
+          "parameters": ""
+        },
+        {
+          "name": "delivered",
+          "parameters": "const QString &requestId, quint32 nativeId"
+        },
+        {
+          "name": "failed",
+          "parameters": "const QString &requestId, const QString &error"
+        },
+        {
+          "name": "actionInvoked",
+          "parameters": "quint32 nativeId, const QString &action"
+        },
+        {
+          "name": "notificationClosed",
+          "parameters": "quint32 nativeId, quint32 reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "post",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &summary, const QString &body = {}, const QString &icon = {}, const QStringList &actions = {}, const QVariantMap &hints = {}, int timeoutMs = -1, quint32 replacesId = 0"
+        },
+        {
+          "name": "close",
+          "returns": "void",
+          "parameters": "quint32 nativeId"
         }
       ],
       "enums": {},
@@ -62914,6 +63699,20 @@
           "constant": false
         },
         {
+          "name": "keepHtml",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "keywordCategories",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "autoSave",
           "type": "bool",
           "default": "",
@@ -62993,6 +63792,14 @@
           "parameters": "const QString &requestId, const QVariantMap &result"
         },
         {
+          "name": "flagsFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "headersFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
           "name": "appendFinished",
           "parameters": "const QString &requestId, const QVariantMap &result"
         }
@@ -63035,6 +63842,26 @@
         },
         {
           "name": "moveMessage",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &targetMailbox"
+        },
+        {
+          "name": "updateFlags",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QStringList &add, const QStringList &remove = {}"
+        },
+        {
+          "name": "setCategories",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QStringList &categories"
+        },
+        {
+          "name": "fetchHeaders",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QStringList &fields = {}"
+        },
+        {
+          "name": "copyMessage",
           "returns": "bool",
           "parameters": "const QString &requestId, const QString &messageId, const QString &targetMailbox"
         }
@@ -64556,6 +65383,117 @@
           "name": "parseList",
           "returns": "QVariantMap",
           "parameters": "const QString &text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ManageSieveClient",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "RFC 5804 client. One worker connection per request; no socket or credential access from QML. Completion arrives on the object's thread, correlated by ID.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/manage_sieve_client.h",
+      "properties": [
+        {
+          "name": "host",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "security",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "finished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret"
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "request",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &command, const QString &name = {}, const QByteArray &script = {}, const QString &newName = {}"
         }
       ],
       "enums": {},
@@ -68845,6 +69783,13 @@
         },
         {
           "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "keepHtml",
           "type": "bool",
           "default": "",
           "readonly": false,
@@ -76617,6 +77562,11 @@
           "name": "send",
           "returns": "bool",
           "parameters": "const QString &requestId, const QVariantMap &draft"
+        },
+        {
+          "name": "sendPrepared",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QByteArray &message, const QString &envelopeFrom, const QStringList &recipients"
         },
         {
           "name": "composeMessage",

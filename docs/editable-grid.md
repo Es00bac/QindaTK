@@ -262,3 +262,13 @@ its `groupHeader` answer, which keeps a grid beside a `GanttView` on the
 same rows ([gantt.md](gantt.md#planning-rows-d-312-d-313)). The model is
 unchanged: group rows are ordinary row IDs whose cells the host leaves
 empty or read-only.
+
+### Value-list cells (D-333)
+
+Set `valueList: (rowId, columnId) => ({values: ["Open", "Closed"], limitToList: true})`
+for a cell that should use a drop-down. Return null for ordinary text editing.
+`limitToList` rejects values outside the list before starting a model transaction;
+false makes the ComboBox editable. Values are scalar strings. The callback is
+host-owned schema, not a second source of cell data. Keyboard navigation and
+Escape retain the grid's existing commit/cancel contract. Existing named text
+editor remains `gridCellEditor`; the picker is `gridValueListEditor`.

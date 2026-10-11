@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
+cmake_minimum_required(VERSION 3.25)
+project(QindaTKBuildConsumer LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+find_package(QindaTK 0.1 REQUIRED CONFIG)
+if(NOT QindaTK_BUILD_TREE OR NOT EXISTS "${QindaTK_QML_DIR}/qmldir")
+    message(FATAL_ERROR "Missing live build-tree QML export")
+endif()
+add_executable(qtk-consumer main.cpp)
+target_link_libraries(qtk-consumer PRIVATE QindaTK::qindatk QindaTK::agent)

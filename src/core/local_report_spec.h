@@ -42,11 +42,23 @@ struct Column {
     QString label;
     NumberFormat format;
 };
+struct Section {
+    QString newPage = QStringLiteral("none");
+    bool keepTogether = false;
+    bool before() const { return newPage == QLatin1String("before") || newPage == QLatin1String("both"); }
+    bool after() const { return newPage == QLatin1String("after") || newPage == QLatin1String("both"); }
+};
+struct RunningSum { QString field, over, label; };
 struct Group {
     QString field;
     QString label;
     bool pageBreakBefore = false; // every group of this level but the first starts a page
     QVector<Total> totals;        // printed in the group footer after the row count
+    QString intervalBy = QStringLiteral("value");
+    double intervalSize = 1;
+    bool descending = false;
+    QString keepTogether = QStringLiteral("no");
+    Section header, footer;
 };
 struct Spec {
     QString table;
@@ -65,6 +77,8 @@ struct Spec {
     QVector<QuerySort> sort;       // after the group keys (4 keys in all)
     QString paperId = QStringLiteral("a4");
     bool landscape = false;
+    Section reportHeader, detailSection, reportFooter;
+    QVector<RunningSum> runningSums;
 };
 
 // One printed band instance, in document order.
@@ -76,6 +90,9 @@ struct Band {
     QStringList cells;            // detail cells, one per column
     bool pageBreakBefore = false;
     bool strong = false;          // totals print bold
+    bool pageBreakAfter = false;
+    bool keepTogether = false;
+    int keepWith = 0;             // following bands kept with this one when they fit
 };
 struct Output {
     QStringList columnLabels;
@@ -86,7 +103,7 @@ struct Output {
     QString stage;                // "definition", "parameters", "query" or "layout"
 };
 
-constexpr int MaximumGroups = 3;
+constexpr int MaximumGroups = 10;
 constexpr int MaximumDetailRows = 2000;
 
 // Parses a report map (docs/forms-reports.md#report-definition) against the

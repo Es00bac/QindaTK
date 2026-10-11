@@ -117,6 +117,7 @@ protected:
             }
         }
         const QEventPoint &point = event->point(0);
+        if (event->isBeginEvent() && grabbedOutsideCanvas(event, point)) return false;
         if (active()) {
             return true;
         }
@@ -197,6 +198,15 @@ private:
     // acceptedDevices (the base check above). One finger inks; a touch
     // event with more points is taken only while inking, so the handler can
     // cancel (handlePointerEventImpl) and hand the fingers on.
+    bool grabbedOutsideCanvas(QPointerEvent *event, const QEventPoint &point) const
+    {
+        // AGENT-GUARD (D-351): CanTakeOverFromItems is for the canvas's own
+        // delivery path, never a button or popup in a different visual branch.
+        // Quick may offer accepted presses to handlers after an item grabbed.
+        auto *item = qobject_cast<QQuickItem *>(event->exclusiveGrabber(point));
+        return item && parentItem() && item != parentItem() && !parentItem()->isAncestorOf(item);
+    }
+
     bool wantsTouch(QPointerEvent *event)
     {
         if (active()) {
@@ -206,7 +216,7 @@ private:
             return false;
         }
         const QEventPoint &point = event->point(0);
-        return point.state() == QEventPoint::Pressed && parentContains(point);
+        return point.state() == QEventPoint::Pressed && !grabbedOutsideCanvas(event, point) && parentContains(point);
     }
 
     [[nodiscard]] StylusSample sampleFrom(QPointerEvent *event, const QEventPoint &point) const

@@ -50,7 +50,7 @@ QList<qint64> expandUidSet(const QString &set, int limit)
         bool okLow = false, okHigh = true;
         qint64 low = ends.first().toLongLong(&okLow);
         qint64 high = ends.size() == 2 ? ends.last().toLongLong(&okHigh) : low;
-        if (!okLow || !okHigh || low <= 0 || high <= 0) return {};
+        if (!okLow || !okHigh || low <= 0 || high <= 0 || low > 4294967295LL || high > 4294967295LL) return {};
         if (low > high) std::swap(low, high);
         if (high - low >= limit || out.size() + (high - low + 1) > limit) return {};
         for (qint64 uid = low; uid <= high; ++uid) out.append(uid);

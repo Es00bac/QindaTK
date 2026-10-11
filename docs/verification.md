@@ -121,3 +121,7 @@ QindaQt desktop and check:
   (line before/after, frame inside); in a `FormDesigner` with controls,
   drag and resize a control and undo it in one step; hover a `Gallery` tile
   and pick a character from the `CharacterMap`.
+
+- Office toolkit follow-up (M98): [qualification-office-toolkit.md](qualification-office-toolkit.md)
+  records the complete headless gates, five environment exceptions, new protocol
+  fixtures, popup input regression, build-tree consumer and narrow pixel checks.

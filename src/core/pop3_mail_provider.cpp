@@ -109,6 +109,7 @@ void Pop3MailProvider::configure(Pop3Jobs::Job *job) const
     job->accountId = m_accountId;
     job->fetchLimit = m_fetchLimit;
     job->maximumMessageBytes = m_maximumMessageBytes;
+    job->keepHtml = m_keepHtml;
     job->leaveOnServer = m_leaveOnServer;
     job->deleteAfterDays = qMax(0, m_deleteAfterDays);
     job->canImportAttachments = m_attachmentStore != nullptr;

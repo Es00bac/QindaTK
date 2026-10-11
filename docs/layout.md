@@ -565,3 +565,12 @@ Tk.Scroll {
 
 
 Every container also accepts `paddingLeft`, `paddingTop`, `paddingRight` and `paddingBottom` (−1, the default, inherits `padding`).
+
+### Dock lanes in constrained windows (D-334)
+
+DockHost computes side-lane display extents from both side zones together.
+It reserves `minimumCanvasWidth` (at most one third of the host), accounts
+for seams and zone gaps, then distributes the remaining width between the
+lanes. `minimumSidePaneWidth` applies whenever space permits; below that
+minimum all lanes receive an equal floor. Model extents are not rewritten,
+so widening restores the user's layout. Floating panel geometry is unchanged.

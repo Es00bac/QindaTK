@@ -217,6 +217,17 @@ TestCase {
         waitForRendering(gantt)
         const g = rowAt(gantt, 0)
         compare(visibleIn(g, "ganttGroupTitle").length, 0)
+        const chevron = findChild(g, "ganttGroupChevron")
+        verify(chevron.visible)
+        const toggled = createTemporaryObject(spyComponent, root, {target: gantt, signalName: "groupToggled"})
+        mouseClick(chevron)
+        compare(toggled.count, 1)
+        compare(toggled.signalArguments[0][0], root.groupG)
+        compare(toggled.signalArguments[0][1], true)
+        gantt.width = 520
+        waitForRendering(gantt)
+        mouseClick(chevron)
+        compare(toggled.count, 2)
         compare(findChild(g, "ganttBarText").text, "Design team · 2 tasks · 3 d")
         compare(findChild(rowAt(gantt, 1), "ganttBarText").visible, false)
     }

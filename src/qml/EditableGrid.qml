@@ -41,6 +41,8 @@ T.Control {
     // values: {columnId: text}} for a group header row of the host's
     // projection, else null. Drawn by GridGroupHeaders; never edited.
     property var groupHeader: null
+    // function(rowId,columnId) -> {values: [...], limitToList: true}, else null.
+    property var valueList: null
     readonly property real bodyWidth: Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))
     readonly property real bodyHeight: Math.max(0, height - (showHeaders ? headerHeight : 0))
     readonly property var visibleCellRecords: collectVisibleCells()
@@ -234,13 +236,14 @@ T.Control {
         editingRowId = activeRowId
         editingColumnId = activeColumnId
         cellEditing = true
-        editor.forceActiveFocus()
+        editor.focusEditor()
         editor.selectAll()
         return true
     }
 
     function commitCellEdit(value) {
         if (!model || editingRowId.length === 0 || editingColumnId.length === 0) return false
+        if (!editor.accepts(value)) return false
         if (!model.beginEdit(qsTr("Edit cell"))) return false
         if (!model.stageCell(editingRowId, editingColumnId, value)) {
             model.cancelEdit()
@@ -271,7 +274,7 @@ T.Control {
     }
 
     // Returns focus to an open editor (a host prompt closed without committing).
-    function focusCellEditor() { if (cellEditing) editor.forceActiveFocus() }
+    function focusCellEditor() { if (cellEditing) editor.focusEditor() }
 
     function cancelCellEdit() {
         if (!cellEditing) return
@@ -448,7 +451,7 @@ T.Control {
                     grid: grid
                     editorActive: grid.activeRowId === cellDelegate.modelData.rowId
                                   && grid.activeColumnId === cellDelegate.modelData.columnId
-                                  && editor.activeFocus
+                                  && editor.editorHasFocus
                 }
             }
             // AGENT-NOTE: panes. Frozen rows and columns split the viewport into
@@ -472,49 +475,7 @@ T.Control {
                 scrollX: grid.scrollX
                 scrollY: grid.scrollY
             }
-            Item {
-                id: editorPane
-                objectName: "gridEditorPane"
-                readonly property int row: grid.model && grid.dataEpoch >= 0 ? grid.model.rowIndex(grid.editingRowId) : -1
-                readonly property int column: grid.model && grid.dataEpoch >= 0 ? grid.model.columnIndex(grid.editingColumnId) : -1
-                readonly property size frozen: grid.model && grid.dataEpoch >= 0 ? grid.model.frozenExtent() : Qt.size(0, 0)
-                readonly property bool frozenRow: row >= 0 && row < grid.model.frozenRows
-                readonly property bool frozenColumn: column >= 0 && column < grid.model.frozenColumns
-                x: frozenColumn ? 0 : frozen.width
-                y: frozenRow ? 0 : frozen.height
-                width: frozenColumn ? frozen.width : Math.max(0, parent.width - x)
-                height: frozenRow ? frozen.height : Math.max(0, parent.height - y)
-                z: 5
-                clip: true
-                // The editor, above the selection and clipped to its cell's pane.
-                Tk.TextField {
-                    id: editor
-                    objectName: "gridCellEditor"
-                    visible: grid.cellEditing
-                    x: grid.editorRect.x - editorPane.x
-                    y: grid.editorRect.y - editorPane.y
-                    width: grid.editorRect.width
-                    height: grid.editorRect.height
-                    text: grid.editText
-                    tooltip: qsTr("Edit grid cell")
-                    // AGENT-GUARD: TextInput ignores Return after `accepted`, so the key
-                    // would reach the grid's own handler and reopen an editor; consume it.
-                    Keys.onReturnPressed: function(event) {
-                        event.accepted = true
-                        grid.commitCellEdit(text)
-                    }
-                    Keys.onEnterPressed: function(event) {
-                        event.accepted = true
-                        grid.commitCellEdit(text)
-                    }
-                    Keys.onEscapePressed: function(event) {
-                        event.accepted = true
-                        grid.cancelCellEdit()
-                    }
-                    onActiveFocusChanged: if (!activeFocus && visible && grid.model
-                                              && grid.model.editing) grid.commitCellEdit(text)
-                }
-            }
+            Tk.GridCellEditor { id: editor; grid: grid }
             Tk.GridFillHandle {
                 grid: grid
                 active: grid.fillHandleEnabled && grid.enabled && !grid.cellEditing

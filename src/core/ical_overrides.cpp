@@ -151,11 +151,11 @@ const QStringList &managed(const QString &component)
 {
     static const QStringList event{QStringLiteral("UID"), QStringLiteral("DTSTAMP"), QStringLiteral("SUMMARY"),
         QStringLiteral("DTSTART"), QStringLiteral("DTEND"), QStringLiteral("DURATION"), QStringLiteral("RRULE"),
-        QStringLiteral("EXDATE"), QStringLiteral("DESCRIPTION"), QStringLiteral("LOCATION")};
+        QStringLiteral("EXDATE"), QStringLiteral("DESCRIPTION"), QStringLiteral("LOCATION"), QStringLiteral("CATEGORIES")};
     static const QStringList task{QStringLiteral("UID"), QStringLiteral("DTSTAMP"), QStringLiteral("SUMMARY"),
         QStringLiteral("STATUS"), QStringLiteral("X-QINDATK-STATUS"), QStringLiteral("X-QINDATK-ORDER"),
         QStringLiteral("DUE"), QStringLiteral("PRIORITY"), QStringLiteral("X-QINDATK-ASSIGNEE"),
-        QStringLiteral("DESCRIPTION")};
+        QStringLiteral("DESCRIPTION"), QStringLiteral("CATEGORIES")};
     return component == QLatin1String("VTODO") ? task : event;
 }
 

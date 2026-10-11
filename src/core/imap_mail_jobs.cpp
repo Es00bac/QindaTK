@@ -121,10 +121,10 @@ bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channe
     if (job.action == QLatin1String("flag")) return session.command("UID STORE " + uid + " +FLAGS.SILENT (\\Flagged)");
     if (job.action == QLatin1String("unflag")) return session.command("UID STORE " + uid + " -FLAGS.SILENT (\\Flagged)");
     if (job.action == QLatin1String("delete")) return ImapMessages::expunge(session, {job.uid});
-    if (job.action == QLatin1String("archive") || job.action == QLatin1String("move")) {
+    if (job.action == QLatin1String("archive") || job.action == QLatin1String("move") || job.action == QLatin1String("copy")) {
         QMap<qint64, qint64> targets;
         QString validity;
-        if (!ImapMessages::transfer(session, {job.uid}, wireName(job, job.targetMailbox), true, &targets, &validity))
+        if (!ImapMessages::transfer(session, {job.uid}, wireName(job, job.targetMailbox), job.action != QLatin1String("copy"), &targets, &validity))
             return false;
         if (targets.contains(job.uid)) {
             out->insert(QStringLiteral("targetUidValidity"), validity);
@@ -162,8 +162,12 @@ bool runFlags(Imap::Session &session, const Job &job, const Imap::SelectInfo &in
         for (const QString &flag : job.addFlags) add.append(ImapKeywords::canonicalFlag(flag));
         for (const QString &flag : job.removeFlags) remove.append(ImapKeywords::canonicalFlag(flag));
     }
+    if (info.readOnly) {
+        channel.fail(Protocol::Failure::Rejected, QStringLiteral("The selected mailbox is read-only"));
+        return false;
+    }
     QStringList notPermanent;
-    for (const QString &flag : std::as_const(add))
+    for (const QString &flag : add + remove)
         if (!ImapKeywords::isPermanent(flag, info.permanentFlags, info.permanentFlagsSent)) notPermanent.append(flag);
     reportMailbox(info, out);
     if (!notPermanent.isEmpty()) {
@@ -189,7 +193,7 @@ bool runFlags(Imap::Session &session, const Job &job, const Imap::SelectInfo &in
 QVariantMap uidKeyed(const QMap<qint64, QByteArray> &values)
 {
     QVariantMap out;
-    for (auto it = values.cbegin(); it != values.cend(); ++it) out.insert(QString::number(it.key()), QString::fromUtf8(it.value()));
+    for (auto it = values.cbegin(); it != values.cend(); ++it) out.insert(QString::number(it.key()), it.value());
     return out;
 }
 

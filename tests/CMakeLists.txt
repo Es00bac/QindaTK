@@ -159,6 +159,10 @@ target_compile_definitions(tst_provider_tls PRIVATE
     QINDATK_TLS_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tls")
 qindatk_add_test(tst_ics_calendar_provider)
 qindatk_add_test(tst_imap_folders)
+qindatk_add_test(tst_manage_sieve)
+target_compile_definitions(tst_manage_sieve PRIVATE QINDATK_TLS_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tls")
+qindatk_add_test(tst_mail_extensions)
+qindatk_add_test(tst_report_extensions)
 qindatk_add_test(tst_caldav_discovery)
 qindatk_add_test(tst_workspace_session)
 qindatk_add_test(tst_dock_restore)
@@ -452,3 +456,14 @@ add_test(NAME tst_raster COMMAND tst_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/ras
     -import "${PROJECT_SOURCE_DIR}/modules")
 set_tests_properties(tst_raster PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+
+# Private session bus: notifications tests must never send to a live desktop.
+if(QINDATK_ENABLE_DBUS AND TARGET Qt6::DBus)
+    find_program(QINDATK_DBUS_RUN_SESSION dbus-run-session)
+    if(QINDATK_DBUS_RUN_SESSION)
+        qt_add_executable(tst_desktop_notifications cpp/tst_desktop_notifications.cpp)
+        qindatk_enable_warnings(tst_desktop_notifications)
+        target_link_libraries(tst_desktop_notifications PRIVATE qindatk Qt6::Test Qt6::DBus)
+        add_test(NAME tst_desktop_notifications COMMAND ${QINDATK_DBUS_RUN_SESSION} -- $<TARGET_FILE:tst_desktop_notifications>)
+    endif()
+endif()

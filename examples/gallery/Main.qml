@@ -156,6 +156,7 @@ Rectangle {
                 LayoutSection { filter: search.text }
                 ButtonsSection { filter: search.text }
                 InputsSection { filter: search.text }
+                OfficeBordersSection { filter: search.text }
                 SelectionSection { filter: search.text }
                 StructureSection { filter: search.text }
                 PopupsSection { filter: search.text }

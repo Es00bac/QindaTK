@@ -17,13 +17,14 @@ const QStringList &eventFields()
     static const QStringList fields{QStringLiteral("title"), QStringLiteral("startLocal"), QStringLiteral("endLocal"),
         QStringLiteral("zone"), QStringLiteral("allDay"), QStringLiteral("recurrenceRule"),
         QStringLiteral("recurrenceRaw"), QStringLiteral("exceptions"), QStringLiteral("description"),
-        QStringLiteral("location"), QStringLiteral("overrides")};
+        QStringLiteral("location"), QStringLiteral("overrides"), QStringLiteral("categories")};
     return fields;
 }
 const QStringList &taskFields()
 {
     static const QStringList fields{QStringLiteral("title"), QStringLiteral("status"), QStringLiteral("order"),
-        QStringLiteral("dueDate"), QStringLiteral("priority"), QStringLiteral("assignee"), QStringLiteral("description")};
+        QStringLiteral("dueDate"), QStringLiteral("priority"), QStringLiteral("assignee"), QStringLiteral("description"),
+        QStringLiteral("categories")};
     return fields;
 }
 const QStringList &dayCodes()
@@ -112,6 +113,10 @@ QStringList recordLines(const QString &component, const QString &uid, const QVar
                     QStringLiteral("DTSTAMP:") + QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd'T'HHmmss'Z'")),
                     QStringLiteral("SUMMARY:") + escapeText(text("title"))};
     if (!text("description").isEmpty()) out.append(QStringLiteral("DESCRIPTION:") + escapeText(text("description")));
+    QStringList categories;
+    for (const QString &category : record.value(QStringLiteral("categories")).toStringList())
+        categories.append(escapeText(category));
+    if (!categories.isEmpty()) out.append(QStringLiteral("CATEGORIES:") + categories.join(QLatin1Char(',')));
     if (component == QLatin1String("VTODO")) {
         static const QMap<QString, QString> standard{{QStringLiteral("todo"), QStringLiteral("NEEDS-ACTION")},
             {QStringLiteral("doing"), QStringLiteral("IN-PROCESS")}, {QStringLiteral("done"), QStringLiteral("COMPLETED")},
@@ -277,6 +282,22 @@ Mapped toRecord(const QByteArray &ics, const QString &defaultZone)
     QVariantMap &f = mapped.fields;
     f.insert(QStringLiteral("title"), text("SUMMARY"));
     f.insert(QStringLiteral("description"), text("DESCRIPTION"));
+    QStringList categories;
+    for (const Property &property : props) {
+        if (property.name != QLatin1String("CATEGORIES")) continue;
+        QString token;
+        bool escaped = false;
+        for (const QChar c : property.value) {
+            if (c == u',' && !escaped) { categories.append(unescapeText(token)); token.clear(); }
+            else token += c;
+            if (escaped) escaped = false;
+            else escaped = c == u'\\';
+        }
+        categories.append(unescapeText(token));
+    }
+    categories.removeAll(QString());
+    categories.removeDuplicates();
+    f.insert(QStringLiteral("categories"), categories);
     if (mapped.component == QLatin1String("VTODO")) {
         static const QMap<QString, QString> statuses{{QStringLiteral("NEEDS-ACTION"), QStringLiteral("todo")},
             {QStringLiteral("IN-PROCESS"), QStringLiteral("doing")}, {QStringLiteral("COMPLETED"), QStringLiteral("done")},
@@ -355,7 +376,8 @@ QString digest(const QString &component, const QVariantMap &record)
     for (const QString &field : component == QLatin1String("VTODO") ? taskFields() : eventFields()) {
         // AGENT-NOTE: an empty override list is left out so digests saved
         // before overrides were mapped still match unchanged records.
-        if (field == QLatin1String("overrides") && record.value(field).toList().isEmpty()) continue;
+        if ((field == QLatin1String("overrides") || field == QLatin1String("categories"))
+            && record.value(field).toList().isEmpty()) continue;
         subset.insert(field, QJsonValue::fromVariant(record.value(field)));
     }
     return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(subset).toJson(QJsonDocument::Compact),

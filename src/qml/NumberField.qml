@@ -87,8 +87,11 @@ T.Control {
             input.selectAll()
         }
     }
+    // AGENT-GUARD (D-329): derive the display from source inputs here.
+    // Reading clampedValue inside its own notification re-enters its binding.
+    // Sharing clamp() keeps immediate display updates without a second rule.
     function syncText() {
-        input.text = control.mixed ? "" : control.format(control.clampedValue)
+        input.text = control.mixed ? "" : control.format(control.clamp(control.value))
     }
     function applyInput() {
         if (!control.editable || !control.enabled) {

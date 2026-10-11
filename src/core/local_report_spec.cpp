@@ -4,6 +4,7 @@
 // QueryEngine::fromJson and validated by QueryEngine::validate, so a report
 // accepts exactly what FilterBar and QueryBuilder produce.
 #include "local_report_spec.h"
+#include "local_report_groups.h"
 
 #include "sqlite_query_source.h"
 
@@ -273,7 +274,8 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
         Group group;
         group.field = map.value(QStringLiteral("field")).toString();
         if (!fields.contains(group.field)) return tr("Report group %1 is not in the live schema").arg(group.field);
-        if (seen.contains(group.field)) return tr("Report groups by %1 twice").arg(group.field);
+        const QString optionsError = parseGroupOptions(map, &group);
+        if (!optionsError.isEmpty()) return optionsError;
         seen.insert(group.field);
         group.label = map.value(QStringLiteral("label")).toString().trimmed();
         if (group.label.isEmpty()) group.label = group.field;
@@ -370,11 +372,12 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
 
     *stage = QStringLiteral("definition");
     QStringList sortKeys;
-    for (const Group &group : std::as_const(spec.groups)) sortKeys.append(group.field);
     for (const QuerySort &entry : std::as_const(spec.sort))
         if (!sortKeys.contains(entry.fieldId)) sortKeys.append(entry.fieldId);
-    if (sortKeys.size() > 4) return tr("A report sorts by at most four columns, groups included");
+    if (sortKeys.size() > 4) return tr("A report sorts by at most four detail columns");
 
+    const QString optionsError = parseReportOptions(report, schema, &spec);
+    if (!optionsError.isEmpty()) return optionsError;
     const QVariantMap page = report.value(QStringLiteral("page")).toMap();
     spec.paperId = page.value(QStringLiteral("paperId"), QStringLiteral("a4")).toString();
     if (!QStringList{QStringLiteral("a4"), QStringLiteral("a5"), QStringLiteral("letter"), QStringLiteral("legal")}.contains(spec.paperId))

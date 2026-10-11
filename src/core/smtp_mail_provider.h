@@ -54,6 +54,11 @@ public:
     // Returns false when the draft was rejected before connecting; the result
     // still arrives through sendFinished. The draft itself is never modified.
     Q_INVOKABLE bool send(const QString &requestId, const QVariantMap &draft);
+    // Prepared RFC 5322 bytes are not rebuilt: only SMTP dot-stuffing is
+    // applied. The envelope is explicit, so hidden recipients stay private.
+    // Requires CRLF lines and a terminating CRLF; otherwise rejects locally.
+    Q_INVOKABLE bool sendPrepared(const QString &requestId, const QByteArray &message,
+                                  const QString &envelopeFrom, const QStringList &recipients);
     // The RFC 5322 bytes send() would deliver (for preview and tests).
     Q_INVOKABLE QVariantMap composeMessage(const QVariantMap &draft) const;
 

@@ -111,13 +111,16 @@ private slots:
             QCOMPARE(Imap::decodeMailboxName(wire, &ok), sample);
             QVERIFY(ok);
         }
-        // Malformed: unterminated run, bad base64, an encoded printable
-        // character, an odd byte count, raw 8-bit from a non-conforming server.
-        for (const QByteArray &bad : {QByteArray("&U,BTFw"), QByteArray("&U*BTFw-"), QByteArray("&AGE-"),
+        // Malformed: unterminated run, bad base64, an odd
+        // byte count, raw 8-bit from a non-conforming server.
+        for (const QByteArray &bad : {QByteArray("&U,BTFw"), QByteArray("&U*BTFw-"),
                                       QByteArray("&AA-"), QByteArray("Caf\xc3\xa9")}) {
             Imap::decodeMailboxName(bad, &ok);
             QVERIFY2(!ok, bad.constData());
         }
+        QCOMPARE(Imap::decodeMailboxName("&AGE-", &ok), QStringLiteral("a"));
+        QVERIFY(ok);
+        QVERIFY(!Imap::isCanonicalMailboxName("&AGE-"));
         QCOMPARE(Imap::decodeMailboxName("Caf\xc3\xa9", &ok), QString::fromUtf8("Café"));
     }
 

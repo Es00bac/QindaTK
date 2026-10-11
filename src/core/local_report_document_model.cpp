@@ -73,7 +73,9 @@ QVariantMap LocalReportDocumentModel::build(LocalDatabaseProvider *provider, con
     for (const LocalReport::Band &band : output.bands)
         bands.append(QVariantMap{{QStringLiteral("kind"), bandKind(band.kind)}, {QStringLiteral("level"), band.level},
                                  {QStringLiteral("text"), band.text}, {QStringLiteral("cells"), band.cells},
-                                 {QStringLiteral("pageBreakBefore"), band.pageBreakBefore}});
+                                 {QStringLiteral("pageBreakBefore"), band.pageBreakBefore},
+                                 {QStringLiteral("pageBreakAfter"), band.pageBreakAfter},
+                                 {QStringLiteral("keepTogether"), band.keepTogether}, {QStringLiteral("keepWith"), band.keepWith}});
     m_bands = bands;
     m_columns = output.columnLabels;
     m_rowCount = output.detailRows;

@@ -162,10 +162,12 @@ UndoService *LocalDataDesignDocument::history() const
     return historyService();
 }
 UndoService *LocalDataDesignDocument::undoService() const { return history(); }
-bool LocalDataDesignDocument::canUndo() const { return history() && history()->canUndo(this); }
-bool LocalDataDesignDocument::canRedo() const { return history() && history()->canRedo(this); }
-QString LocalDataDesignDocument::undoText() const { return history() ? history()->undoText(this) : QString(); }
-QString LocalDataDesignDocument::redoText() const { return history() ? history()->redoText(this) : QString(); }
+// AGENT-GUARD (D-330): QML getters must not attach history and emit their own
+// notify signal. A detached/switched document has no readable undo history.
+bool LocalDataDesignDocument::canUndo() const { return historyService() && historyService()->canUndo(this); }
+bool LocalDataDesignDocument::canRedo() const { return historyService() && historyService()->canRedo(this); }
+QString LocalDataDesignDocument::undoText() const { return historyService() ? historyService()->undoText(this) : QString(); }
+QString LocalDataDesignDocument::redoText() const { return historyService() ? historyService()->redoText(this) : QString(); }
 
 void LocalDataDesignDocument::historyAttached(UndoService *service)
 {
@@ -337,7 +339,7 @@ bool LocalDataDesignDocument::bindTable(LocalDatabaseProvider *provider, const Q
     report.insert(QStringLiteral("columns"), keep(report.value(QStringLiteral("columns")).toList(), QStringLiteral("field")));
     report.insert(QStringLiteral("totals"), keep(report.value(QStringLiteral("totals")).toList(), QStringLiteral("field")));
     QVariantList groups;
-    for (const QVariant &entry : keep(report.value(QStringLiteral("groups")).toList(), QStringLiteral("field"))) {
+    for (const QVariant &entry : report.value(QStringLiteral("groups")).toList()) {
         QVariantMap group = entry.toMap();
         group.insert(QStringLiteral("totals"), keep(group.value(QStringLiteral("totals")).toList(), QStringLiteral("field")));
         groups.append(group);

@@ -314,7 +314,7 @@ Designs and report runs are C++ models ([forms and reports](forms-reports.md)):
 `Tk.LocalDataDesignDocument` is the form/report design as a session document
 (schema `qindatk.local-data-design.v1`) whose edits are undoable commands, and
 `Tk.LocalReportDocumentModel.build(provider, report, parameters)` evaluates a
-report definition (bands, up to three group levels, WP-029 totals, filters and
+report definition (bands, up to ten group levels, WP-029 totals, filters and
 typed parameters) into one stable paginated `document`, keeping the last good
 document and reporting `errorText`/`errorStage` when a run fails.
 
@@ -1138,3 +1138,36 @@ mesh output.
 | --- | --- | --- |
 | `RasterView` | `Tk.Viewport` | `source`, `documentSize`, `displayRect`, `selectionRect`, `paintingEnabled`, `smooth`; native stylus `strokeBegan/Moved/Ended(sample)` and `strokeCanceled()`. Input and overlays use original document coordinates regardless of display proxy/tile resolution. Disabling painting enables left-button pan. Stable names and details: [raster.md](raster.md). |
 | `Checkerboard` | Item | Theme-derived `lightColor`, `darkColor`, `cellSize`; one tiny repeated texture independent of document dimensions. Stable name `rasterCheckerboard`. |
+
+## Office follow-up controls (M98)
+
+| Type | Base | Properties | Notes |
+| --- | --- | --- | --- |
+| `Toast` | FocusScope | `minimumWidth`, `maximumWidth`, readonly `availableWidth` | Title/message natural width (including action and dismiss button), capped to the window minus anchor margins. Explicit host widths still work. `Notice.naturalWidth` exposes unconstrained measurement. |
+| `NumberField` | T.Control | Existing API | Decimal values with bound limits synchronize displayed text directly from the source inputs without re-entering the computed value binding; host value bindings are never overwritten. |
+| `FormDesigner` | Box | Existing API | History property reads no longer reattach a detached document or trigger their own notify signal while the view switches documents. |
+| `EditableGrid` | T.Control | `valueList(rowId,columnId)` | Return `{values:[...], limitToList:true}` to use `gridValueListEditor`; false permits typed values. Escape cancels, arrows choose, Enter commits. Missing callback retains `gridCellEditor`. Rejected values keep the editor open. `GridCellEditor` owns only the view's editor pane. |
+| `DockHost` | Item | `minimumSidePaneWidth`, `minimumCanvasWidth` | Both default to themed panel minimum. Opposite dock lanes shrink proportionally when necessary, leaving canvas room; narrower viewports relax minima equally. Saved lane extents remain unchanged. |
+| `BorderEditor` | T.Control | `borders`, `lineStyle`, `lineColor`, `lineWidth`, `innerLines` | `bordersEdited(next)` proposes a complete edge map; host applies it. Edges top/right/bottom/left/insideHorizontal/insideVertical store `{style,color,width}` (document points). Click or Space toggles that edge with the current style. Styles solid/dashed/dotted/double. Parts `borderStyle`, `borderWidth`, `borderColor`, `borderPreview`, `borderEdge_<edge>`. |
+| `TaskBoard` | Box | `categoryColors` | Task records may include `categories` (names or `{name,color}`) and `extraFields` (`{label,value}` rows). `TaskCardDetails` renders wrapping chips and metadata; parts `taskCategory_<name>`, `taskExtraField_<label>`. |
+| `LayerTree` | Box | `model` | Optional hierarchical QAbstractItemModel independent of CanvasDocument. Null keeps CanvasLayerTreeModel. Same roles and methods as the Canvas adapter; see canvas.md. `treeModel` still exposes the active model. |
+| `ReportDesigner` | Box | `groupLevels`, `applyGroups(levels)` | Up to ten complete level maps. Editing the first level through existing controls preserves later levels and unknown extension properties. The design document is authoritative when supplied. |
+
+| Type | Base | Properties | Notes |
+| --- | --- | --- | --- |
+| `SearchChecklist` | T.Control | `items`, `checkedIds`, `searchText` | `items` are `{id,label,disabled?}`. `checkedIdsEdited(ids)` proposes the complete selection. Select All affects only shown enabled items and preserves hidden choices. Parts `checklistSearch`, `checklistAll`, `checklistItems`, `checklistItem_<id>`. |
+| `FieldWells` | T.Control | `fields`, `wells`, `selectedFieldId` | Fields `{id,label}`; wells `{id,label,fieldIds}` default Filters/Columns/Rows/Values. Drag a source onto a well, or select source then activate the destination by keyboard. `assignmentRequested(fieldId,wellId,index)` uses -1 to append and -2 to remove. Host owns assignments. Parts `fieldWellSource_<id>`, `fieldWell_<id>`, `fieldWellAssign_<id>`, `fieldWellAssigned_<well>_<field>`. |
+| `SectionedGallery` | T.Control | `sections`, `collapsedIds`, `currentId`, `preview`, `tileWidth`, `tileHeight` | Sections `{id,label,items}` wrap Gallery's host previews. `sectionToggled(id,collapsed)`, `activated(id)`, `highlighted(id)` are requests; collapsing preserves selection and items. Parts `gallerySection_<id>`, `gallerySectionItems_<id>`. |
+
+`GanttView` retains a visible `ganttGroupChevron` on every group row when
+`labelWidth: 0`; it moves into the chart so a companion task sheet can own the
+label column while both views still toggle the same group. D-339.
+
+Task category swatches use themed intrinsic dimensions (`taskCategorySwatch_<name>`)
+so layout cannot collapse them to zero. PrintPreview's named `printSettingsGrid`
+chooses one/two columns from the host width after the current layout transaction;
+this prevents synchronous Scroll width/implicit-height feedback from re-entering
+the column choice when it shares a row with a report page.
+
+`StylusHandler` never takes an initial press grab from an item in another visual
+branch; modal and overlay controls above a drawing surface retain input (D-351).

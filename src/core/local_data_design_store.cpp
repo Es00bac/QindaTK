@@ -118,7 +118,18 @@ QString LocalDataDesignStore::checkStructure(const QVariantMap &design)
         const QString problem = checkFormControls(controls.toList());
         if (!problem.isEmpty()) return problem;
     }
-    for (const QString &name : referencedFields(design))
+    // Group definitions may outlive a removed schema column. Preserve them
+    // for repair; live validation/build still rejects unresolved references.
+    // Form controls, report columns and filters retain the bound-field guard.
+    QVariantMap checkedDesign = design;
+    QVariantMap checkedReport = design.value(QStringLiteral("report")).toMap();
+    const QVariantList groups = checkedReport.value(QStringLiteral("groups")).toList();
+    if (groups.size() > LocalReport::MaximumGroups) return tr("Too many report group levels");
+    for (const QVariant &group : groups)
+        if (group.toMap().value(QStringLiteral("field")).toString().isEmpty()) return tr("A report group needs a field");
+    checkedReport.remove(QStringLiteral("groups"));
+    checkedDesign.insert(QStringLiteral("report"), checkedReport);
+    for (const QString &name : referencedFields(checkedDesign))
         if (!fields.contains(name)) return tr("Design references an unbound field: %1").arg(name);
     const QVariantMap types = binding.value(QStringLiteral("types")).toMap();
     for (auto it = types.cbegin(); it != types.cend(); ++it)

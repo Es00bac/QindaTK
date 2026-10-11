@@ -273,7 +273,7 @@ QByteArray build(const Outgoing &message)
         // RFC 6047 §2.4: the method parameter repeats the calendar's METHOD.
         QByteArray method = message.calendarMethod.trimmed().toUpper().toLatin1();
         for (const char c : method)
-            if (!(c >= 'A' && c <= 'Z') && c != '-') method.clear();
+            if (!(c >= 'A' && c <= 'Z') && c != '-') { method.clear(); break; }
         alternatives.append(textLeaf(QString::fromUtf8(message.calendar),
                                      "calendar; charset=utf-8; method=" + (method.isEmpty() ? "PUBLISH" : method)));
     }

@@ -39,7 +39,8 @@ Tk.Flex {
             required property int index
             readonly property int lane: modelData.lane
             readonly property var slots: modelData.slots
-            readonly property real extent: zoneItem.host.laneExtent(zoneItem.zone, lane)
+            readonly property real extent: zoneItem.sideZone
+                ? zoneItem.host.visibleSideExtent(zoneItem.zone, lane) : zoneItem.host.laneExtent(zoneItem.zone, lane)
 
             objectName: "dockLane_" + zoneItem.zone + "_" + lane
             direction: zoneItem.sideZone ? Tk.Flex.Column : Tk.Flex.Row

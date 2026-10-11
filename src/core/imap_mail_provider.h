@@ -38,6 +38,8 @@ class ImapMailProvider : public QObject {
     Q_PROPERTY(int fetchLimit MEMBER m_fetchLimit NOTIFY configChanged)
     Q_PROPERTY(int maximumMessageBytes MEMBER m_maximumMessageBytes NOTIFY configChanged)
     Q_PROPERTY(bool allowInsecureAuth MEMBER m_allowInsecureAuth NOTIFY configChanged)
+    Q_PROPERTY(bool keepHtml MEMBER m_keepHtml NOTIFY configChanged)
+    Q_PROPERTY(bool keywordCategories MEMBER m_keywordCategories NOTIFY configChanged)
     Q_PROPERTY(bool autoSave MEMBER m_autoSave NOTIFY configChanged)
     Q_PROPERTY(LocalProductivityStore *store READ store WRITE setStore NOTIFY configChanged)
     Q_PROPERTY(LocalAttachmentStore *attachmentStore READ attachmentStore WRITE setAttachmentStore NOTIFY configChanged)
@@ -81,6 +83,18 @@ public:
     // action "move".
     Q_INVOKABLE bool moveMessage(const QString &requestId, const QString &messageId, const QString &targetMailbox);
 
+    // Flags are RFC 3501 atoms, including custom keywords. A server that
+    // forbids keeping an added flag rejects the entire edit before STORE.
+    Q_INVOKABLE bool updateFlags(const QString &requestId, const QString &messageId,
+                                 const QStringList &add, const QStringList &remove = {});
+    Q_INVOKABLE bool setCategories(const QString &requestId, const QString &messageId,
+                                   const QStringList &categories);
+    // Header bytes are returned in result.headers, keyed by the message UID.
+    Q_INVOKABLE bool fetchHeaders(const QString &requestId, const QString &messageId,
+                                  const QStringList &fields = {});
+    Q_INVOKABLE bool copyMessage(const QString &requestId, const QString &messageId,
+                                 const QString &targetMailbox);
+
 signals:
     void configChanged();
     void secretChanged();
@@ -89,10 +103,12 @@ signals:
     void actionFinished(const QString &requestId, const QVariantMap &result);
     void attachmentFinished(const QString &requestId, const QVariantMap &result);
     void mailboxesFinished(const QString &requestId, const QVariantMap &result);
+    void flagsFinished(const QString &requestId, const QVariantMap &result);
+    void headersFinished(const QString &requestId, const QVariantMap &result);
     void appendFinished(const QString &requestId, const QVariantMap &result);
 
 private:
-    enum class Operation { Sync, Action, Attachment, Mailboxes, Append };
+    enum class Operation { Sync, Action, Attachment, Mailboxes, Append, Flags, Headers };
     bool start(Operation operation, const QString &requestId, const QVariantMap &input);
     QVariantMap prepareMessageJob(Operation operation, const QVariantMap &input, ImapJobs::Job *job) const;
     void complete(Operation operation, const QString &requestId, QVariantMap result);
@@ -107,6 +123,8 @@ private:
     QString m_archiveMailbox = QStringLiteral("Archive");
     int m_port = 993, m_timeoutMs = 15000, m_fetchLimit = 200, m_maximumMessageBytes = 8 * 1024 * 1024;
     bool m_allowInsecureAuth = false, m_autoSave = true;
+    bool m_keepHtml = false, m_keywordCategories = false;
+    QHash<QString, QByteArray> m_wireNames;
     QPointer<LocalProductivityStore> m_store;
     QPointer<LocalAttachmentStore> m_attachmentStore;
     QString m_secret, m_mechanism = QStringLiteral("auto");

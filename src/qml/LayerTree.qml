@@ -16,13 +16,17 @@ Tk.Box {
     id: control
     objectName: "layerTree"
 
+    // A hierarchical QAbstractItemModel implementing the documented layer requests.
+    // Null keeps the CanvasDocument adapter, preserving existing consumers.
+    property var model: null
+    readonly property var layerModel: model || canvasModel
     property var document: null          // Tk.CanvasDocument
     property var selectionModel: null    // Tk.CanvasSelectionModel shared with ToolControllers
     property bool showObjects: true
     property real listHeight: Tk.Theme.size.fieldWidth * 3
     property string currentKey: ""
     property string renamingKey: ""
-    readonly property alias treeModel: layerModel
+    readonly property var treeModel: control.layerModel
     readonly property alias collection: adapter
     readonly property alias listView: layerList
     readonly property bool dragging: dragState.active
@@ -37,9 +41,9 @@ Tk.Box {
     activeFocusOnTab: true
 
     // Kept for hosts of the flat slice: the same requests by layer id.
-    function activateLayer(id) { return layerModel.activate("layer:" + id) }
-    function setVisibility(id, visible) { return layerModel.setShown("layer:" + id, visible) }
-    function setLock(id, locked) { return layerModel.setLocked("layer:" + id, locked) }
+    function activateLayer(id) { return control.layerModel.activate("layer:" + id) }
+    function setVisibility(id, visible) { return control.layerModel.setShown("layer:" + id, visible) }
+    function setLock(id, locked) { return control.layerModel.setLocked("layer:" + id, locked) }
 
     function rowOf(key) { return adapter.treeIndexOfId(key) }
     // Remembers a collapsed group so a structure change does not reopen it.
@@ -59,7 +63,7 @@ Tk.Box {
         }
     }
     function expandGroups() {
-        const groups = layerModel.groupKeys()
+        const groups = control.layerModel.groupKeys()
         for (let i = 0; i < groups.length; ++i)
             if (!collapsedGroups[groups[i]]) adapter.setExpanded(groups[i], true)
     }
@@ -68,14 +72,14 @@ Tk.Box {
         return setExpanded(key, !Boolean(adapter.treeDataAt(rowOf(key), "treeExpanded")))
     }
     function reveal(key) {
-        const ancestors = layerModel.ancestorKeys(key)
+        const ancestors = control.layerModel.ancestorKeys(key)
         for (let i = 0; i < ancestors.length; ++i) adapter.setExpanded(ancestors[i], true)
         setCurrent(key)
     }
     function clickRow(key, toggle) {
         control.setCurrent(key)
         control.forceActiveFocus()
-        return layerModel.select(key, toggle)
+        return control.layerModel.select(key, toggle)
     }
     function stepCurrent(delta) {
         const row = Math.max(0, Math.min(adapter.treeCount - 1, rowOf(currentKey) + delta))
@@ -89,7 +93,7 @@ Tk.Box {
         // take focus from the field and close the rename at once.
         dragState.reset()
         renameField.y = item.y - layerList.contentY
-        renameField.text = String(layerModel.nodeInfo(key).label || "")
+        renameField.text = String(control.layerModel.nodeInfo(key).label || "")
         control.renamingKey = key
         renameField.forceActiveFocus()
         renameField.selectAll()
@@ -99,33 +103,37 @@ Tk.Box {
         const key = control.renamingKey
         if (!key.length) return
         control.renamingKey = ""
-        if (commit) layerModel.rename(key, renameField.text)
+        if (commit) control.layerModel.rename(key, renameField.text)
         control.forceActiveFocus()
     }
     function addLayer(group) {
-        const key = layerModel.addLayer(group ? qsTr("Group") : qsTr("Layer"), currentKey, group)
+        const key = control.layerModel.addLayer(group ? qsTr("Group") : qsTr("Layer"), currentKey, group)
         if (key.length) control.reveal(key)
         return key
     }
     function groupCurrent() {
-        const key = layerModel.groupLayers([currentKey], qsTr("Group"))
+        const key = control.layerModel.groupLayers([currentKey], qsTr("Group"))
         if (key.length) control.reveal(key)
         return key
     }
 
     Tk.CanvasLayerTreeModel {
-        id: layerModel
+        id: canvasModel
         document: control.document
         selectionModel: control.selectionModel
         showObjects: control.showObjects
-        onStructureChanged: control.expandGroups()
-        onRevealRequested: function(key) { control.reveal(key) }
+    }
+    Connections {
+        target: control.layerModel
+        function onStructureChanged() { control.expandGroups() }
+        function onRevealRequested(key) { control.reveal(key) }
     }
     Tk.VirtualCollectionAdapter {
         id: adapter
-        model: layerModel
+        model: control.layerModel
         idRole: "key"
     }
+    onModelChanged: Qt.callLater(control.expandGroups)
     Component.onCompleted: expandGroups()
 
     QtObject {
@@ -159,18 +167,18 @@ Tk.Box {
         }
         const key = adapter.treeIdAt(row)
         const fraction = (point.y - item.y) / Math.max(1, item.height)
-        const group = String(layerModel.nodeInfo(key).kind) === "group"
+        const group = String(control.layerModel.nodeInfo(key).kind) === "group"
         dragState.targetKey = key
         dragState.placement = group && fraction > 0.25 && fraction < 0.75 ? "inside"
                             : fraction < 0.5 ? "above" : "below"
-        dragState.valid = layerModel.canMove(dragState.key, key, dragState.placement)
+        dragState.valid = control.layerModel.canMove(dragState.key, key, dragState.placement)
         dragState.markerY = item.y - layerList.contentY
                             + (dragState.placement === "below" ? item.height : 0)
         dragState.markerHeight = dragState.placement === "inside" ? item.height : 0
     }
     function releaseRow(key, modifiers) {
         if (dragState.active) {
-            if (dragState.valid) layerModel.move(dragState.key, dragState.targetKey, dragState.placement)
+            if (dragState.valid) control.layerModel.move(dragState.key, dragState.targetKey, dragState.placement)
         } else if (dragState.key === key) {
             control.clickRow(key, (modifiers & Qt.ControlModifier) !== 0)
         }
@@ -186,12 +194,12 @@ Tk.Box {
                 return
             control.setCurrent(adapter.treeIdAt(0))
         }
-        else if (ctrl && event.key === Qt.Key_Up) layerModel.step(key, -1)
-        else if (ctrl && event.key === Qt.Key_Down) layerModel.step(key, 1)
-        else if (ctrl && event.key === Qt.Key_Right) layerModel.indent(key)
-        else if (ctrl && event.key === Qt.Key_Left) layerModel.outdent(key)
+        else if (ctrl && event.key === Qt.Key_Up) control.layerModel.step(key, -1)
+        else if (ctrl && event.key === Qt.Key_Down) control.layerModel.step(key, 1)
+        else if (ctrl && event.key === Qt.Key_Right) control.layerModel.indent(key)
+        else if (ctrl && event.key === Qt.Key_Left) control.layerModel.outdent(key)
         else if (ctrl && event.key === Qt.Key_G && (event.modifiers & Qt.ShiftModifier))
-            layerModel.ungroup(key)
+            control.layerModel.ungroup(key)
         else if (ctrl && event.key === Qt.Key_G) control.groupCurrent()
         else if (event.key === Qt.Key_Up) control.stepCurrent(-1)
         else if (event.key === Qt.Key_Down) control.stepCurrent(1)
@@ -200,11 +208,11 @@ Tk.Box {
         else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
             control.clickRow(key, ctrl)
         else if (event.key === Qt.Key_F2) control.startRename(key)
-        else if (event.key === Qt.Key_Delete) layerModel.remove(key)
+        else if (event.key === Qt.Key_Delete) control.layerModel.remove(key)
         else if (event.key === Qt.Key_V)
-            layerModel.setShown(key, !layerModel.nodeInfo(key).shown)
+            control.layerModel.setShown(key, !control.layerModel.nodeInfo(key).shown)
         else if (event.key === Qt.Key_L)
-            layerModel.setLocked(key, !layerModel.nodeInfo(key).locked)
+            control.layerModel.setLocked(key, !control.layerModel.nodeInfo(key).locked)
         else return
         event.accepted = true
     }
@@ -224,12 +232,12 @@ Tk.Box {
             width: parent.width
             Tk.IconButton {
                 objectName: "layerTreeAddLayer"; small: true; iconName: "plus"
-                enabled: !!control.document; tooltip: qsTr("New layer")
+                enabled: !!control.document || !!control.model; tooltip: qsTr("New layer")
                 onClicked: control.addLayer(false)
             }
             Tk.IconButton {
                 objectName: "layerTreeAddGroup"; small: true; iconName: "folder-plus"
-                enabled: !!control.document; tooltip: qsTr("New layer group")
+                enabled: !!control.document || !!control.model; tooltip: qsTr("New layer group")
                 onClicked: control.addLayer(true)
             }
             Tk.IconButton {
@@ -240,22 +248,22 @@ Tk.Box {
             Tk.IconButton {
                 objectName: "layerTreeUngroup"; small: true; iconName: "ungroup"
                 enabled: control.currentKey.startsWith("layer:"); tooltip: qsTr("Ungroup")
-                onClicked: layerModel.ungroup(control.currentKey)
+                onClicked: control.layerModel.ungroup(control.currentKey)
             }
             Tk.IconButton {
                 objectName: "layerTreeMoveUp"; small: true; iconName: "arrow-up"
                 enabled: control.currentKey.length > 0; tooltip: qsTr("Move up")
-                onClicked: layerModel.step(control.currentKey, -1)
+                onClicked: control.layerModel.step(control.currentKey, -1)
             }
             Tk.IconButton {
                 objectName: "layerTreeMoveDown"; small: true; iconName: "arrow-down"
                 enabled: control.currentKey.length > 0; tooltip: qsTr("Move down")
-                onClicked: layerModel.step(control.currentKey, 1)
+                onClicked: control.layerModel.step(control.currentKey, 1)
             }
             Tk.IconButton {
                 objectName: "layerTreeDelete"; small: true; iconName: "trash-2"
                 enabled: control.currentKey.length > 0; tooltip: qsTr("Delete")
-                onClicked: layerModel.remove(control.currentKey)
+                onClicked: control.layerModel.remove(control.currentKey)
             }
         }
 
@@ -381,7 +389,7 @@ Tk.Box {
                             Accessible.role: Accessible.CheckBox
                             Accessible.checkable: true
                             Accessible.checked: row.shown
-                            onClicked: layerModel.setShown(row.key, !row.shown)
+                            onClicked: control.layerModel.setShown(row.key, !row.shown)
                         }
                         Tk.IconButton {
                             objectName: row.part + "Lock_" + row.itemId
@@ -392,7 +400,7 @@ Tk.Box {
                             Accessible.role: Accessible.CheckBox
                             Accessible.checkable: true
                             Accessible.checked: row.locked
-                            onClicked: layerModel.setLocked(row.key, !row.locked)
+                            onClicked: control.layerModel.setLocked(row.key, !row.locked)
                         }
                     }
                 }
@@ -435,7 +443,7 @@ Tk.Box {
         Tk.Label {
             objectName: "layerTreeEmpty"
             visible: adapter.treeCount === 0
-            text: control.document ? qsTr("No layers") : qsTr("No document")
+            text: control.document || control.model ? qsTr("No layers") : qsTr("No document")
             muted: true
             horizontalAlignment: Text.AlignHCenter
             width: parent.width
@@ -443,7 +451,7 @@ Tk.Box {
         Tk.Caption {
             objectName: "layerTreeError"
             visible: text.length > 0
-            text: layerModel.lastError
+            text: control.layerModel.lastError
             width: parent.width
             wrapMode: Text.Wrap
         }

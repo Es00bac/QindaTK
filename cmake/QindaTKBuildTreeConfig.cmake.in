@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
+# Generated development export. This references a live build and installs nothing.
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 COMPONENTS Core Gui Qml Quick Svg Network)
+find_dependency(PkgConfig)
+pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+include("${CMAKE_CURRENT_LIST_DIR}/QindaTKTargets.cmake")
+set_property(TARGET QindaTK::qindatk APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_BINARY_DIR@/include")
+set_property(TARGET QindaTK::agent APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_BINARY_DIR@/include")
+set(QindaTK_QML_DIR "@CMAKE_BINARY_DIR@/qml/QindaTK")
+set(QindaTK_BUILD_TREE TRUE)

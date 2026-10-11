@@ -19,6 +19,7 @@ Tk.Box {
     property string filterField: ""
     property string filterValue: ""
     property string groupField: ""
+    property var groupLevels: [] // up to ten complete group maps; first-row controls preserve later levels
     property string sumField: ""
     property string totalFunction: "sum" // WP-029 aggregate applied to sumField per group
     property bool pageBreakPerGroup: false
@@ -67,7 +68,8 @@ Tk.Box {
         pageHeaderText = String(report.pageHeaderText || "")
         pageFooterText = report.pageFooterText === undefined ? qsTr("Page {page} of {pages}") : String(report.pageFooterText)
         showDetail = report.detail !== false
-        const group = (report.groups || [])[0] || ({})
+        groupLevels = report.groups || []
+        const group = groupLevels[0] || ({})
         groupField = String(group.field || report.groupField || "")
         pageBreakPerGroup = group.pageBreakBefore === true
         const total = (group.totals || []).find(entry => entry.function !== "countRows") || ({})
@@ -94,8 +96,25 @@ Tk.Box {
         else pageFooterText = text
         return true
     }
+    function applyGroups(levels) {
+        if (levels.length > 10) { previewError = qsTr("At most ten group levels"); return false }
+        if (designDocument) return edited(designDocument.setReportGroups(levels))
+        groupLevels = levels
+        const first = levels[0] || ({})
+        groupField = String(first.field || "")
+        return true
+    }
     function applyGroup(field, totalField, fn, pageBreak) {
-        if (designDocument) return edited(designDocument.setReportGroups(groupSpec(field, totalField, fn, pageBreak)))
+        // Preserve unknown fields already in a saved multi-level design, but
+        // reject a new invalid choice while editing against a live schema.
+        if (field && field !== groupField && schemaSnapshot.ok && !fieldExists(field)) {
+            previewError = qsTr("Group field is not in the selected schema"); reportState = "error"; return false
+        }
+        const next = groupSpec(field, totalField, fn, pageBreak)
+        if (next.length && groupLevels.length) next[0] = Object.assign({}, groupLevels[0], next[0])
+        const levels = next.concat(groupLevels.slice(1))
+        if (designDocument) return applyGroups(levels)
+        groupLevels = levels
         groupField = field; sumField = field ? totalField : ""; totalFunction = fn; pageBreakPerGroup = pageBreak
         return true
     }
@@ -153,7 +172,7 @@ Tk.Box {
         lastRequestId = id; reportState = "export-requested"
         exportRequested(id, designDocument ? designDocument.report
                                            : ({ headerText: headerText, footerText: footerText, pageHeaderText: pageHeaderText, pageFooterText: pageFooterText, tableName: tableName, filterField: filterField, filterValue: filterValue,
-                                                groups: groupSpec(groupField, sumField, totalFunction, pageBreakPerGroup), detail: showDetail, pageSize: pageSize }))
+                                                groups: groupLevels.length ? groupLevels : groupSpec(groupField, sumField, totalFunction, pageBreakPerGroup), detail: showDetail, pageSize: pageSize }))
         return id
     }
 

@@ -130,6 +130,7 @@ Item {
     }
     // Group header label column: chevron (toggles), name, summary.
     Item {
+        id: groupTitle
         objectName: "ganttGroupTitle"
         visible: rowItem.view.labelWidth > 0 && rowItem.isGroup
         x: Tk.Theme.space.xs + Tk.Theme.space.lg * Math.max(0, Number(rowItem.record.outlineLevel || 0))
@@ -139,10 +140,28 @@ Item {
         Tk.Icon {
             id: chevron
             objectName: "ganttGroupChevron"
+            // AGENT-GUARD (D-339): a sheet may own the label column. The
+            // same persistent chevron then lives in the chart, never under
+            // the hidden title item, so chart-only groups remain collapsible.
+            parent: rowItem.view.labelWidth > 0 ? groupTitle : track
+            visible: rowItem.isGroup
+            x: rowItem.view.labelWidth > 0 ? 0 : Tk.Theme.space.xs
+            z: rowItem.view.labelWidth > 0 ? 0 : 2
+            Accessible.role: Accessible.Button
+            Accessible.name: rowItem.collapsed ? qsTr("Expand group") : qsTr("Collapse group")
+            Accessible.onPressAction: rowItem.view.toggleGroup(rowItem.taskId)
             name: rowItem.collapsed ? "chevron-right" : "chevron-down"
             size: Tk.Theme.size.iconSm
             y: (parent.height - height) / 2
             color: Tk.Theme.color.textMuted
+            Rectangle {
+                objectName: "ganttGroupChevronBacking"
+                anchors.fill: parent
+                anchors.margins: -Tk.Theme.space.xs
+                z: -1
+                visible: rowItem.view.labelWidth <= 0
+                color: Tk.Theme.color.headerBg
+            }
             TapHandler {
                 margin: Tk.Theme.space.xs
                 onTapped: rowItem.view.toggleGroup(rowItem.taskId)
@@ -363,7 +382,9 @@ Item {
         Tk.Caption {
             objectName: "ganttBarText"
             visible: text.length > 0
-            x: rowItem.barEnd + Tk.Theme.space.sm
+            x: rowItem.isGroup && rowItem.view.labelWidth === 0
+                ? Math.max(rowItem.barEnd + Tk.Theme.space.sm, chevron.width + Tk.Theme.space.sm * 2)
+                : rowItem.barEnd + Tk.Theme.space.sm
             width: Math.max(0, track.width - x)
             height: rowItem.laneCount > 0 ? rowItem.barHeight + rowItem.barY * 2 : rowItem.height
             text: rowItem.isGroup

@@ -53,6 +53,8 @@ Item {
     property var shadedIds: ({})
 
     // Drag state (see beginDrag/updateDrag/endDrag).
+    property real minimumSidePaneWidth: Tk.Theme.size.panelMinWidth
+    property real minimumCanvasWidth: Tk.Theme.size.panelMinWidth
     property bool dragging: false
     property string dragId: ""
     property bool dragFromFloating: false
@@ -133,6 +135,23 @@ Item {
             }
         }
         return 0
+    }
+
+    function visibleSideExtent(zone, lane) {
+        host.gen
+        const lanes = host.leftLanes.concat(host.rightLanes)
+        let desired = 0
+        for (const side of ["left", "right"])
+            for (const entry of (side === "left" ? host.leftLanes : host.rightLanes))
+                desired += Math.max(host.minimumSidePaneWidth, host.laneExtent(side, entry.lane))
+        const gaps = Math.max(0, (host.leftLanes.length ? 1 : 0) + (host.rightLanes.length ? 1 : 0)) * Tk.Theme.space.xs
+        const available = Math.max(0, host.width - Math.min(host.minimumCanvasWidth, host.width / 3)
+                                      - gaps - lanes.length * Tk.Theme.size.seam)
+        const floor = Math.min(host.minimumSidePaneWidth, available / Math.max(1, lanes.length))
+        const wanted = Math.max(host.minimumSidePaneWidth, host.laneExtent(zone, lane))
+        const flexible = Math.max(0, desired - host.minimumSidePaneWidth * lanes.length)
+        return desired <= available ? wanted : floor + (flexible > 0 ? Math.max(0, available - floor * lanes.length)
+            * (wanted - host.minimumSidePaneWidth) / flexible : 0)
     }
 
     function slotInfo(zone, lane, slotIndex) {

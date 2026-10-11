@@ -126,6 +126,19 @@ if(QINDATK_ENABLE_FFMPEG AND FFMPEG_FOUND)
 endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
+# Notification delivery is optional; headless/minimal SDK builds retain the
+# same API and report available=false without a D-Bus dependency.
+if(QINDATK_ENABLE_DBUS)
+    qindatk_find_qt_module(DBus QUIET)
+endif()
+if(QINDATK_ENABLE_DBUS AND TARGET Qt6::DBus)
+    # Keep optional D-Bus headers local to the adapter; the rest of the
+    # toolkit and its public header remain usable without this Qt module.
+    target_link_libraries(qindatk PRIVATE "$<LINK_ONLY:Qt6::DBus>")
+    set_source_files_properties(core/desktop_notifications.cpp PROPERTIES
+        COMPILE_DEFINITIONS QINDATK_HAVE_DBUS=1
+        INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:Qt6::DBus,INTERFACE_INCLUDE_DIRECTORIES>")
+endif()
 
 # ---- out-of-process plugin host (WP-066, D-190, docs/audio-plugins.md) ----
 # AGENT-CONTRACT: qindatk never loads plugin code. It starts this executable

@@ -72,6 +72,10 @@ set(qindatk_app_sources
     core/imap_mail_jobs.cpp core/imap_mail_jobs.h
     core/imap_mail_provider.cpp core/imap_mail_provider.h
     core/mail_record.cpp core/mail_record.h
+    core/calendar_mail.cpp core/calendar_mail.h
+    core/desktop_notifications.cpp core/desktop_notifications.h
+    core/manage_sieve_client.cpp core/manage_sieve_client.h
+    core/manage_sieve_jobs.cpp core/manage_sieve_jobs.h
     core/pop3_session.cpp core/pop3_session.h
     core/pop3_mail_jobs.cpp core/pop3_mail_jobs.h
     core/pop3_mail_provider.cpp core/pop3_mail_provider.h
@@ -82,6 +86,9 @@ set(qindatk_app_sources
     core/ical_calendar.cpp
     core/imap_mutf7.cpp core/imap_mutf7.h
     core/imap_folders.cpp core/imap_folders.h
+    core/imap_keywords.cpp core/imap_keywords.h
+    core/imap_messages.cpp core/imap_messages.h
+    core/imap_mail_extensions.cpp
     core/ics_calendar_jobs.cpp core/ics_calendar_jobs.h
     core/ics_calendar_provider.cpp core/ics_calendar_provider.h
     core/state_store.cpp core/state_store.h

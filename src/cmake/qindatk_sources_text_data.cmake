@@ -96,6 +96,7 @@ set(qindatk_text_data_sources
     core/local_data_design_store.cpp core/local_data_design_store.h
     core/local_report_document_model.cpp core/local_report_document_model.h
     core/local_report_spec.cpp core/local_report_spec.h core/local_report_engine.cpp
+    core/local_report_groups.cpp core/local_report_groups.h core/local_report_paging.cpp
     core/sqlite_query_source.cpp core/sqlite_query_source.h
     core/local_data_design_document.cpp core/local_data_design_document.h
     core/local_data_design_edits.cpp core/local_data_design_codec.cpp core/local_data_design_controls.cpp

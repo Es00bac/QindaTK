@@ -62,6 +62,24 @@ QString fieldStatus(const QVariantMap &check, const QString &name)
 class LocalDataDesignDocumentTest final : public QObject {
     Q_OBJECT
 private slots:
+    void historyQueriesDoNotReattachOrNotify()
+    {
+        LocalDataDesignDocument doc;
+        QVERIFY(doc.setFormTitle(QStringLiteral("Changed")));
+        QVERIFY(doc.undo());
+        QVERIFY(doc.canRedo());
+        UndoService *history = doc.undoService();
+        QVERIFY(history->removeModel(&doc));
+        QSignalSpy spy(&doc, &LocalDataDesignDocument::historyChanged);
+        QVERIFY(!doc.canUndo());
+        QVERIFY(!doc.canRedo());
+        QVERIFY(doc.undoText().isEmpty());
+        QVERIFY(doc.redoText().isEmpty());
+        QCOMPARE(spy.size(), 0);
+        QVERIFY(doc.setFormTitle(QStringLiteral("New history")));
+        QVERIFY(doc.canUndo());
+    }
+
     // D-311: positioned form controls are design data, edited one undo step
     // at a time and checked like the rest of the design.
     void formControlsAreUndoableDesignData()
@@ -157,7 +175,7 @@ private slots:
         QVERIFY(!doc.setFormFieldLabel(QStringLiteral("territory"), QStringLiteral("Territory")));
         QVERIFY(!doc.lastError().isEmpty());
         QCOMPARE(doc.revision(), revision);
-        QVERIFY(!doc.setReportGroups({"id", "region", "rep", "amount"}));
+        QVERIFY(!doc.setReportGroups({"id", "region", "rep", "amount", "id", "region", "rep", "amount", "id", "region", "rep"}));
         QVERIFY(!doc.setReportTotal({}, QStringLiteral("rep"), QStringLiteral("median"), true));
         QVERIFY(!doc.setReportFilter({{"kind", "compare"}, {"field", "units"}}, {}));
         QVERIFY(!doc.setReportPage(QStringLiteral("a3"), QStringLiteral("portrait")));

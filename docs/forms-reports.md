@@ -50,7 +50,7 @@ open such a file.
 | `headerText`, `footerText` | The report header (a level 1 heading) and the closing paragraph |
 | `pageHeaderText`, `pageFooterText` | The page header and page footer bands, one line in every page's top and bottom margin. `{page}` and `{pages}` expand to the page number and count. Without `pageFooterText` a report prints "Page {page} of {pages}"; `""` turns a band off. At most 500 characters |
 | `columns` | The detail band: field names or `{field, label, format}`. When the list is empty, every column is shown (every bound field, through the document). `format` is a [number format](#number-formats) |
-| `groups` | Up to 3 levels, outermost first: `{field, label, pageBreakBefore, totals: [{field, function, label, format}]}` |
+| `groups` | Up to 10 levels, outermost first: `{field, label, pageBreakBefore, totals: [{field, function, label, format}]}` |
 | `totals` | Report-footer totals, `[{field, function}]` |
 | `detail` | `false` prints only the group headers and totals (a summary) |
 | `query.filter` | A WP-029 predicate, in the JSON that `FilterBar` emits (`compare`, `and`, `or`, `not`, `isNull`, `isNotNull`) |
@@ -294,3 +294,28 @@ mode rules above apply to every live control.
 
 Performance, other platforms, screen readers and output-fidelity comparison
 belong to the qualification packages WP-088 to WP-094.
+
+### Extended grouping and page control (M98, D-331/D-332)
+
+Reports accept up to ten levels, including the same field at different
+intervals. Each group may include `interval: {by, size}`: `value` (default),
+`prefix` (first 1–4000 Unicode characters), `year`, `quarter`, `month`, `week`
+(ISO week/year), `day`, or `range` (positive numeric bucket width, including
+negative values). `descending` reverses that level. Original source values
+and detail columns are unchanged; private derived keys serve grouping only.
+Unknown group properties survive `setReportGroups`; missing schema fields stay
+in the saved definition and produce an explicit build error until repaired.
+
+`runningSums: [{field, over: "group"|"all", label}]` appends detail columns;
+empty field counts records, null numbers add zero, and group totals reset at
+the innermost group boundary. At most 64 displayed detail columns are allowed.
+
+`reportHeader`, `detailSection`, `reportFooter`, and each group's `header` and
+`footer` accept `{newPage: "none"|"before"|"after"|"both", keepTogether: bool}`.
+A group's `keepTogether` is `no`, `wholeGroup`, or `withFirstDetail`.
+Legacy `pageBreakBefore` retains its meaning (new page for subsequent groups).
+Force-after is carried into the next section; it never creates a trailing blank
+page. Keep spans are measured by RichTextLayout against the generated document,
+including wrapped text and repeated table headers. A span that exceeds a page
+flows normally. The resulting documentJson carries the breaks used by the screen,
+print and PDF paths; applications no longer need to patch its block structure.

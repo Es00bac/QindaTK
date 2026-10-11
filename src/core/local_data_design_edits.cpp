@@ -62,23 +62,19 @@ bool LocalDataDesignDocument::setReportGroups(const QVariantList &groups)
     QVariantMap next;
     QVariantMap report = editableReport(&next);
     QVariantList normalized;
-    QSet<QString> seen;
     for (const QVariant &entry : groups) {
         const bool plain = entry.metaType().id() == QMetaType::QString;
         const QVariantMap group = plain ? QVariantMap{{QStringLiteral("field"), entry}} : entry.toMap();
         const QString field = group.value(QStringLiteral("field")).toString();
-        if (field.isEmpty() || seen.contains(field)) return fail(tr("Report groups need distinct fields"));
-        seen.insert(field);
+        if (field.isEmpty()) return fail(tr("Report groups need a field"));
         for (const QVariant &total : group.value(QStringLiteral("totals")).toList()) {
             QueryMeasure::Function function;
             if (!LocalReport::functionFromName(total.toMap().value(QStringLiteral("function")).toString(), &function))
                 return fail(tr("Unknown total function in group %1").arg(field));
         }
-        QVariantMap out{{QStringLiteral("field"), field},
-                        {QStringLiteral("pageBreakBefore"), group.value(QStringLiteral("pageBreakBefore")).toBool()},
-                        {QStringLiteral("totals"), group.value(QStringLiteral("totals")).toList()}};
-        if (!group.value(QStringLiteral("label")).toString().isEmpty())
-            out.insert(QStringLiteral("label"), group.value(QStringLiteral("label")).toString());
+        // Keep unknown extension fields and repeated source columns: each
+        // level may use a different interval, label or pagination policy.
+        QVariantMap out = group;
         normalized.append(out);
     }
     report.insert(QStringLiteral("groups"), normalized);
