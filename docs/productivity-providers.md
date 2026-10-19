@@ -135,9 +135,11 @@ Set `host`, `port` (993), `security` (`tls`), `userName`, `accountId`,
 `mailbox` (`INBOX`), `archiveMailbox` (`Archive`), `store` and
 `attachmentStore`.
 
-- `sync(requestId)` fetches flags for known UIDs (updates `unread`/`flagged`,
+- `sync(requestId)` fetches flags for known UIDs only (updates `unread`/`flagged`,
   removes messages expunged elsewhere) and then new UIDs (at most the
-  newest `fetchLimit`). Each new message becomes a record with
+  newest `fetchLimit`; with nothing known yet, only the newest
+  `fetchLimit` sequence numbers are listed, and bodies come in batches of
+  up to 25 messages or 16 MiB, D-353). Each new message becomes a record with
   `id == messageId == "imap:<accountId>:<mailbox>:<UIDVALIDITY>:<UID>"`,
   `internetMessageId`, `threadId` (the first `References` ID, else
   `In-Reply-To`, else its own Message-ID), sender, recipients, UTC `date`,

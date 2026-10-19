@@ -166,7 +166,7 @@ private slots:
         QCOMPARE(result.value(QStringLiteral("addedCount")).toInt(), 0);
         QCOMPARE(result.value(QStringLiteral("updatedCount")).toInt(), 0);
         QCOMPARE(result.value(QStringLiteral("removedCount")).toInt(), 0);
-        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 1:12 (UID FLAGS)")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 11:12 (UID FLAGS)")));
         QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 13:* (UID RFC822.SIZE)")));
 
         result = waitFor(provider, &ImapMailProvider::attachmentFinished, [&] {
@@ -216,6 +216,78 @@ private slots:
         QVERIFY(saved.open(QIODevice::ReadOnly));
         QVERIFY(!saved.readAll().contains(kSecret.toUtf8()));
         QVERIFY(!result.value(QStringLiteral("transcript")).toStringList().join(QLatin1Char('\n')).contains(kSecret));
+    }
+
+    void largeMailboxCostsOnlyWhatIsKept()
+    {
+        // D-353: a mailbox far larger than the fetch limit (the owner's Gmail
+        // inbox holds 158 000) lists only its newest messages, asks only for
+        // the flags of the stored ones and fetches bodies in batches.
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        ImapTestServer server;
+        server.user = QStringLiteral("ada");
+        server.secret = kSecret;
+        for (qint64 uid = 101; uid <= 130; ++uid)
+            server.add(uid, uid == 128 ? kPlainMessage + QByteArray(2000, 'x') : kPlainMessage);
+        LocalProductivityStore store;
+        store.setFilePath(directory.filePath(QStringLiteral("mail.json")));
+        ImapMailProvider provider;
+        configure(provider, server.port(), &store);
+        provider.setProperty("fetchLimit", 5);
+        provider.setProperty("maximumMessageBytes", 1000);
+
+        QVariantMap result = sync(provider, QStringLiteral("big-1"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        QCOMPARE(result.value(QStringLiteral("addedCount")).toInt(), 5);
+        QVERIFY(logHas(server.log, QStringLiteral(" FETCH 26:* (UID RFC822.SIZE)")));
+        QVERIFY(!logHas(server.log, QStringLiteral("UID FETCH 1:* (UID RFC822.SIZE)")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 126:127 (UID FLAGS BODY.PEEK[])")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 128 (UID FLAGS BODY.PEEK[HEADER])")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 129:130 (UID FLAGS BODY.PEEK[])")));
+        QCOMPARE(store.messages().size(), 5);
+        QVERIFY(message(store, QStringLiteral("imap:work:INBOX:1000:125")).isEmpty());
+        QVERIFY(message(store, QStringLiteral("imap:work:INBOX:1000:128")).value(QStringLiteral("bodyTruncated")).toBool());
+        QCOMPARE(message(store, QStringLiteral("imap:work:INBOX:1000:130")).value(QStringLiteral("bodyPlain")).toString(),
+                 QStringLiteral("Totals are €42.\n"));
+
+        // Another client reads 127, deletes 126 and delivers 131.
+        server.find(127)->flags.append(QStringLiteral("\\Seen"));
+        server.inbox.removeAt(25);
+        server.add(131, kLateMessage);
+        server.log.clear();
+        result = sync(provider, QStringLiteral("big-2"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        QCOMPARE(result.value(QStringLiteral("addedCount")).toInt(), 1);
+        QCOMPARE(result.value(QStringLiteral("updatedCount")).toInt(), 1);
+        QCOMPARE(result.value(QStringLiteral("removedCount")).toInt(), 1);
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 126:130 (UID FLAGS)")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 131:* (UID RFC822.SIZE)")));
+        for (const QString &line : std::as_const(server.log)) QVERIFY2(!line.contains(QStringLiteral("FETCH 1:")), qPrintable(line));
+        QVERIFY(!message(store, QStringLiteral("imap:work:INBOX:1000:127")).value(QStringLiteral("unread")).toBool());
+        QVERIFY(message(store, QStringLiteral("imap:work:INBOX:1000:126")).isEmpty());
+        QVERIFY(!message(store, QStringLiteral("imap:work:INBOX:1000:131")).isEmpty());
+    }
+
+    void largeBatchesSplitAtTheMessageCount()
+    {
+        // D-353: 30 new messages come in two FETCH commands (25 + 5).
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        ImapTestServer server;
+        server.user = QStringLiteral("ada");
+        server.secret = kSecret;
+        for (qint64 uid = 1; uid <= 30; ++uid) server.add(uid, kPlainMessage);
+        LocalProductivityStore store;
+        store.setFilePath(directory.filePath(QStringLiteral("mail.json")));
+        ImapMailProvider provider;
+        configure(provider, server.port(), &store);
+        const QVariantMap result = sync(provider, QStringLiteral("batch-1"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        QCOMPARE(result.value(QStringLiteral("addedCount")).toInt(), 30);
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 1:25 (UID FLAGS BODY.PEEK[])")));
+        QVERIFY(logHas(server.log, QStringLiteral("UID FETCH 26:30 (UID FLAGS BODY.PEEK[])")));
+        QCOMPARE(store.messages().size(), 30);
     }
 
     void loginQuotingOfflineAndConflicts()

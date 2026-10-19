@@ -10,12 +10,17 @@
 #include "mail_record.h"
 
 #include <QRegularExpression>
-#include <QSet>
+#include <QHash>
 #include <algorithm>
 
 namespace QindaTK::ImapJobs {
 namespace {
 QByteArray number(qint64 value) { return QByteArray::number(value); }
+
+// One sync's message bodies per FETCH command (D-353); 16 MiB keeps a batch
+// well inside Imap::Session's 64 MiB response cap.
+constexpr int BatchMessages = 25;
+constexpr qint64 BatchBytes = 16LL * 1024 * 1024;
 
 qint64 uidOf(const Imap::FetchItem &item)
 {
@@ -60,26 +65,31 @@ bool syncMailbox(Imap::Session &session, const Job &job, const Imap::SelectInfo 
         for (auto it = job.known.cbegin(); it != job.known.cend(); ++it) lastUid = std::max(lastUid, it.key());
     QVariantList updated, removed, added;
     if (!reset && !job.known.isEmpty()) {
-        QSet<qint64> seen;
-        if (exists > 0 && lastUid > 0) {
-            QList<QByteArray> untagged;
-            if (!session.command("UID FETCH 1:" + number(lastUid) + " (UID FLAGS)", &untagged)) return false;
-            for (const Imap::FetchItem &item : Imap::fetchItems(untagged)) {
-                const qint64 uid = uidOf(item);
-                if (!job.known.contains(uid)) continue;
-                seen.insert(uid);
-                QVariantMap fields = flagFields(job, ImapMessages::flagsOf(item.find("FLAGS")));
-                if (!changed(job, job.known.value(uid), fields)) continue;
-                fields.insert(QStringLiteral("uid"), uid);
-                updated.append(fields);
-            }
+        // AGENT-NOTE: only the messages the store holds are asked about. A
+        // 1:<last UID> range made the server report the flags of the whole
+        // mailbox on every sync: about a minute and megabytes for a Gmail
+        // inbox of 158 000 messages that keeps the newest 200 (D-353).
+        QMap<qint64, QStringList> flags;
+        if (exists > 0 && !ImapMessages::fetchFlags(session, job.known.keys(), &flags)) return false;
+        for (auto it = flags.cbegin(); it != flags.cend(); ++it) {
+            QVariantMap fields = flagFields(job, it.value());
+            if (!changed(job, job.known.value(it.key()), fields)) continue;
+            fields.insert(QStringLiteral("uid"), it.key());
+            updated.append(fields);
         }
         for (auto it = job.known.cbegin(); it != job.known.cend(); ++it)
-            if (!seen.contains(it.key())) removed.append(it.key());
+            if (!flags.contains(it.key())) removed.append(it.key());
     }
     if (exists > 0) {
+        // AGENT-NOTE: a first sync (or one after a UIDVALIDITY reset) of a
+        // mailbox larger than the fetch limit lists only its newest
+        // `fetchLimit` messages, by sequence number, instead of the size of
+        // every message in it (D-353).
+        const bool window = lastUid == 0 && job.fetchLimit > 0 && exists > job.fetchLimit;
+        const QByteArray listing = window ? "FETCH " + number(exists - job.fetchLimit + 1) + ":* (UID RFC822.SIZE)"
+                                          : "UID FETCH " + number(lastUid + 1) + ":* (UID RFC822.SIZE)";
         QList<QByteArray> untagged;
-        if (!session.command("UID FETCH " + number(lastUid + 1) + ":* (UID RFC822.SIZE)", &untagged)) return false;
+        if (!session.command(listing, &untagged)) return false;
         QList<QPair<qint64, qint64>> fresh;
         for (const Imap::FetchItem &item : Imap::fetchItems(untagged)) {
             const qint64 uid = uidOf(item);
@@ -89,17 +99,34 @@ bool syncMailbox(Imap::Session &session, const Job &job, const Imap::SelectInfo 
         std::sort(fresh.begin(), fresh.end());
         fresh.erase(std::unique(fresh.begin(), fresh.end()), fresh.end());
         if (job.fetchLimit > 0 && fresh.size() > job.fetchLimit) fresh = fresh.mid(fresh.size() - job.fetchLimit);
-        for (const auto &[uid, size] : std::as_const(fresh)) {
-            const bool truncated = size > job.maximumMessageBytes;
+        // Bodies in batches of up to BatchMessages / BatchBytes (a message
+        // over the size cap brings only its header): one round trip per
+        // message made a first sync of 200 take most of a minute (D-353).
+        for (qsizetype i = 0; i < fresh.size();) {
+            const bool truncated = fresh.at(i).second > job.maximumMessageBytes;
+            QList<qint64> batch;
+            qint64 bytes = 0;
+            qsizetype j = i;
+            for (; j < fresh.size() && batch.size() < BatchMessages; ++j) {
+                const qint64 size = fresh.at(j).second;
+                if ((size > job.maximumMessageBytes) != truncated) break;
+                if (!truncated && !batch.isEmpty() && bytes + size > BatchBytes) break;
+                batch.append(fresh.at(j).first);
+                if (!truncated) bytes += size;
+            }
             const QByteArray section = truncated ? "BODY.PEEK[HEADER]" : "BODY.PEEK[]";
-            QList<QByteArray> message;
-            if (!session.command("UID FETCH " + number(uid) + " (UID FLAGS " + section + ")", &message)) return false;
-            for (const Imap::FetchItem &item : Imap::fetchItems(message)) {
-                if (uidOf(item) != uid) continue;
-                const Imap::Value *body = item.find("BODY[");
-                added.append(messageRecord(job, validity, uid, ImapMessages::flagsOf(item.find("FLAGS")), size,
+            QList<QByteArray> messages;
+            if (!session.command("UID FETCH " + ImapMessages::uidSet(batch) + " (UID FLAGS " + section + ")", &messages))
+                return false;
+            QHash<qint64, Imap::FetchItem> items;
+            for (const Imap::FetchItem &item : Imap::fetchItems(messages)) items.insert(uidOf(item), item);
+            for (; i < j; ++i) {
+                const auto &[uid, size] = fresh.at(i);
+                const auto item = items.constFind(uid);
+                if (item == items.cend()) continue;               // expunged meanwhile
+                const Imap::Value *body = item->find("BODY[");
+                added.append(messageRecord(job, validity, uid, ImapMessages::flagsOf(item->find("FLAGS")), size,
                                            body ? body->text : QByteArray(), truncated));
-                break;
             }
         }
     }

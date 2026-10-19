@@ -15,6 +15,7 @@
 #include <QStringList>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <algorithm>
 #include <memory>
 
 #include "tls_test_support.h"
@@ -273,6 +274,9 @@ protected:
         } else if (upper.startsWith("UID FETCH ")) {
             fetch(c, rest.mid(10));
             ok("FETCH");
+        } else if (upper.startsWith("FETCH ")) {    // by sequence number (D-353)
+            fetch(c, rest.mid(6), true);
+            ok("FETCH");
         } else if (upper.startsWith("UID STORE ")) {
             const QList<QByteArray> parts = rest.split(' ');
             Message *message = find(parts.value(2).toLongLong());
@@ -330,20 +334,29 @@ protected:                   // imap_folder_test_server.h extends the mailbox co
         return chosen.mid(chosen.indexOf("\r\n\r\n") + 4);
     }
 
-    void fetch(Connection &c, const QByteArray &arguments)
+    // A UID set ("3:5,9", "13:*") or, with bySequence, a sequence set.
+    void fetch(Connection &c, const QByteArray &arguments, bool bySequence = false)
     {
         const qsizetype space = arguments.indexOf(' ');
         const QByteArray set = arguments.left(space);
         const QByteArray items = arguments.mid(space + 1).toUpper();
-        qint64 low = 0, high = 0, maxUid = 0;
+        qint64 maxUid = 0;
         for (const Message &message : std::as_const(inbox)) maxUid = std::max(maxUid, message.uid);
-        const QList<QByteArray> range = set.split(':');
-        low = range.value(0).toLongLong();
-        high = range.size() < 2 ? low : range.value(1) == "*" ? maxUid : range.value(1).toLongLong();
-        if (range.value(1) == "*" && low > maxUid) low = maxUid;        // RFC 3501: n:* includes the last message
+        const qint64 last = bySequence ? inbox.size() : maxUid;
+        QList<QPair<qint64, qint64>> ranges;
+        for (const QByteArray &piece : set.split(',')) {
+            const QList<QByteArray> range = piece.split(':');
+            qint64 low = range.value(0).toLongLong();
+            const qint64 high = range.size() < 2 ? low : range.value(1) == "*" ? last : range.value(1).toLongLong();
+            if (range.value(1) == "*" && low > last) low = last;        // RFC 3501: n:* includes the last message
+            ranges.append({std::min(low, high), std::max(low, high)});
+        }
         for (qsizetype i = 0; i < inbox.size(); ++i) {
             const Message &message = inbox.at(i);
-            if (message.uid < std::min(low, high) || message.uid > std::max(low, high)) continue;
+            const qint64 key = bySequence ? i + 1 : message.uid;
+            if (std::none_of(ranges.cbegin(), ranges.cend(),
+                             [key](const auto &r) { return key >= r.first && key <= r.second; }))
+                continue;
             QByteArray response = "* " + QByteArray::number(i + 1) + " FETCH (UID " + QByteArray::number(message.uid);
             if (items.contains("FLAGS")) response += " FLAGS (" + message.flags.join(QLatin1Char(' ')).toLatin1() + ")";
             if (items.contains("RFC822.SIZE")) response += " RFC822.SIZE " + QByteArray::number(message.source.size());

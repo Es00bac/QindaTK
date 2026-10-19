@@ -2588,3 +2588,16 @@ transaction. A parent Scroll can change the control's width synchronously in
 response to its implicit height; evaluating the column predicate within that
 transaction re-enters its own binding. Deferred, coalesced updates use the final
 host width and respond to theme threshold changes without feedback warnings.
+
+## D-353 — IMAP sync costs what the store keeps, not what the mailbox holds
+
+A Gmail inbox of 158 000 messages took about a minute per sync, and longer
+with two clients, before any message was stored: the sync asked for the flags
+of `1:<last UID>` and, on a first sync, the size of every message, then
+fetched each new body in its own round trip. Sync now asks for the flags of
+the known UIDs only (in `ImapMessages::fetchFlags` chunks), lists only the
+newest `fetchLimit` messages by sequence number when nothing is known yet (a
+first sync or a UIDVALIDITY reset of a mailbox larger than the limit), and
+fetches bodies in batches of up to 25 messages or 16 MiB. What is stored is
+unchanged: the newest `fetchLimit` messages, then every new one. Older mail
+stays on the server.
