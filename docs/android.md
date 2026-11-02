@@ -130,7 +130,10 @@ must bring its own TLS implementation or a Qt rebuilt with OpenSSL.
 
 ## Not qualified
 
-Only the smoke app's controls were looked at on a device. Tests are desktop-only
+No device run is recorded here yet: the phone was not attached to adb when the
+smoke APK was built, so only the desktop rendering of `AndroidSmoke.qml`
+(`qtk-preview --density touch`) was inspected. Install with
+`adb -s <serial> install -r` and look at a `screencap` before relying on DPI
+scaling, glyphs or safe-area insets. Tests are desktop-only
 (`BUILD_TESTING=OFF` in the preset); no Android instrumentation, input-method,
-accessibility, GPU or multi-window claim is made. See the evidence in the
-[handoff](../ops/team/messages/) for the device that was used.
+accessibility, GPU or multi-window claim is made.
