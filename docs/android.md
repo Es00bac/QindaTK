@@ -82,9 +82,23 @@ Rules that matter:
   `include/qindatk/`).
 - The window is edge to edge on current Android. Keep content clear of the
   system bars with `win.SafeArea.margins` (Qt 6.9+), as the smoke app does.
+- Reinstalling over a build signed with a different debug key fails with
+  `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; uninstall your own package first.
 - Signing: `androiddeployqt` produces an unsigned, `zipalign`ed-if-asked APK.
   Debug-sign it with `apksigner` and a keystore generated under the build
   directory (`keytool -genkeypair ...`); never commit keys.
+
+## No scripts in the Android qmldir
+
+`import QindaTK` fails on a device with `Script qrc:/android_rcc_bundle/qml/QindaTK/X.js
+unavailable` if the qmldir lists a `.js` file. androiddeployqt's `android_rcc_bundle`
+carries only `qmldir` and the typeinfo; components are served from the library's
+compiled resources through `prefer :/qt/qml/QindaTK/`, but the engine looks a
+script entry up in the bundle. The module's own QML imports scripts by relative
+path, so the Android build skips the qmldir script entries
+([D-355](decisions.md#d-355--android-qmldir-files-list-no-scripts-a-build-guard-checks-the-module)).
+The `qindatk_check_android_bundle` target (`cmake/CheckQmlModuleBundle.cmake`) runs in
+every Android build and fails if the qmldir names a missing file or any `.js`/`.mjs`.
 
 ## The smoke app
 
@@ -130,10 +144,14 @@ must bring its own TLS implementation or a Qt rebuilt with OpenSSL.
 
 ## Not qualified
 
-No device run is recorded here yet: the phone was not attached to adb when the
-smoke APK was built, so only the desktop rendering of `AndroidSmoke.qml`
-(`qtk-preview --density touch`) was inspected. Install with
-`adb -s <serial> install -r` and look at a `screencap` before relying on DPI
-scaling, glyphs or safe-area insets. Tests are desktop-only
+The smoke app ran on a physical phone (Samsung SM-S948U, Android 17, 1080x2340) and
+its screen was inspected: heading and caption, the Pairing panel (text field with
+placeholder, accent-on Switch, Cancel and accent Pair buttons), the Devices section
+header with its count and a four-row `VirtualList` whose Lucide icons all drew. Text
+and glyphs were crisp, Touch density gave roughly 48 dp controls that read as
+finger-sized, and the content sat below the status bar and above the three-button
+navigation bar, so the `SafeArea.margins` insets work. Not exercised: keyboard and
+IME entry into the field, scrolling, rotation, dark/light system switching.
+Tests are desktop-only
 (`BUILD_TESTING=OFF` in the preset); no Android instrumentation, input-method,
 accessibility, GPU or multi-window claim is made.
