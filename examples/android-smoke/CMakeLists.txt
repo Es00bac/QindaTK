@@ -19,8 +19,7 @@ qt_add_executable(qindatk-android-smoke main.cpp)
 qt_add_qml_module(qindatk-android-smoke
     URI QindaTKSmoke
     VERSION 1.0
-    QML_FILES AndroidSmoke.qml
-    NO_RESOURCE_TARGET_PATH)
+    QML_FILES AndroidSmoke.qml)
 target_link_libraries(qindatk-android-smoke PRIVATE ${smoke_qindatk}
     Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2)
 

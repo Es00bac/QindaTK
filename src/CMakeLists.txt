@@ -39,6 +39,17 @@ file(GLOB qindatk_js_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPE
 foreach(qml_file IN LISTS qindatk_qml_files qindatk_js_files)
     get_filename_component(qml_name "${qml_file}" NAME)
     set_source_files_properties("${qml_file}" PROPERTIES QT_RESOURCE_ALIAS "${qml_name}")
+    # AGENT-GUARD (D-355, docs/android.md): on Android no qmldir may name a .js
+    # file. androiddeployqt's android_rcc_bundle carries only qmldir and the
+    # typeinfo, and the engine resolves a qmldir *script* entry against that
+    # bundle path (not the module's `prefer`red qrc path), so one listed script
+    # makes `import QindaTK` fail with "Script qrc:/android_rcc_bundle/qml/QindaTK/X.js
+    # unavailable". The module's own QML imports these by relative path
+    # (`import "X.js" as X`), which resolves inside the module resources, so
+    # the entries are skipped there; desktop qmldir stays unchanged.
+    if(ANDROID AND qml_file MATCHES "\\.m?js$")
+        set_source_files_properties("${qml_file}" PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
+    endif()
     file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/${qml_file}" singleton_pragma REGEX "^pragma Singleton")
     if(singleton_pragma)
         set_source_files_properties("${qml_file}" PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -313,3 +324,17 @@ install(DIRECTORY core/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/qindatk"
     FILES_MATCHING PATTERN "*.h" PATTERN "*_p.h" EXCLUDE)
 install(EXPORT QindaTKTargets NAMESPACE QindaTK::
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/QindaTK")
+
+# AGENT-GUARD (D-355): fail the Android build when the module's qmldir names a
+# file that is missing from the module directory or one the Android bundle
+# cannot reach (a script). Runs on every Android build, after the plugin.
+if(ANDROID)
+    add_custom_target(qindatk_check_android_bundle ALL
+        COMMAND ${CMAKE_COMMAND}
+            -DMODULE_DIR=${CMAKE_BINARY_DIR}/qml/QindaTK
+            -DANDROID_BUNDLE=ON
+            -P ${PROJECT_SOURCE_DIR}/cmake/CheckQmlModuleBundle.cmake
+        COMMENT "Checking the QindaTK qmldir against the Android bundle rules"
+        VERBATIM)
+    add_dependencies(qindatk_check_android_bundle qindatk qindatkplugin)
+endif()

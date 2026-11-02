@@ -2627,3 +2627,25 @@ tests, accessibility, input methods and GPU paths are not qualified. A consumer
 must add `QindaTK_QML_IMPORT_PATH` to its `QT_QML_IMPORT_PATH` for
 `androiddeployqt` to bundle the plugin. Portage packaging of the Android build
 is a later milestone.
+
+## D-355 — Android qmldir files list no scripts; a build guard checks the module
+
+The first device run of an app importing QindaTK from the staged install failed
+with `Script qrc:/android_rcc_bundle/qml/QindaTK/CadViewportCommands.js
+unavailable`. The qmldir that `qt_add_qml_module` writes had a `Name 1.0 Name.js`
+entry for each of the nine `.js` files in `src/qml`. androiddeployqt's
+`android_rcc_bundle` holds only each module's `qmldir` and typeinfo (the
+components themselves come from the module's compiled resources through the
+qmldir's `prefer :/qt/qml/QindaTK/`), and the engine resolves a script entry
+against the bundle path, not the `prefer`red one. The files were staged and
+compiled into `libqindatk`, but the lookup never reaches them. Qt's own modules
+list no scripts in their qmldir for the same reason. The module's QML imports
+its scripts by relative path (`import "X.js" as X`), which resolves inside the
+module resources, so on Android the script entries are skipped
+(`QT_QML_SKIP_QMLDIR_ENTRY`); the desktop qmldir is unchanged.
+`cmake/CheckQmlModuleBundle.cmake` runs as the `qindatk_check_android_bundle`
+target of every Android build and fails when the qmldir names a missing file or,
+for Android, any `.js`/`.mjs`.
+**Consequences.** On Android an application cannot call `Tk.FormControls`-style
+script names (none is documented or used outside the module); a future script
+must be imported by relative path from a module QML file, or the guard fails.
