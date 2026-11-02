@@ -9,6 +9,7 @@
 #include <QtQml/qqmlregistration.h>
 #include <atomic>
 #include <memory>
+#include <version>
 
 namespace QindaTK {
 
@@ -78,6 +79,37 @@ private:
 
 using EngineScheduleSnapshotPtr = std::shared_ptr<const EngineScheduleSnapshot>;
 
+// AGENT-NOTE (D-354): the NDK's libc++ does not implement
+// std::atomic<std::shared_ptr<T>> (no __cpp_lib_atomic_shared_ptr), so the
+// snapshot slot falls back to the C++11 atomic_load/atomic_store overloads.
+// Both branches have the same acquire/release contract; desktop libstdc++
+// keeps the C++20 type.
+class EngineScheduleSlot {
+public:
+    EngineScheduleSnapshotPtr load(std::memory_order order) const
+    {
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+        return m_ptr.load(order);
+#else
+        return std::atomic_load_explicit(&m_ptr, order);
+#endif
+    }
+    void store(EngineScheduleSnapshotPtr value, std::memory_order order)
+    {
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+        m_ptr.store(std::move(value), order);
+#else
+        std::atomic_store_explicit(&m_ptr, std::move(value), order);
+#endif
+    }
+private:
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+    std::atomic<EngineScheduleSnapshotPtr> m_ptr;
+#else
+    EngineScheduleSnapshotPtr m_ptr;
+#endif
+};
+
 // Publishes a new snapshot whenever committed tempo or automation changes, or
 // a write pass changes a live value. acquire() is safe from any thread.
 class EngineSchedule : public QObject {
@@ -104,7 +136,7 @@ private:
     QPointer<TempoMapModel> m_tempo;
     QPointer<AutomationModel> m_automation;
     QList<QMetaObject::Connection> m_connections;
-    std::atomic<EngineScheduleSnapshotPtr> m_current;
+    EngineScheduleSlot m_current;
     quint64 m_generation = 0;
 };
 

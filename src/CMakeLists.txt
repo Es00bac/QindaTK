@@ -53,6 +53,23 @@ include(cmake/qindatk_sources_timeline_media.cmake)
 include(cmake/qindatk_sources_text_data.cmake)
 include(cmake/qindatk_sources_layout_canvas.cmake)
 
+# AGENT-NOTE (D-354): swap in the "unavailable" implementations for desktop
+# libraries a build omits. Each replacement keeps the QML-visible API of the
+# file it replaces and reports ErrorCode::Unavailable / an explanatory error.
+if(NOT QINDATK_ENABLE_LCMS2)
+    list(REMOVE_ITEM qindatk_app_sources core/color_engine.cpp core/color_profile.cpp)
+    list(APPEND qindatk_app_sources core/color_unavailable.cpp)
+endif()
+if(NOT QINDATK_ENABLE_LIBVTERM)
+    list(REMOVE_ITEM qindatk_app_sources core/terminal_session.cpp
+        core/terminal_session_screen.cpp core/terminal_session_input.cpp)
+    list(APPEND qindatk_app_sources core/terminal_session_unavailable.cpp)
+endif()
+if(NOT QINDATK_ENABLE_SQLITE)
+    list(REMOVE_ITEM qindatk_text_data_sources core/local_database_provider.cpp)
+    list(APPEND qindatk_text_data_sources core/local_database_provider_unavailable.cpp)
+endif()
+
 qt_add_library(qindatk SHARED)
 set_target_properties(qindatk PROPERTIES
     VERSION ${PROJECT_VERSION}
@@ -82,8 +99,24 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network
-    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
-    PUBLIC PkgConfig::VTERM)
+    PRIVATE Qt6::Svg Qt6::Concurrent)
+# AGENT-NOTE (D-354): each of these three desktop libraries has a source swap
+# in src/cmake/qindatk_sources_*.cmake. OFF compiles an "unavailable" variant of
+# the same C++ API instead (color_unavailable.cpp, local_database_provider_
+# unavailable.cpp, terminal_session_unavailable.cpp), so QML still loads.
+if(QINDATK_ENABLE_LCMS2)
+    target_link_libraries(qindatk PRIVATE PkgConfig::LCMS2)
+endif()
+if(QINDATK_ENABLE_SQLITE)
+    target_link_libraries(qindatk PRIVATE SQLite3::SQLite3)
+endif()
+# AGENT-CONTRACT (core/terminal_session.h): libvterm types appear in the public
+# header, so the build mode travels with the exported target: PUBLIC.
+if(QINDATK_ENABLE_LIBVTERM)
+    target_link_libraries(qindatk PUBLIC PkgConfig::VTERM)
+else()
+    target_compile_definitions(qindatk PUBLIC QINDATK_NO_LIBVTERM=1)
+endif()
 if(QINDATK_WITH_QUICK3D)
     target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
 endif()
@@ -145,27 +178,34 @@ endif()
 # (one process per plugin instance, and one per scanned binary) and talks to
 # it through core/audio_plugin_ipc_p.h. The CLAP headers (MIT, vendored in
 # third_party/clap) are used only here and by the test plugins.
-qt_add_executable(qindatk-plugin-host
-    pluginhost/plugin_host_main.cpp
-    pluginhost/plugin_host_library.cpp
-    pluginhost/plugin_host_instance.cpp
-    pluginhost/plugin_host_editor.cpp
-    pluginhost/plugin_host_audio.cpp
-    pluginhost/plugin_host_clap.h)
-qindatk_enable_warnings(qindatk-plugin-host)
-target_include_directories(qindatk-plugin-host PRIVATE core "${PROJECT_SOURCE_DIR}/third_party/clap/include")
-target_link_libraries(qindatk-plugin-host PRIVATE Qt6::Core ${CMAKE_DL_LIBS})
-set_target_properties(qindatk-plugin-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libexec")
-install(TARGETS qindatk-plugin-host RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/qindatk")
-# AGENT-CONTRACT (core/audio_plugin_types.cpp hostExecutable(), D-202): only
-# paths relative to libqindatk's directory are compiled in, never the build or
-# install prefix, so an installed QindaTK stays relocatable.
-file(RELATIVE_PATH qindatk_host_build_rel "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_BINARY_DIR}/libexec/qindatk-plugin-host")
-file(RELATIVE_PATH qindatk_host_install_rel "${CMAKE_INSTALL_FULL_LIBDIR}"
-    "${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host")
-set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFINITIONS
-    "QINDATK_PLUGIN_HOST_BUILD_REL=\"${qindatk_host_build_rel}\";QINDATK_PLUGIN_HOST_INSTALL_REL=\"${qindatk_host_install_rel}\"")
-add_dependencies(qindatk qindatk-plugin-host)
+if(QINDATK_ENABLE_PLUGIN_HOST)
+    qt_add_executable(qindatk-plugin-host
+        pluginhost/plugin_host_main.cpp
+        pluginhost/plugin_host_library.cpp
+        pluginhost/plugin_host_instance.cpp
+        pluginhost/plugin_host_editor.cpp
+        pluginhost/plugin_host_audio.cpp
+        pluginhost/plugin_host_clap.h)
+    qindatk_enable_warnings(qindatk-plugin-host)
+    target_include_directories(qindatk-plugin-host PRIVATE core "${PROJECT_SOURCE_DIR}/third_party/clap/include")
+    target_link_libraries(qindatk-plugin-host PRIVATE Qt6::Core ${CMAKE_DL_LIBS})
+    set_target_properties(qindatk-plugin-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libexec")
+    install(TARGETS qindatk-plugin-host RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/qindatk")
+    # AGENT-CONTRACT (core/audio_plugin_types.cpp hostExecutable(), D-202): only
+    # paths relative to libqindatk's directory are compiled in, never the build or
+    # install prefix, so an installed QindaTK stays relocatable.
+    file(RELATIVE_PATH qindatk_host_build_rel "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_BINARY_DIR}/libexec/qindatk-plugin-host")
+    file(RELATIVE_PATH qindatk_host_install_rel "${CMAKE_INSTALL_FULL_LIBDIR}"
+        "${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host")
+    set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFINITIONS
+        "QINDATK_PLUGIN_HOST_BUILD_REL=\"${qindatk_host_build_rel}\";QINDATK_PLUGIN_HOST_INSTALL_REL=\"${qindatk_host_install_rel}\"")
+    add_dependencies(qindatk qindatk-plugin-host)
+else()
+    # Android cannot exec a sibling binary: no host, so scans/instances report
+    # a missing host. The macros still need values for audio_plugin_types.cpp.
+    set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFINITIONS
+        "QINDATK_PLUGIN_HOST_BUILD_REL=\"\";QINDATK_PLUGIN_HOST_INSTALL_REL=\"\"")
+endif()
 
 if(QINDATK_ENABLE_WIDGETS AND TARGET Qt6::Widgets)
     add_library(qindatk_widgets STATIC

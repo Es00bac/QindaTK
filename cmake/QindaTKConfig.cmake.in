@@ -2,8 +2,12 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Qt6 COMPONENTS Core Gui Qml Quick Svg Network)
-find_dependency(PkgConfig)
-pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+# AGENT-CONTRACT (D-354): libvterm is a public link dependency of qindatk only
+# when it was built in; an Android (or libvterm-less) package has none.
+if(@QINDATK_ENABLE_LIBVTERM@)
+    find_dependency(PkgConfig)
+    pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/QindaTKTargets.cmake")
 
