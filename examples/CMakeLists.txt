@@ -61,6 +61,13 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software" TIMEOUT 60)
 endif()
 
+# Android: only the smoke app builds (docs/android.md). The render-queue demo host
+# below links desktop-only services and is run through the desktop build.
+if(ANDROID)
+    add_subdirectory(android-smoke)
+    return()
+endif()
+
 # Live render queue needs a host to prepare hashed source frames and route UI requests.
 qt_add_executable(qtk-render-queue-live render-queue-live/main.cpp
     render-queue-live/demo_host.cpp render-queue-live/demo_host.h)

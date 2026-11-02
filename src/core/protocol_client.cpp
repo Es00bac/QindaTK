@@ -4,13 +4,22 @@
 #include <QFutureWatcher>
 #include <QHostAddress>
 #include <QObject>
+#ifndef QT_NO_SSL
 #include <QSslSocket>
+#else
+#include <QTcpSocket>
+#endif
 #include <QtConcurrent/QtConcurrentRun>
 
 namespace QindaTK::Protocol {
 namespace {
 constexpr qsizetype MaximumLine = 1 << 20;
 constexpr int MaximumTranscript = 400;
+#ifndef QT_NO_SSL
+bool tlsSupported() { return QSslSocket::supportsSsl(); }
+#else
+bool tlsSupported() { return false; }
+#endif
 }
 
 bool isLoopbackHost(const QString &host)
@@ -81,17 +90,19 @@ bool Channel::open(const Endpoint &endpoint)
         return false;
     }
     const bool tls = endpoint.security == QLatin1String("tls");
-    if (tls && !QSslSocket::supportsSsl()) {
+    if (tls && !tlsSupported()) {
         fail(Failure::Rejected, QStringLiteral("TLS is not available in this Qt build"));
         return false;
     }
-    m_socket = std::make_unique<QSslSocket>();
+    m_socket = std::make_unique<ChannelSocket>();
     note(QStringLiteral("* connect %1:%2 (%3)").arg(endpoint.host).arg(endpoint.port)
              .arg(endpoint.security.isEmpty() ? QStringLiteral("none") : endpoint.security));
     bool ready = false;
     if (tls) {
+#ifndef QT_NO_SSL
         m_socket->connectToHostEncrypted(endpoint.host, endpoint.port);
         ready = m_socket->waitForEncrypted(endpoint.timeoutMs);
+#endif
     } else {
         m_socket->connectToHost(endpoint.host, endpoint.port);
         ready = m_socket->waitForConnected(endpoint.timeoutMs);
@@ -116,20 +127,26 @@ bool Channel::startTls()
         fail(Failure::Rejected, QStringLiteral("Server sent data before TLS started"));
         return false;
     }
-    if (!QSslSocket::supportsSsl()) {
+    if (!tlsSupported()) {
         fail(Failure::Rejected, QStringLiteral("TLS is not available in this Qt build"));
         return false;
     }
+#ifndef QT_NO_SSL
     m_socket->startClientEncryption();
     if (!m_socket->waitForEncrypted(m_endpoint.timeoutMs)) {
         fail(Failure::Rejected, QStringLiteral("TLS handshake failed: ") + m_socket->errorString());
         return false;
     }
+#endif
     note(QStringLiteral("* TLS established"));
     return true;
 }
 
+#ifndef QT_NO_SSL
 bool Channel::encrypted() const { return m_socket && m_socket->isEncrypted(); }
+#else
+bool Channel::encrypted() const { return false; }
+#endif
 
 bool Channel::authAllowed() const
 {

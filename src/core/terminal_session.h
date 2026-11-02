@@ -9,7 +9,13 @@
 #include <QTimer>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
+// AGENT-CONTRACT (D-354, src/CMakeLists.txt): QINDATK_NO_LIBVTERM is a PUBLIC
+// compile definition of qindatk when it was built without libvterm (Android).
+// The Q_PROPERTY/Q_INVOKABLE surface is identical either way; only the private
+// libvterm state differs, and terminal_session_unavailable.cpp implements it.
+#ifndef QINDATK_NO_LIBVTERM
 #include <vterm.h>
+#endif
 
 namespace QindaTK {
 
@@ -91,6 +97,7 @@ signals:
     void exited(int exitCode);
     void bell();
 private:
+#ifndef QINDATK_NO_LIBVTERM
     static int pushScrollback(int columns, const VTermScreenCell *cells, void *user);
     static int popScrollback(int columns, VTermScreenCell *cells, void *user);
     static int termProperty(VTermProp prop, VTermValue *value, void *user);
@@ -115,16 +122,19 @@ private:
     VTerm *m_vterm = nullptr;
     VTermScreen *m_vscreen = nullptr;
     VTermScreenCallbacks m_callbacks {};
+#endif
     QSocketNotifier *m_readNotifier = nullptr;
     QSocketNotifier *m_writeNotifier = nullptr;
     QTimer m_pollTimer;
     QTimer m_killTimer;
     QByteArray m_pendingInput;
+#ifndef QINDATK_NO_LIBVTERM
     // Raw cells preserve wide characters, SGR and palette indices in history.
     // The old plain-text property stays available for existing toolkit clients.
     std::deque<QList<VTermScreenCell>> m_history;
-    QStringList m_scrollback;
     QList<VTermColor> m_defaultPalette;
+#endif
+    QStringList m_scrollback;
     qulonglong m_scrollbackOffset = 0;
     QByteArray m_titleBytes;
     QString m_title;
@@ -135,8 +145,13 @@ private:
     bool m_alternateScreen = false;
     bool m_reverseScreen = false;
     bool m_cursorBlink = true;
+#ifndef QINDATK_NO_LIBVTERM
     int m_cursorShape = VTERM_PROP_CURSORSHAPE_BLOCK;
     int m_mouseMode = VTERM_PROP_MOUSE_NONE;
+#else
+    int m_cursorShape = 1;  // VTERM_PROP_CURSORSHAPE_BLOCK
+    int m_mouseMode = 0;    // VTERM_PROP_MOUSE_NONE
+#endif
     QVariantList m_screenRows;
     QString m_error;
     int m_master = -1;

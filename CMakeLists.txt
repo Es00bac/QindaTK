@@ -28,6 +28,19 @@ option(QINDATK_ENABLE_SHADER_TOOLS "Compile the optional GPU volume raycasting s
 option(QINDATK_ENABLE_DBUS "Enable native desktop notifications when Qt DBus is available" ON)
 option(QINDATK_ENABLE_WIDGETS "Build the optional qindatk_widgets adapters (native file dialog) with Qt Widgets" ON)
 option(QINDATK_ENABLE_NATIVE_PRINT "Add the native print backend (Qt PrintSupport) to qindatk_widgets" ON)
+# AGENT-NOTE (D-354): SQLite, lcms2, libvterm and the CLAP plugin-host process
+# are desktop libraries the Android NDK does not provide. They are required on
+# desktop (unchanged) and default OFF on Android, where the types that need
+# them still exist and report Unavailable. See docs/android.md.
+if(ANDROID)
+    set(qindatk_desktop_libs_default OFF)
+else()
+    set(qindatk_desktop_libs_default ON)
+endif()
+option(QINDATK_ENABLE_SQLITE "Link SQLite for LocalDatabaseProvider (OFF: the provider reports unavailable)" ${qindatk_desktop_libs_default})
+option(QINDATK_ENABLE_LCMS2 "Link lcms2 for ICC colour management (OFF: ColorProfile/ColorEngine report unavailable)" ${qindatk_desktop_libs_default})
+option(QINDATK_ENABLE_LIBVTERM "Link libvterm for TerminalSession (OFF: the session reports unavailable)" ${qindatk_desktop_libs_default})
+option(QINDATK_ENABLE_PLUGIN_HOST "Build the out-of-process CLAP plugin host executable" ${qindatk_desktop_libs_default})
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent Network)
 # AGENT-NOTE (D-199): every other Qt module, optional or not, is looked up
@@ -51,10 +64,16 @@ macro(qindatk_find_qt_module module)
     find_package(Qt6${module} ${Qt6_VERSION} EXACT ${ARGN} CONFIG
         PATHS "${QINDATK_QT_CMAKE_DIR}" NO_DEFAULT_PATH)
 endmacro()
-find_package(SQLite3 REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
-pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+if(QINDATK_ENABLE_SQLITE)
+    find_package(SQLite3 REQUIRED)
+endif()
+if(QINDATK_ENABLE_LCMS2)
+    pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
+endif()
+if(QINDATK_ENABLE_LIBVTERM)
+    pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
+endif()
 if(QINDATK_ENABLE_POPPLER_QT6)
     pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
     # AGENT-NOTE: a distro poppler-qt6 is built against the distro Qt. Linked
@@ -160,6 +179,10 @@ function(qindatk_write_feature_summary)
             "poppler:QINDATK_ENABLE_POPPLER_QT6;POPPLER_QT6_FOUND"
             "alsa:QINDATK_ENABLE_ALSA;QINDATK_ALSA_FOUND"
             "ffmpeg:QINDATK_ENABLE_FFMPEG;FFMPEG_FOUND"
+            "sqlite:QINDATK_ENABLE_SQLITE"
+            "lcms2:QINDATK_ENABLE_LCMS2"
+            "libvterm:QINDATK_ENABLE_LIBVTERM"
+            "pluginHost:QINDATK_ENABLE_PLUGIN_HOST"
             "quick3d:QINDATK_WITH_QUICK3D"
             "shaderTools:QINDATK_WITH_SHADER_TOOLS"
             "widgets:QINDATK_WITH_WIDGETS"

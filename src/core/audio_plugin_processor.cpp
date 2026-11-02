@@ -17,12 +17,21 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#ifdef __ANDROID__
+#include <linux/memfd.h>
+#endif
 
 namespace QindaTK {
 
 AudioPluginProcessor::AudioPluginProcessor()
 {
+#ifdef __ANDROID__
+    // AGENT-NOTE (D-354): bionic declares memfd_create only from API 30; the
+    // minimum here is 28, so call the syscall (present in every kernel Android 9+ ships).
+    m_fd = int(::syscall(SYS_memfd_create, "qindatk-plugin-block", MFD_CLOEXEC));
+#else
     m_fd = ::memfd_create("qindatk-plugin-block", MFD_CLOEXEC);
+#endif
     if (m_fd < 0 || ::ftruncate(m_fd, off_t(sizeof(PluginIpc::Block))) != 0) {
         m_error = QCoreApplication::translate("AudioPluginHost", "The shared audio block cannot be created");
         return;

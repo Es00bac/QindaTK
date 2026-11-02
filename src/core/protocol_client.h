@@ -10,7 +10,17 @@
 #include <memory>
 
 class QObject;
+// AGENT-NOTE (D-354): Qt for Android here is built without SSL, where
+// QSslSocket is only a forward declaration. The channel then rides on a plain
+// QTcpSocket and refuses "tls"/"starttls" with Failure::Rejected.
+#include <QtNetwork/qtnetworkglobal.h>
+#ifndef QT_NO_SSL
 class QSslSocket;
+using ChannelSocket = QSslSocket;
+#else
+class QTcpSocket;
+using ChannelSocket = QTcpSocket;
+#endif
 
 // Blocking line/byte channel shared by the SMTP, IMAP and CalDAV providers.
 // AGENT-NOTE: providers run one protocol exchange per worker-thread job
@@ -75,7 +85,7 @@ public:
 
 private:
     bool waitForData();
-    std::unique_ptr<QSslSocket> m_socket;
+    std::unique_ptr<ChannelSocket> m_socket;
     Endpoint m_endpoint;
     QByteArray m_buffer;
     QStringList m_transcript, m_secrets;

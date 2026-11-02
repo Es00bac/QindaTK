@@ -31,6 +31,33 @@
         "QINDATK_BUILD_TOOLS": "ON",
         "BUILD_TESTING": "OFF"
       }
+    },
+    {
+      "name": "android-arm64",
+      "displayName": "Android arm64-v8a (Release, Qt for Android, library + QML module only)",
+      "description": "docs/android.md. Needs Qt for Android 6.11 (Qt 6.8+) at /opt/qt6-android; override with -DCMAKE_TOOLCHAIN_FILE=... for another prefix.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android-arm64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "/opt/qt6-android/6.11.1/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/android-arm64/stage",
+        "QINDATK_BUILD_TOOLS": "OFF",
+        "QINDATK_BUILD_EXAMPLES": "ON",
+        "BUILD_TESTING": "OFF",
+        "QINDATK_ENABLE_POPPLER_QT6": "OFF",
+        "QINDATK_ENABLE_ALSA": "OFF",
+        "QINDATK_ENABLE_FFMPEG": "OFF",
+        "QINDATK_ENABLE_QUICK3D": "OFF",
+        "QINDATK_ENABLE_SHADER_TOOLS": "OFF",
+        "QINDATK_ENABLE_DBUS": "OFF",
+        "QINDATK_ENABLE_WIDGETS": "OFF",
+        "QINDATK_ENABLE_NATIVE_PRINT": "OFF",
+        "QINDATK_ENABLE_SQLITE": "OFF",
+        "QINDATK_ENABLE_LCMS2": "OFF",
+        "QINDATK_ENABLE_LIBVTERM": "OFF",
+        "QINDATK_ENABLE_PLUGIN_HOST": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -41,6 +68,10 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "android-arm64",
+      "configurePreset": "android-arm64"
     }
   ],
   "testPresets": [
