@@ -14,5 +14,9 @@ include("${CMAKE_CURRENT_LIST_DIR}/QindaTKTargets.cmake")
 # The QML module directory (contains qmldir, qmltypes and the plugin).
 # Informational (plain set: a DESTDIR-staged install must still configure).
 set(QindaTK_QML_DIR "@PACKAGE_QINDATK_QML_INSTALL_DIR@")
+# The directory that CONTAINS the QindaTK module: what an application adds to
+# its QML import path. Android consumers append it to the app target's
+# QT_QML_IMPORT_PATH so androiddeployqt bundles the plugin (docs/android.md).
+cmake_path(GET QindaTK_QML_DIR PARENT_PATH QindaTK_QML_IMPORT_PATH)
 
 check_required_components(QindaTK)

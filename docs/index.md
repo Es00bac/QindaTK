@@ -97,6 +97,7 @@ pages below are the reference.
 | [decisions.md](decisions.md), [decisions-application.md](decisions-application.md), [decisions-services.md](decisions-services.md), [decisions-domains.md](decisions-domains.md) | ADR-lite logs of durable choices |
 | [verification.md](verification.md) | Build/test gates, headless verification, manual checklist |
 | [platform-support.md](platform-support.md) | Tested Qt/platform/backend matrix, open qualification gates and upgrade procedure |
+| [android.md](android.md) | Android arm64 build preset, consumer recipe (`QindaTK_QML_IMPORT_PATH`), smoke app, what is off there and why (D-354) |
 | [qualification.md](qualification.md) | WP-088 Linux qualification harness (`tools/qualify`): configuration × operation matrix, optional-engine variants, install relocation, result table |
 | [overflow-diagnostics-20260919.md](overflow-diagnostics-20260919.md) | Source diagnosis and scope of the menu/dialog overflow repair |
 | [Universal toolkit audit and proposal](universal-toolkit/README.md) | Current component reference, creative/Office/audio/video gap reports, hypothetical extension documentation and implementation roadmap |

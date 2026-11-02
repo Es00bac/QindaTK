@@ -5,17 +5,15 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 
-#include "density.h"
-#include "theme.h"
-
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
     // AGENT-NOTE: the Basic style carries no platform look; QindaTK controls are
     // QtQuick.Templates plus their own visuals, so the style only needs to exist.
     QQuickStyle::setStyle(QStringLiteral("Basic"));
-    QindaTK::Theme::instance()->applyPreset(QStringLiteral("sloom-dark"));
-    QindaTK::Density::instance()->setMode(QindaTK::Density::Touch);
+    // Theme and density are set from QML (Component.onCompleted in
+    // AndroidSmoke.qml), so this file needs no QindaTK C++ header and the
+    // example builds both in-tree and against an installed QindaTK.
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,

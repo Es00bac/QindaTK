@@ -2601,3 +2601,29 @@ first sync or a UIDVALIDITY reset of a mailbox larger than the limit), and
 fetches bodies in batches of up to 25 messages or 16 MiB. What is stored is
 unchanged: the newest `fetchLimit` messages, then every new one. Older mail
 stays on the server.
+
+## D-354 — Android arm64 is a supported target; desktop-only backends are off there
+
+QindaLink's phone UI is built with QindaTK, so the toolkit builds for Android
+arm64-v8a with the installed Qt for Android 6.11 (`cmake --preset
+android-arm64`, [android.md](android.md)). Four libraries the NDK lacks stay
+required on desktop but become switches that default OFF on Android:
+`QINDATK_ENABLE_SQLITE`, `QINDATK_ENABLE_LCMS2`, `QINDATK_ENABLE_LIBVTERM` and
+`QINDATK_ENABLE_PLUGIN_HOST` (the CLAP host is a separate executable, which
+Android cannot start). Each omitted library swaps in an "unavailable"
+implementation of the same C++/QML API (`color_unavailable.cpp`,
+`local_database_provider_unavailable.cpp`, `terminal_session_unavailable.cpp`),
+so every QML file still loads and the type reports `Unavailable` rather than
+failing to link; the alternative of vendoring SQLite, lcms2 and libvterm was
+rejected because the phone UI uses none of those subsystems. `terminal_session.h`
+exposes libvterm types, so a build without it defines `QINDATK_NO_LIBVTERM`
+publicly on the exported target, and the installed package config only looks for
+libvterm when it was built in. Qt for Android here has no SSL, so
+`Protocol::Channel` falls back to a plain `QTcpSocket` and refuses TLS.
+Two source fixes are not Android-conditional in behaviour: the schedule snapshot
+slot and `memfd_create` ([android.md](android.md#source-compatibility-fixes-made-for-the-ndk)).
+**Consequences.** Desktop defaults, behaviour and tests are unchanged. Android
+tests, accessibility, input methods and GPU paths are not qualified. A consumer
+must add `QindaTK_QML_IMPORT_PATH` to its `QT_QML_IMPORT_PATH` for
+`androiddeployqt` to bundle the plugin. Portage packaging of the Android build
+is a later milestone.

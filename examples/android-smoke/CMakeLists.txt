@@ -24,6 +24,14 @@ qt_add_qml_module(qindatk-android-smoke
 target_link_libraries(qindatk-android-smoke PRIVATE ${smoke_qindatk}
     Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2)
 
+# androiddeployqt bundles QML plugins only from the import paths it is given.
+# In-tree the module's output directory is derived automatically; against an
+# installed QindaTK it must be named (QindaTK_QML_IMPORT_PATH, from the package).
+if(DEFINED QindaTK_QML_IMPORT_PATH)
+    set_property(TARGET qindatk-android-smoke APPEND PROPERTY
+        QT_QML_IMPORT_PATH "${QindaTK_QML_IMPORT_PATH}")
+endif()
+
 set_target_properties(qindatk-android-smoke PROPERTIES
     QT_ANDROID_PACKAGE_NAME "org.qindatk.smoke"
     QT_ANDROID_VERSION_NAME "0.1.0"

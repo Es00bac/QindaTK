@@ -11,16 +11,22 @@ Window {
     color: Tk.Theme.color.bg
     title: "QindaTK smoke"
 
+    // AGENT-NOTE: theme and density are process-wide singletons (docs/theming.md).
+    Component.onCompleted: {
+        Tk.Theme.applyPreset("sloom-dark")
+        Tk.Density.mode = Tk.Density.Touch
+    }
+
     // Edge-to-edge window: keep content out of the status and navigation bars.
     readonly property real insetTop: win.SafeArea.margins.top
     readonly property real insetBottom: win.SafeArea.margins.bottom
 
     ListModel {
         id: devices
-        ListElement { id: "d1"; label: "Desktop"; secondary: "QindaQt, paired"; icon: "monitor" }
-        ListElement { id: "d2"; label: "Laptop"; secondary: "Last seen 4 min ago"; icon: "laptop" }
-        ListElement { id: "d3"; label: "Tablet"; secondary: "Not paired"; icon: "tablet" }
-        ListElement { id: "d4"; label: "Media PC"; secondary: "Offline"; icon: "tv" }
+        ListElement { key: "d1"; label: "Desktop"; secondary: "QindaQt, paired"; icon: "monitor" }
+        ListElement { key: "d2"; label: "Laptop"; secondary: "Last seen 4 min ago"; icon: "cpu" }
+        ListElement { key: "d3"; label: "Tablet"; secondary: "Not paired"; icon: "smartphone" }
+        ListElement { key: "d4"; label: "Media PC"; secondary: "Offline"; icon: "monitor-play" }
     }
 
     Tk.Flex {
@@ -39,6 +45,7 @@ Window {
             objectName: "smokePanel"
             title: "Pairing"
             collapsible: false
+            grip: false
             Tk.Flex.shrink: 0
 
             Tk.Flex {
@@ -65,14 +72,12 @@ Window {
                         objectName: "smokeCancel"
                         text: "Cancel"
                         tooltip: "Cancel pairing"
-                        Tk.Grid.fill: true
                     }
                     Tk.Button {
                         objectName: "smokePair"
                         text: "Pair"
                         variant: "accent"
                         tooltip: "Start pairing"
-                        Tk.Grid.fill: true
                     }
                 }
             }
@@ -82,6 +87,7 @@ Window {
         Tk.VirtualList {
             objectName: "smokeList"
             model: devices
+            idRole: "key"
             tooltip: "Known devices"
             Tk.Flex.grow: 1
             Tk.Flex.basis: 0
