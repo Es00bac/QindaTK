@@ -6,6 +6,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTimer>
+#include <functional>
 #include <optional>
 #ifdef QINDATK_HAVE_DBUS
 #include "global_menu_hosted_p.h"
@@ -18,6 +19,7 @@
 #include <QDBusServiceWatcher>
 #include <QGuiApplication>
 #include <QPlatformSurfaceEvent>
+#include <QXmlStreamReader>
 #include <QtGui/private/qdesktopunixservices_p.h>
 #include <QtGui/private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformintegration.h>
@@ -36,13 +38,62 @@ constexpr auto kRegistrarService = "com.canonical.AppMenu.Registrar";
 constexpr auto kRegistrarPath = "/com/canonical/AppMenu/Registrar";
 constexpr auto kRegistrarInterface = "com.canonical.AppMenu.Registrar";
 // AGENT-CONTRACT: the QindaQt AppShell export path (container-wm
-// src/app_shell/menu_export). Its presence means the application owns a
-// desktop menu for its window already.
+// src/app_shell/menu_export); a fast path of appOwnsDesktopMenu().
 constexpr auto kAppShellMenuPath = "/org/qindaqt/AppShell/Menu";
+constexpr auto kDbusMenuInterface = "com.canonical.dbusmenu";
 constexpr auto kWindowClaim = "_qindatk_globalMenuOwner";
 int g_pathSerial = 0;
 
 QString s(const char *latin) { return QString::fromLatin1(latin); }
+
+// True when this process already serves com.canonical.dbusmenu at any path
+// other than QindaTK's own exports: the application publishes its desktop
+// menu itself (QindaQt AppShell, QindaOffice's exporter, anything else).
+// Walks the connection's own object tree by local introspection (QtDBus
+// answers calls to its own unique name in-process).
+bool appOwnsDesktopMenu(const QDBusConnection &bus)
+{
+    if (bus.objectRegisteredAt(QString::fromLatin1(kAppShellMenuPath)))
+        return true;
+    int budget = 256;
+    std::function<bool(const QString &, int)> walk = [&](const QString &path, int depth) -> bool {
+        if (--budget < 0 || depth > 12)
+            return false;
+        QDBusMessage call = QDBusMessage::createMethodCall(bus.baseService(), path,
+            QStringLiteral("org.freedesktop.DBus.Introspectable"), QStringLiteral("Introspect"));
+        const QDBusMessage reply = bus.call(call, QDBus::Block, 500);
+        if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty())
+            return false;
+        QXmlStreamReader xml(reply.arguments().constFirst().toString());
+        QStringList children;
+        bool menuHere = false;
+        int level = 0;
+        while (!xml.atEnd()) {
+            const auto token = xml.readNext();
+            if (token == QXmlStreamReader::StartElement) {
+                ++level;
+                if (xml.name() == QLatin1String("interface")
+                    && xml.attributes().value(QLatin1String("name")) == QLatin1String(kDbusMenuInterface))
+                    menuHere = true;
+                else if (xml.name() == QLatin1String("node") && level == 2)
+                    children << xml.attributes().value(QLatin1String("name")).toString();
+            } else if (token == QXmlStreamReader::EndElement) {
+                --level;
+            }
+        }
+        if (menuHere && !path.startsWith(QLatin1String("/org/qindatk/GlobalMenu/")))
+            return true;
+        for (const QString &child : std::as_const(children)) {
+            if (child.isEmpty())
+                continue;
+            if (walk(path == QLatin1String("/") ? QLatin1Char('/') + child : path + QLatin1Char('/') + child,
+                     depth + 1))
+                return true;
+        }
+        return false;
+    };
+    return walk(QStringLiteral("/"), 0);
+}
 
 QDesktopUnixServices *unixServices()
 {
@@ -101,6 +152,7 @@ struct GlobalMenuExport::Private {
     void retireIdentity();
     void queryHosted();
     void subscribeHosted(bool on);
+    void standAside();
 #endif
 };
 
@@ -136,8 +188,8 @@ void GlobalMenuExport::Private::start()
         setStatus(s("no-session-bus"));
         return;
     }
-    if (bus.objectRegisteredAt(s(kAppShellMenuPath))) {
-        setStatus(s("app-shell"));   // the application exports this window itself
+    if (appOwnsDesktopMenu(bus)) {
+        setStatus(s("app-menu"));    // the application publishes its desktop menu itself
         return;
     }
     QObject *claim = window->property(kWindowClaim).value<QObject *>();
@@ -176,6 +228,13 @@ void GlobalMenuExport::Private::start()
     QObject::connect(watcher.get(), &QDBusServiceWatcher::serviceOwnerChanged, q,
                      [this](const QString &, const QString &, const QString &owner) { handleOwner(owner); });
     setStatus(s("waiting-for-registrar"));
+    // Applications that start their own export a little later still win:
+    // look again shortly after publishing (see standAside()).
+    for (int delay : { 1000, 4000 })
+        QTimer::singleShot(delay, q, [this] {
+            if (started && appOwnsDesktopMenu(bus))
+                standAside();
+        });
     QDBusMessage call = QDBusMessage::createMethodCall(s("org.freedesktop.DBus"), s("/org/freedesktop/DBus"),
                                                        s("org.freedesktop.DBus"), s("GetNameOwner"));
     call << s(kRegistrarService);
@@ -301,6 +360,18 @@ void GlobalMenuExport::Private::queryHosted()
         if (started && serial == expected && status == QLatin1String("published"))
             setHosted(reply.isValid() && reply.value());
     });
+}
+
+void GlobalMenuExport::Private::standAside()
+{
+    // AGENT-GUARD: the application's own export announced the window after
+    // ours, so the window's announcement is theirs now. Withdrawing it here
+    // (unregisterDBusMenuForWindow / UnregisterWindow) would erase their
+    // menu; only our D-Bus object goes.
+    waylandPublished = false;
+    x11Window.reset();
+    stop();
+    setStatus(s("app-menu"));
 }
 
 void GlobalMenuExport::Private::stop()

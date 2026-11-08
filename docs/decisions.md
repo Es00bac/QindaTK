@@ -2668,8 +2668,10 @@ and handshake of container-wm's global-menu stack (`src/shell/global_menu`,
 `src/app_shell/menu_export`), because the desktop's own applications depend on
 QindaTK and the reverse dependency would be a cycle. Fail-closed throughout:
 any failure keeps the in-window bar. Windows whose application already exports
-through the AppShell keep that export (the toolkit stands aside), so no window
-ever publishes two menus.
+its own desktop menu keep that export (the toolkit stands aside), so no window
+ever publishes two menus (generalised to any application-owned
+`com.canonical.dbusmenu` object, e.g. QindaOffice's own exporter, after the
+live check found it).
 **Consequences.** Every QindaTK application with a `Tk.MenuBar` shows its menus
 in the panel after a toolkit update, with no application change or rebuild.
 The library links Qt DBus where available and uses Qt GUI private API for the

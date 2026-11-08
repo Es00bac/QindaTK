@@ -322,9 +322,46 @@ private slots:
         std::unique_ptr<QQuickWindow> w(createWindow());
         GlobalMenuExport *exporter = exportOf(w.get());
         w->show();
-        QTRY_COMPARE(exporter->status(), QString("app-shell"));
+        QTRY_COMPARE(exporter->status(), QString("app-menu"));
         QVERIFY(!exporter->hosted());
         bus.unregisterObject("/org/qindaqt/AppShell/Menu");
+    }
+
+    void appsWithTheirOwnExporterKeepIt()
+    {
+        // Any com.canonical.dbusmenu object in the process (QindaOffice-style
+        // path) means the application publishes its desktop menu itself.
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected())
+            QSKIP("needs a (private) session bus");
+        GlobalMenu::Server appMenu;
+        const QString appPath = QStringLiteral("/org/qindaqt/QindaOffice/QindaWrite/Menu/1");
+        QVERIFY(bus.registerObject(appPath, &appMenu, QDBusConnection::ExportScriptableContents));
+        std::unique_ptr<QQuickWindow> w(createWindow());
+        GlobalMenuExport *exporter = exportOf(w.get());
+        w->show();
+        QTRY_COMPARE(exporter->status(), QString("app-menu"));
+        QCOMPARE(exporter->objectPath(), QString());
+        bus.unregisterObject(appPath);
+    }
+
+    void lateAppExporterWins()
+    {
+        QDBusConnection bus = QDBusConnection::sessionBus();
+        if (!bus.isConnected())
+            QSKIP("needs a (private) session bus");
+        std::unique_ptr<QQuickWindow> w(createWindow());
+        GlobalMenuExport *exporter = exportOf(w.get());
+        w->show();
+        QTRY_COMPARE(exporter->status(), QString("published"));
+        const QString ours = exporter->objectPath();
+        GlobalMenu::Server appMenu;
+        const QString appPath = QStringLiteral("/org/example/App/Menu");
+        QVERIFY(bus.registerObject(appPath, &appMenu, QDBusConnection::ExportScriptableContents));
+        QTRY_COMPARE_WITH_TIMEOUT(exporter->status(), QString("app-menu"), 6000);
+        QVERIFY(!bus.objectRegisteredAt(ours));
+        QVERIFY(!exporter->hosted());
+        bus.unregisterObject(appPath);
     }
 
     void oneDesktopMenuPerWindow()

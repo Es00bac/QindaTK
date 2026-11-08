@@ -89,9 +89,13 @@ Everything else is fail-closed and keeps the in-window bar: no session bus,
 no registrar, a platform without window announcements (offscreen, eglfs), a
 QindaTK build without Qt DBus (`status` `unavailable`), or the panel not
 showing the menu. Exactly one bar exports per window (`duplicate` for the
-rest). An application that already exports its window through the QindaQt
-AppShell (`/org/qindaqt/AppShell/Menu`, `composeFirstPartyMenuExport`) keeps
-that export; the toolkit stands aside (`app-shell`).
+rest). An application that publishes its desktop menu itself — any
+`com.canonical.dbusmenu` object in the process outside `/org/qindatk/GlobalMenu`,
+such as the QindaQt AppShell (`composeFirstPartyMenuExport`) or QindaOffice's
+exporter — keeps that export and the toolkit stands aside (`app-menu`). The
+check runs when the export starts and again one and four seconds later; a
+late application export makes the toolkit withdraw only its own object and
+leave the window's announcement, which is the application's by then.
 
 Keyboard shortcuts stay the application's own `Shortcut` items, as before: the
 exported `shortcut` is display text. `QT_LOGGING_RULES="qindatk.globalmenu.debug=true"`
