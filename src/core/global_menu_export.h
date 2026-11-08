@@ -8,9 +8,10 @@
 // becomes true only when the QindaQt registrar confirms the panel shows this
 // menu (IsMenuHosted / MenuHostedChanged); Tk.MenuBar then collapses. Every
 // other outcome is fail-closed: the in-window bar stays.
-// An application that already exports its window through the QindaQt
-// AppShell (/org/qindaqt/AppShell/Menu) keeps that export; this one stands
-// aside (status "app-shell") so a window never has two desktop menus.
+// An application that publishes its desktop menu itself (any
+// com.canonical.dbusmenu object in the process: the QindaQt AppShell,
+// QindaOffice's exporter, ...) keeps that export; this one stands aside
+// (status "app-menu") so a window never has two desktop menus.
 #include <QObject>
 #include <QString>
 #include <QtQml/qqmlparserstatus.h>
@@ -25,7 +26,7 @@ class GlobalMenuExport : public QObject, public QQmlParserStatus {
     Q_INTERFACES(QQmlParserStatus)
     Q_PROPERTY(QObject *menuBar READ menuBar WRITE setMenuBar NOTIFY menuBarChanged)
     Q_PROPERTY(bool hosted READ hosted NOTIFY hostedChanged)
-    // "unavailable" (no D-Bus build), "idle", "no-session-bus", "app-shell",
+    // "unavailable" (no D-Bus build), "idle", "no-session-bus", "app-menu",
     // "duplicate", "waiting-for-registrar", "published", "unsupported-platform",
     // "register-failed"
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
