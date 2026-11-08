@@ -74,6 +74,9 @@ set(qindatk_app_sources
     core/mail_record.cpp core/mail_record.h
     core/calendar_mail.cpp core/calendar_mail.h
     core/desktop_notifications.cpp core/desktop_notifications.h
+    core/global_menu_export.cpp core/global_menu_export.h
+    core/global_menu_projection.cpp core/global_menu_projection_p.h
+    core/global_menu_server.cpp core/global_menu_server_p.h core/global_menu_hosted_p.h
     core/manage_sieve_client.cpp core/manage_sieve_client.h
     core/manage_sieve_jobs.cpp core/manage_sieve_jobs.h
     core/pop3_session.cpp core/pop3_session.h

@@ -2649,3 +2649,32 @@ for Android, any `.js`/`.mjs`.
 **Consequences.** On Android an application cannot call `Tk.FormControls`-style
 script names (none is documented or used outside the module); a future script
 must be imported by relative path from a module QML file, or the guard fails.
+
+## D-361 — Every Tk.MenuBar is published to the desktop global menu; no opt-out
+
+On the QindaQt desktop an application's menus belong in the panel's global
+menu. Until now only applications that wrote a second, C++ menu model for the
+QindaQt AppShell (`ApplicationCoordinator` + `composeFirstPartyMenuExport`)
+reached it; every other QindaTK application kept its menus in the window,
+and an application author could forget the export entirely. The owner's
+requirement is that a QindaTK application cannot be made without global-menu
+support.
+**Decision.** `Tk.MenuBar` owns a `Tk.GlobalMenuExport` that publishes the
+bar's live menu tree as `com.canonical.dbusmenu`, announces it for the bar's
+window, and collapses the bar while the QindaQt registrar confirms the panel
+hosts it (`IsMenuHosted`/`MenuHostedChanged`). There is no switch to disable
+it. The transport is implemented in QindaTK (LGPL), following the wire format
+and handshake of container-wm's global-menu stack (`src/shell/global_menu`,
+`src/app_shell/menu_export`), because the desktop's own applications depend on
+QindaTK and the reverse dependency would be a cycle. Fail-closed throughout:
+any failure keeps the in-window bar. Windows whose application already exports
+through the AppShell keep that export (the toolkit stands aside), so no window
+ever publishes two menus.
+**Consequences.** Every QindaTK application with a `Tk.MenuBar` shows its menus
+in the panel after a toolkit update, with no application change or rebuild.
+The library links Qt DBus where available and uses Qt GUI private API for the
+Wayland announcement (already tied to the exact Qt build, D-096). Exported
+shortcuts are display text; shortcut handling stays in the application. The
+AppShell path remains for applications that want a C++-owned action model;
+when container-wm adopts this transport the duplicated wire code can go.
+Tests: `tst_global_menu` (private bus, fake registrar).

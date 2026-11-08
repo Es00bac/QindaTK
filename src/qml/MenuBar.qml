@@ -20,6 +20,18 @@ T.MenuBar {
     id: bar
 
     property bool overflowEnabled: true
+    // AGENT-CONTRACT (D-361, docs/native-integration.md): every Tk.MenuBar is
+    // published to the desktop's global menu; there is deliberately no switch
+    // to turn that off. While the desktop confirms it shows this menu
+    // (`desktopHosted`), the in-window bar collapses to zero height and its
+    // Alt mnemonics stand down; in every other case (no global-menu panel,
+    // offscreen, a non-QindaQt desktop, an app that exports through the
+    // QindaQt AppShell itself) it stays the normal in-window bar.
+    readonly property Tk.GlobalMenuExport globalMenu: Tk.GlobalMenuExport {
+        objectName: "menuBarGlobalMenu"
+        menuBar: bar
+    }
+    readonly property bool desktopHosted: globalMenu.hosted
     readonly property int overflowCount: _overflowList.length
     readonly property var overflowMenus: _overflowList
     readonly property Tk.Menu overflowMenu: Tk.Menu {
@@ -42,8 +54,9 @@ T.MenuBar {
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             Math.max(contentWidth, _fullWidth) + leftPadding + rightPadding)
-    implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
-                             contentHeight + topPadding + bottomPadding)
+    implicitHeight: desktopHosted ? 0
+                                  : Math.max(implicitBackgroundHeight + topInset + bottomInset,
+                                             contentHeight + topPadding + bottomPadding)
     padding: 0
     leftPadding: Tk.Theme.space.xs
     rightPadding: Tk.Theme.space.xs
@@ -192,6 +205,7 @@ T.MenuBar {
     }
 
     contentItem: Row {
+        visible: !bar.desktopHosted
         spacing: bar.spacing
         Repeater {
             model: bar.contentModel
@@ -199,6 +213,7 @@ T.MenuBar {
     }
 
     background: Rectangle {
+        visible: !bar.desktopHosted
         implicitHeight: Tk.Theme.size.statusBar
         color: Tk.Theme.color.surface
         Rectangle {

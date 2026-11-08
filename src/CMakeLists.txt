@@ -81,6 +81,16 @@ if(NOT QINDATK_ENABLE_SQLITE)
     list(APPEND qindatk_text_data_sources core/local_database_provider_unavailable.cpp)
 endif()
 
+# Desktop global menu (D-361): the dbusmenu transport needs Qt6::DBus. Without
+# it GlobalMenuExport stays in the module, reports "unavailable" and every
+# Tk.MenuBar keeps its in-window bar.
+if(QINDATK_ENABLE_DBUS)
+    qindatk_find_qt_module(DBus QUIET)
+endif()
+if(NOT (QINDATK_ENABLE_DBUS AND TARGET Qt6::DBus))
+    list(REMOVE_ITEM qindatk_app_sources core/global_menu_server.cpp core/global_menu_server_p.h
+        core/global_menu_hosted_p.h)
+endif()
 qt_add_library(qindatk SHARED)
 set_target_properties(qindatk PROPERTIES
     VERSION ${PROJECT_VERSION}
@@ -179,9 +189,11 @@ if(QINDATK_ENABLE_DBUS AND TARGET Qt6::DBus)
     # Keep optional D-Bus headers local to the adapter; the rest of the
     # toolkit and its public header remain usable without this Qt module.
     target_link_libraries(qindatk PRIVATE "$<LINK_ONLY:Qt6::DBus>")
-    set_source_files_properties(core/desktop_notifications.cpp PROPERTIES
+    set_source_files_properties(core/desktop_notifications.cpp core/global_menu_export.cpp PROPERTIES
         COMPILE_DEFINITIONS QINDATK_HAVE_DBUS=1
         INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:Qt6::DBus,INTERFACE_INCLUDE_DIRECTORIES>")
+    # The global-menu transport headers (and their moc output) use QtDBus types.
+    target_include_directories(qindatk PRIVATE "$<TARGET_PROPERTY:Qt6::DBus,INTERFACE_INCLUDE_DIRECTORIES>")
 endif()
 
 # ---- out-of-process plugin host (WP-066, D-190, docs/audio-plugins.md) ----

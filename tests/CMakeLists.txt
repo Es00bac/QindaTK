@@ -465,5 +465,13 @@ if(QINDATK_ENABLE_DBUS AND TARGET Qt6::DBus)
         qindatk_enable_warnings(tst_desktop_notifications)
         target_link_libraries(tst_desktop_notifications PRIVATE qindatk Qt6::Test Qt6::DBus)
         add_test(NAME tst_desktop_notifications COMMAND ${QINDATK_DBUS_RUN_SESSION} -- $<TARGET_FILE:tst_desktop_notifications>)
+        # D-361: global-menu export against a fake QindaQt registrar.
+        qt_add_executable(tst_global_menu cpp/tst_global_menu.cpp)
+        qindatk_enable_warnings(tst_global_menu)
+        target_link_libraries(tst_global_menu PRIVATE qindatk Qt6::Test Qt6::Quick Qt6::DBus)
+        target_compile_definitions(tst_global_menu PRIVATE QINDATK_BUILD_QML_DIR="${CMAKE_BINARY_DIR}/qml")
+        add_test(NAME tst_global_menu COMMAND ${QINDATK_DBUS_RUN_SESSION} -- $<TARGET_FILE:tst_global_menu>)
+        set_tests_properties(tst_global_menu PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
     endif()
 endif()
