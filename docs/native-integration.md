@@ -58,3 +58,41 @@ Native behavior was tested on Linux/offscreen Qt 6.8.3 and 6.11.1. Real
 window-manager focus policy, mixed-display scaling, actual monitor removal,
 macOS/Windows desktop affordances and portal grants still require platform
 qualification.
+
+## Desktop global menu
+
+Every `Tk.MenuBar` publishes its menus to the desktop's global menu (D-361).
+Applications write an ordinary `Tk.AppWindow { menuBar: Tk.MenuBar { … } }`;
+there is no property, environment switch or build option that turns the export
+off. `Tk.GlobalMenuExport` (owned by the bar) does the work:
+
+1. One event-loop turn after the bar's window is shown it registers a
+   `com.canonical.dbusmenu` object at `/org/qindatk/GlobalMenu/<n>` on the
+   session bus, projected live from the bar: menu titles, items, submenus,
+   separators, `checkable`/`checked`, `radio`, `enabled`, the application's own
+   `visible`, mnemonics (`&File` → `_File`) and the `shortcut` display text.
+   The "»" overflow menu is replaced by the menus it holds. Custom items that
+   are not `MenuItem`/`MenuSeparator`, items without text and untitled menus
+   are not exported; trees are bounded to the panel's limits (depth 6, 128
+   children, 1024 items), so one item can never make the panel refuse the menu.
+2. It announces the object for the window: on Wayland through Qt's KDE
+   app-menu hook (`QDesktopUnixServices::registerDBusMenuForWindow`), on X11
+   with `com.canonical.AppMenu.Registrar.RegisterWindow`. Surface destruction
+   withdraws the announcement and surface recreation republishes it.
+3. It asks the QindaQt registrar `IsMenuHosted(service, path)` and follows
+   `MenuHostedChanged`. Only a confirmed `true` sets `hosted`; the bar then
+   collapses to zero height and its Alt mnemonics stand down. A click in the
+   panel calls the item's `click()`, so `onTriggered`, actions and checkable
+   state behave exactly as for a pointer click.
+
+Everything else is fail-closed and keeps the in-window bar: no session bus,
+no registrar, a platform without window announcements (offscreen, eglfs), a
+QindaTK build without Qt DBus (`status` `unavailable`), or the panel not
+showing the menu. Exactly one bar exports per window (`duplicate` for the
+rest). An application that already exports its window through the QindaQt
+AppShell (`/org/qindaqt/AppShell/Menu`, `composeFirstPartyMenuExport`) keeps
+that export; the toolkit stands aside (`app-shell`).
+
+Keyboard shortcuts stay the application's own `Shortcut` items, as before: the
+exported `shortcut` is display text. `QT_LOGGING_RULES="qindatk.globalmenu.debug=true"`
+traces status and hosting changes.

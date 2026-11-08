@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-10-10",
+  "generated": "2026-11-08",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -23383,6 +23383,22 @@
           "required": false
         },
         {
+          "name": "globalMenu",
+          "type": "Tk.GlobalMenuExport",
+          "default": "Tk.GlobalMenuExport {",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "desktopHosted",
+          "type": "bool",
+          "default": "globalMenu.hosted",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "overflowCount",
           "type": "int",
           "default": "_overflowList.length",
@@ -23418,6 +23434,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "menuBarGlobalMenu",
         "menuBarOverflow"
       ]
     },
@@ -61804,6 +61821,75 @@
           "name": "wheelIntent",
           "returns": "Intent",
           "parameters": "int modifiers"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GlobalMenuExport",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/global_menu_export.h",
+      "properties": [
+        {
+          "name": "menuBar",
+          "type": "QObject *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hosted",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "objectPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "menuBarChanged",
+          "parameters": ""
+        },
+        {
+          "name": "hostedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statusChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &stableId"
         }
       ],
       "enums": {},
