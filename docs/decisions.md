@@ -2680,3 +2680,20 @@ shortcuts are display text; shortcut handling stays in the application. The
 AppShell path remains for applications that want a C++-owned action model;
 when container-wm adopts this transport the duplicated wire code can go.
 Tests: `tst_global_menu` (private bus, fake registrar).
+
+## D-362 — Semantic agent queries use the existing Read grant
+
+QindaBooks needs parameterized registers, reports and payroll previews that
+cannot fit in one inspect snapshot. An action descriptor's explicit boolean
+`readOnly: true` admits those side-effect-free operations under Read or Edit.
+Absent or malformed annotations keep the existing Edit requirement. Schema,
+revision, request-ID and revocation checks still run. Queries return fresh
+facts without using the 1,024-entry mutation receipt journal or publishing a
+write-completed event; writes retain deduplication. This adds no virtual
+methods or C++ layout changes and keeps legacy providers conservative.
+
+`AgentServiceCatalog` supplies explicit public-invokable bindings with named
+schemas, trailing defaults, const-only Read registrations and borrowed target
+lifetimes. It cannot export inherited QObject APIs or pointer results. Apps
+keep their domain validation and transactional posting code. CLI argument
+files/stdin keep credentials out of process arguments.

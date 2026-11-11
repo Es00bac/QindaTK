@@ -15,7 +15,9 @@ public:
   QString id() const { return m_id; }
   // No QObject, credentials, or implementation pointers in these copies.
   virtual QJsonObject state() const = 0;
-  // {id, description, inputSchema, enabled, disabled_reason}; mutations only.
+  // {id, description, inputSchema, enabled, disabled_reason, readOnly?}.
+  // readOnly defaults to false. Explicit true permits a semantic query with
+  // a Read grant; it must have no document or external side effects.
   virtual QJsonArray actions() const = 0;
   // Return {status, message, changed, result, undo_ref?}. Report partial
   // application honestly. Host validation runs before this editing seam.

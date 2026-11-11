@@ -31,18 +31,35 @@ generation prevents edit/undo ABA; the hash also detects a changed selection,
 active sheet or draft. Clients must send exactly the returned revision string.
 Do not interpret it as a file modification time or an integer.
 
-`actions()` describes only explicitly supported semantic mutations, each with
+`actions()` describes explicitly supported semantic operations, each with
 `id`, `description`, `inputSchema`, `enabled`, and `disabled_reason` when
-disabled. `execute()` runs after host checks. Return `status`, `message`,
+disabled. `readOnly: true` explicitly declares a query with no document or
+external side effects. The default is false, including malformed annotations.
+Queries work under Read or Edit; mutations still require Edit. `execute()`
+runs after the same revision and schema checks. Return `status`, `message`,
 `changed`, `result`, and an `undo_ref` where supported. A provider that partially
 applies work must report `partial` and errors; the host does not pretend to
 provide a transaction around an arbitrary engine.
 
 ## Grants and local boundary
 
+`AgentServiceCatalog` binds an explicit allowlist of public, directly declared
+`Q_INVOKABLE` service methods to action IDs. It derives named argument schemas
+from Qt metadata, handles trailing default arguments and accepts parameter
+schema overrides for domain structures. Supported values are strings, booleans,
+int/qint64, local or other QUrls as allowed by the provider, QVariantMap and
+QVariantList. Inherited QObject methods, signals, slots and object-pointer
+results cannot be exported. Read-only registrations must be const. Targets
+are borrowed QPointers and all calls stay on their owning thread. Large 64-bit
+inputs use decimal strings to avoid JavaScript precision loss. Domain result
+interpretation, result limits, grants and transactions remain provider-owned.
+CLI invocations can read arguments with `--args-file path.json` or
+`--args-file -` (stdin) instead of `--args`, including credential-bearing calls.
+
 Providers default to `Off`. Application code or its UI sets `Off`, `Read` or
 `Edit` per provider. No remote RPC grants access. Read access allows inspect,
-discovery and activity; it cannot mutate. Revocation is checked before a cached
+discovery, activity and explicitly read-only semantic queries; it cannot mutate.
+Revocation is checked before a cached
 receipt is returned. The socket directory must be owned by the user with 0700
 permissions; the socket is user-only. This is a same-OS-user cooperative access
 boundary, not isolation between different clients running under that UID.
@@ -77,7 +94,13 @@ include `replayed` and `current_revision`, which may differ from the original
 receipt revision after subsequent edits. A replay reports the original result,
 not the current document. Inspect again for current facts.
 
-Each host retains at most 1,024 execution receipts. It refuses further new
+Queries return fresh results even when the request ID is repeated and carry
+`read_only: true`. They never consume write receipts or publish an
+`action_finished` event. Their request IDs, schemas and revisions are checked
+just like writes; an old revision must be refreshed. Clients must not treat a
+read result as a deduplicated mutation receipt.
+
+Each host retains at most 1,024 mutation receipts. It refuses further new
 mutations at that limit rather than evict receipts and accidentally reapply an
 old request. Restart the application to create a new session. The activity
 journal retains 256 metadata events; `refresh_required` signals a gap. Events

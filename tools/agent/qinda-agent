@@ -89,7 +89,7 @@ TOOLS = [
     {'name': 'qinda_documents', 'description': 'List granted open Qinda documents; grant is controlled in the application.', 'inputSchema': object_schema({}, [])},
     {'name': 'qinda_inspect', 'description': 'Read live document/workflow state and its opaque revision.', 'inputSchema': DOC},
     {'name': 'qinda_actions', 'description': 'Discover typed actions, input schemas and enabled state for a document.', 'inputSchema': DOC},
-    {'name': 'qinda_invoke', 'description': 'Invoke one discovered action with its input schema and the current revision. Choose a unique request_id; retry uncertain delivery with the SAME ID and identical inputs. Completed results are application receipts, not model guesses.',
+    {'name': 'qinda_invoke', 'description': 'Invoke a discovered semantic operation with its schema and current revision. Explicit readOnly operations work with a Read grant and always return fresh results. Mutations require Edit: choose a unique request_id and retry uncertain delivery with the SAME ID and identical inputs for a cached receipt.',
      'inputSchema': object_schema({'document_id': STRING, 'action': STRING, 'arguments': {'type': 'object'}, 'if_revision': STRING, 'request_id': STRING}, ['document_id', 'action', 'arguments', 'if_revision', 'request_id'])},
     {'name': 'qinda_events', 'description': 'Poll activity from one endpoint (returned by documents/sessions), after a decimal sequence string; refresh if refresh_required is true.', 'inputSchema': object_schema({'after': STRING, 'endpoint': STRING}, [])},
 ]
@@ -175,7 +175,9 @@ def main():
     invoke = sub.add_parser('invoke')
     invoke.add_argument('document_id')
     invoke.add_argument('action')
-    invoke.add_argument('--args', required=True, help='JSON object matching the discovered action schema')
+    source = invoke.add_mutually_exclusive_group(required=True)
+    source.add_argument('--args', help='JSON object matching the discovered action schema')
+    source.add_argument('--args-file', help='Read the JSON object from a UTF-8 file, or - for stdin; keeps secrets out of argv')
     invoke.add_argument('--if-revision', required=True)
     invoke.add_argument('--request-id', required=True, help='Unique ID, reused unchanged only for a retry')
     sub.add_parser('events').add_argument('--after', default='0')
@@ -195,7 +197,17 @@ def main():
             elif args.command == 'events':
                 result = dispatch(args.socket, 'events.poll', {'after': args.after})
             else:
-                arguments = json.loads(args.args)
+                if args.args_file:
+                    if args.args_file == '-':
+                        raw = sys.stdin.buffer.read(262145)
+                    else:
+                        with open(args.args_file, 'rb') as stream:
+                            raw = stream.read(262145)
+                    if len(raw) > 262144:
+                        raise ValueError('Argument JSON exceeds 256 KiB')
+                    arguments = json.loads(raw)
+                else:
+                    arguments = json.loads(args.args)
                 if not isinstance(arguments, dict):
                     raise ValueError('--args must be a JSON object')
                 result = dispatch(args.socket, 'action.invoke', {'document_id': args.document_id, 'action': args.action, 'arguments': arguments, 'if_revision': args.if_revision, 'request_id': args.request_id})

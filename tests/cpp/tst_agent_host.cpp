@@ -44,6 +44,69 @@ public:
 class AgentTest : public QObject {
   Q_OBJECT
 private slots:
+  void semanticQueriesRespectReadGrantsAndDoNotUseWriteReceipts() {
+    class QueryProvider : public SampleProvider {
+    public:
+      int reads = 0;
+      QJsonArray actions() const override {
+        auto result = SampleProvider::actions();
+        auto query = result.first().toObject();
+        query["id"] = "query";
+        query["readOnly"] = true;
+        result.append(query);
+        query["id"] = "malformed";
+        query["readOnly"] = "true";
+        result.append(query);
+        return result;
+      }
+      QJsonObject execute(const QString &action, const QJsonObject &args) override {
+        if (action != QLatin1String("query"))
+          return SampleProvider::execute(action, args);
+        ++reads;
+        return {{"status", "completed"}, {"result", state()}};
+      }
+    } provider;
+    AgentHost host;
+    QVERIFY(host.addProvider(&provider, AgentHost::Grant::Read));
+    const auto actions = host.request("actions.list", {{"document_id", provider.id()}})
+                             .value("actions").toArray();
+    QVERIFY(!actions[0].toObject()["enabled"].toBool());
+    QVERIFY(actions[1].toObject()["enabled"].toBool());
+    QVERIFY(!actions[2].toObject()["enabled"].toBool());
+    QJsonObject request{{"document_id", provider.id()}, {"action", "query"},
+                        {"arguments", QJsonObject{{"quantity", 2}}},
+                        {"if_revision", provider.revision()}, {"request_id", "read"}};
+    for (int i = 0; i < 1100; ++i) {
+      const auto result = host.request("action.invoke", request);
+      QCOMPARE(result["status"].toString(), "completed");
+      QVERIFY(result["read_only"].toBool());
+      QVERIFY(!result["replayed"].toBool());
+    }
+    QCOMPARE(provider.reads, 1100);
+    QCOMPARE(provider.calls, 0);
+    const auto firstRevision = provider.revision();
+    auto invalid = request;
+    invalid["arguments"] = QJsonObject{{"quantity", 20}};
+    QCOMPARE(host.request("action.invoke", invalid)["status"].toString(), "validation_failed");
+    provider.value = 4;
+    provider.touch();
+    QCOMPARE(host.request("action.invoke", request)["status"].toString(), "stale_revision");
+    request["if_revision"] = provider.revision();
+    const auto fresh = host.request("action.invoke", request);
+    QCOMPARE(fresh["result"].toObject()["quantity"].toInt(), 4);
+    QVERIFY(firstRevision != fresh["revision"].toString());
+    request["action"] = "malformed";
+    QCOMPARE(host.request("action.invoke", request)["status"].toString(), "read_only");
+    host.setGrant(provider.id(), AgentHost::Grant::Off);
+    request["action"] = "query";
+    QCOMPARE(host.request("action.invoke", request)["status"].toString(), "access_denied");
+    host.setGrant(provider.id(), AgentHost::Grant::Edit);
+    request["action"] = "set";
+    request["request_id"] = "write-after-reads";
+    QCOMPARE(host.request("action.invoke", request)["status"].toString(), "completed");
+    QVERIFY(host.request("action.invoke", request)["replayed"].toBool());
+    QCOMPARE(provider.calls, 1);
+  }
   void malformedSchemasFailClosed() {
     const QJsonValue value = QJsonObject{{"quantity", 2}};
     QVERIFY(!validateAgentJson(value, {{"type", true}}).isEmpty());
@@ -138,6 +201,17 @@ private slots:
     QCOMPARE(edit.exitCode(), 0);
     QCOMPARE(a.value, 1);
     QCOMPARE(b.value, 3);
+    QProcess stdinEdit;
+    stdinEdit.setProcessEnvironment(environment);
+    stdinEdit.start("python3", {QStringLiteral(QINDATK_AGENT_CLI), "invoke", b.id(),
+                               "set", "--args-file", "-", "--if-revision", b.revision(),
+                               "--request-id", "stdin-input"});
+    QVERIFY(stdinEdit.waitForStarted());
+    stdinEdit.write("{\"quantity\":4}");
+    stdinEdit.closeWriteChannel();
+    QTRY_COMPARE(stdinEdit.state(), QProcess::NotRunning);
+    QCOMPARE(stdinEdit.exitCode(), 0);
+    QCOMPARE(b.value, 4);
   }
   void grantsRevisionsValidationAndRetry() {
     AgentHost host;

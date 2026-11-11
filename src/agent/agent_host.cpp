@@ -115,7 +115,8 @@ QJsonObject AgentHost::request(const QString &method, const QJsonObject &args) {
     QJsonArray actions = e.provider->actions();
     for (qsizetype i = 0; i < actions.size(); ++i) {
       auto a = actions.at(i).toObject();
-      if (e.grant != Grant::Edit) {
+      if (e.grant != Grant::Edit &&
+          !a.value(QStringLiteral("readOnly")).toBool(false)) {
         a.insert(QStringLiteral("enabled"), false);
         a.insert(QStringLiteral("disabled_reason"),
                  QStringLiteral("Read-only document grant"));
@@ -127,7 +128,15 @@ QJsonObject AgentHost::request(const QString &method, const QJsonObject &args) {
   }
   if (method != QLatin1String("action.invoke"))
     return failure(QStringLiteral("unknown_method"), method);
-  if (e.grant != Grant::Edit)
+  const QString action = args.value(QStringLiteral("action")).toString();
+  QJsonObject descriptor;
+  for (const auto value : e.provider->actions())
+    if (value.toObject().value(QStringLiteral("id")).toString() == action)
+      descriptor = value.toObject();
+  // AGENT-CONTRACT: semantic queries opt in explicitly. Legacy providers
+  // and malformed/non-boolean annotations retain the editing boundary.
+  const bool readOnly = descriptor.value(QStringLiteral("readOnly")).toBool(false);
+  if (e.grant != Grant::Edit && !readOnly)
     return failure(QStringLiteral("read_only"),
                    QStringLiteral("Editing this document is not granted"));
   const QString requestId = args.value(QStringLiteral("request_id")).toString();
@@ -146,7 +155,7 @@ QJsonObject AgentHost::request(const QString &method, const QJsonObject &args) {
     receipt.insert(QStringLiteral("current_revision"), e.provider->revision());
     return receipt;
   }
-  if (m_receipts.size() >= 1024)
+  if (!readOnly && m_receipts.size() >= 1024)
     return failure(QStringLiteral("session_limit"),
                    QStringLiteral("Session write receipt limit reached; start "
                                   "a new application session"));
@@ -158,11 +167,6 @@ QJsonObject AgentHost::request(const QString &method, const QJsonObject &args) {
   if (!args.value(QStringLiteral("arguments")).isObject())
     return failure(QStringLiteral("invalid_request"),
                    QStringLiteral("arguments must be an object"));
-  const QString action = args.value(QStringLiteral("action")).toString();
-  QJsonObject descriptor;
-  for (const auto value : e.provider->actions())
-    if (value.toObject().value(QStringLiteral("id")).toString() == action)
-      descriptor = value.toObject();
   if (descriptor.isEmpty())
     return failure(QStringLiteral("unknown_action"), action);
   if (!descriptor.value(QStringLiteral("enabled")).toBool())
@@ -188,8 +192,14 @@ QJsonObject AgentHost::request(const QString &method, const QJsonObject &args) {
                             : QJsonValue(QJsonValue::Null));
   if (!e.provider)
     receipt.insert(QStringLiteral("document_closed"), true);
-  m_receipts.insert(key, {args, receipt});
-  publish(id, QStringLiteral("action_finished"));
+  // Reads always return current facts and never consume the bounded write
+  // deduplication journal. A repeated read ID is a fresh query, not a replay.
+  if (readOnly)
+    receipt.insert(QStringLiteral("read_only"), true);
+  else {
+    m_receipts.insert(key, {args, receipt});
+    publish(id, QStringLiteral("action_finished"));
+  }
   return receipt;
 }
 } // namespace QindaTK
