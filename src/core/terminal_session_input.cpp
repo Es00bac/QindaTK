@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "terminal_session.h"
 
+#include "terminal_keyboard_p.h"
+#include "terminal_session_protocol_p.h"
+
 #include <Qt>
 
 namespace QindaTK {
@@ -54,22 +57,50 @@ VTermKey terminalKey(int key, int modifiers)
 
 bool TerminalSession::sendKey(int key, int modifiers, const QString &text)
 {
+    return sendKeyEvent(key, modifiers, text, TerminalKeyboard::Press);
+}
+
+bool TerminalSession::sendKeyEvent(int key, int modifiers, const QString &text, int eventType)
+{
     if (!running() || !m_vterm)
         return false;
-    if ((modifiers & Qt::ControlModifier) || key == Qt::Key_Backspace || key == Qt::Key_Escape) {
+    // What the program negotiated decides the encoding; with nothing
+    // negotiated every key keeps its traditional bytes.
+    if (const int flags = m_protocol->keyboardFlags()) {
+        const auto encoding = TerminalKeyboard::encodeKitty(flags, key, modifiers, text, eventType);
+        if (encoding.handled)
+            return encoding.bytes.isEmpty() || queueInput(encoding.bytes);
+    } else if (eventType != TerminalKeyboard::Release) {
+        const auto encoding = TerminalKeyboard::encodeModifyOtherKeys(
+            m_protocol->modifyOtherKeys(), key, modifiers, text);
+        if (encoding.handled)
+            return queueInput(encoding.bytes);
+    }
+    return eventType != TerminalKeyboard::Release && sendLegacyKey(key, modifiers, text);
+}
+
+bool TerminalSession::sendLegacyKey(int key, int modifiers, const QString &text)
+{
+    const bool controlHeld = modifiers & Qt::ControlModifier;
+    if (controlHeld || key == Qt::Key_Backspace || key == Qt::Key_Escape) {
         int control = -1;
-        if (modifiers & Qt::ControlModifier) {
+        if (controlHeld) {
             switch (key) {
             case Qt::Key_Space: case Qt::Key_At: case Qt::Key_2: control = 0; break;
             case Qt::Key_BracketLeft: case Qt::Key_3: control = 27; break;
             case Qt::Key_Backslash: case Qt::Key_4: control = 28; break;
             case Qt::Key_BracketRight: case Qt::Key_5: control = 29; break;
             case Qt::Key_AsciiCircum: case Qt::Key_6: control = 30; break;
-            case Qt::Key_Underscore: case Qt::Key_7: case Qt::Key_Minus: control = 31; break;
+            case Qt::Key_Underscore: case Qt::Key_7: case Qt::Key_Minus: case Qt::Key_Slash: control = 31; break;
             case Qt::Key_Question: case Qt::Key_8: control = 127; break;
             }
+            // AGENT-GUARD: libvterm encodes Ctrl+I, Ctrl+J, Ctrl+M and every
+            // Ctrl+digit or punctuation as CSI u even when the program never
+            // asked for it. Shells print that as text, and Ctrl+J is the
+            // newline key of several agent prompts. Send the C0 byte here.
+            if (key >= Qt::Key_A && key <= Qt::Key_Z) control = key - Qt::Key_A + 1;
         }
-        if (key == Qt::Key_Backspace) control = (modifiers & Qt::ControlModifier) ? 8 : 127;
+        if (key == Qt::Key_Backspace) control = controlHeld ? 8 : 127;
         if (key == Qt::Key_Escape) control = 27;
         if (control >= 0) {
             QByteArray bytes(1, char(control));
@@ -79,8 +110,8 @@ bool TerminalSession::sendKey(int key, int modifiers, const QString &text)
     }
     if (key == Qt::Key_Backtab)
         modifiers |= Qt::ShiftModifier;
-    // Traditional terminal Return remains CR with Shift/Ctrl; many line
-    // editors do not understand libvterm's extended CSI-u Return encoding.
+    // Traditional terminal Return remains CR with Shift/Ctrl; a program that
+    // wants to tell them apart negotiates the kitty protocol or modifyOtherKeys.
     if (key == Qt::Key_Return || key == Qt::Key_Enter)
         modifiers &= ~(Qt::ShiftModifier | Qt::ControlModifier);
     const VTermKey special = terminalKey(key, modifiers);
@@ -88,14 +119,15 @@ bool TerminalSession::sendKey(int key, int modifiers, const QString &text)
         vterm_keyboard_key(m_vterm, special, terminalModifiers(modifiers));
     } else {
         QString characters = text;
-        if ((modifiers & Qt::ControlModifier) && key >= Qt::Key_Space && key <= Qt::Key_AsciiTilde)
+        if (controlHeld && key >= Qt::Key_Space && key <= Qt::Key_AsciiTilde) {
+            // No control code exists for this key: it types its character.
             characters = QString(QChar(static_cast<ushort>(key)));
-        if ((modifiers & Qt::ControlModifier) && key >= Qt::Key_A && key <= Qt::Key_Z) {
-            characters = characters.toLower();
-            modifiers &= ~Qt::ShiftModifier;
+            modifiers &= ~(Qt::ControlModifier | Qt::ShiftModifier);
         }
         if (characters.isEmpty())
             return false;
+        if (characters == QLatin1String(" "))
+            modifiers &= ~Qt::ShiftModifier;
         for (const char32_t scalar : characters.toUcs4())
             vterm_keyboard_unichar(m_vterm, static_cast<uint32_t>(scalar), terminalModifiers(modifiers));
     }
@@ -142,6 +174,8 @@ bool TerminalSession::sendMouse(int row, int column, int button, bool pressed, i
 
 void TerminalSession::setFocused(bool focused)
 {
+    if (m_protocol)
+        m_protocol->focused = focused;
     if (!m_vterm || !running())
         return;
     if (focused) vterm_state_focus_in(vterm_obtain_state(m_vterm));
@@ -166,6 +200,7 @@ void TerminalSession::setColors(const QColor &foreground, const QColor &backgrou
         const VTermColor value = color.isValid() ? convert(color) : m_defaultPalette.at(index);
         vterm_state_set_palette_color(vterm_obtain_state(m_vterm), index, &value);
     }
+    m_protocol->colorsChanged();
     rebuildScreen();
 }
 

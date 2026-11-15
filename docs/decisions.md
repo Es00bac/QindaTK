@@ -2697,3 +2697,34 @@ schemas, trailing defaults, const-only Read registrations and borrowed target
 lifetimes. It cannot export inherited QObject APIs or pointer results. Apps
 keep their domain validation and transactional posting code. CLI argument
 files/stdin keep credentials out of process arguments.
+
+## D-363 — TerminalSession answers agent-era terminal protocols in front of libvterm
+
+Claude Code, Codex, Kimi Code and OpenCode probe for the kitty keyboard
+protocol, synchronized output, colour queries and program status at startup,
+draw faint text, and copy through OSC 52. libvterm 0.3.3 drops all of it: it
+has no faint attribute, misreads the arguments of an underline colour as
+separate attributes, and its fallback hooks never see private modes, SGR or
+DECRQM. In practice Shift+Enter submitted a prompt instead of adding a line,
+frames tore while streaming, hints rendered at full brightness, and copying
+from a full-screen agent did nothing. libvterm's own legacy path also sent
+Ctrl+I, Ctrl+J and Ctrl+M as `CSI u` to programs that never asked for it.
+**Decision.** `TerminalSession` tokenizes child output before libvterm
+(`terminal_stream_filter`), answers the sequences in
+[terminal-session.md](terminal-session.md#protocols-beyond-libvterm) itself and
+passes the rest through byte for byte. Faint text is carried in libvterm's
+unused cell `font` attribute. Keys are encoded by `terminal_keyboard` when a
+program negotiated the kitty protocol or modifyOtherKeys, and by traditional
+bytes otherwise. Forking or vendoring libvterm was rejected: it would add a C
+dependency to maintain outside Portage and change the cell layout hosts
+compile against, for behaviour that fits in front of the parser. The session's
+class layout is unchanged apart from one appended pointer.
+**Consequences.** Hosts gain `bracketedPaste`, `keyboardFlags`, `cursorColor`,
+`programStatus`, `sendKeyEvent()`, `setCellSize()` and the
+`clipboardWriteRequested`, `notificationRequested`, `programStatusChanged` and
+`modesChanged` signals; existing hosts keep working without a rebuild. Screen
+updates are coalesced, so `screenChanged` no longer fires once per read.
+Logical-line reflow, OSC 8 hyperlinks, grapheme-cluster widths (mode 2027) and
+kitty graphics remain unsupported and are reported as such to programs.
+Tests: `tst_terminal_protocol` (tokenizer, key and status vectors) and
+`tst_terminal_agents` (PTY round trips).

@@ -15,6 +15,7 @@
 // libvterm state differs, and terminal_session_unavailable.cpp implements it.
 #ifndef QINDATK_NO_LIBVTERM
 #include <vterm.h>
+struct winsize;
 #endif
 
 namespace QindaTK {
@@ -45,6 +46,18 @@ class TerminalSession : public QObject {
     Q_PROPERTY(bool foregroundProcessRunning READ foregroundProcessRunning NOTIFY processChanged)
     Q_PROPERTY(QString workingDirectory READ workingDirectory NOTIFY processChanged)
     Q_PROPERTY(int maxScrollback READ maxScrollback WRITE setMaxScrollback NOTIFY screenChanged)
+    // Negotiated by the program: bracketed paste (mode 2004) and the kitty
+    // keyboard protocol's progressive-enhancement flags for the active screen.
+    Q_PROPERTY(bool bracketedPaste READ bracketedPaste NOTIFY modesChanged)
+    Q_PROPERTY(int keyboardFlags READ keyboardFlags NOTIFY modesChanged)
+    // Mode 1007: on the alternate screen, a host turns the wheel into arrow
+    // keys unless the program reads the mouse or switched this off.
+    Q_PROPERTY(bool alternateScroll READ alternateScroll NOTIFY modesChanged)
+    // "#rrggbb" set by the program with OSC 12, or empty for the host's own.
+    Q_PROPERTY(QString cursorColor READ cursorColor NOTIFY screenChanged)
+    // The OSC 7501 record a single indicator should show, or an empty map:
+    // state, kind, app, title, message, progress (-1 when unknown), records.
+    Q_PROPERTY(QVariantMap programStatus READ programStatus NOTIFY programStatusChanged)
 public:
     explicit TerminalSession(QObject *parent = nullptr);
     ~TerminalSession() override;
@@ -71,6 +84,11 @@ public:
     int historyColumns() const;
     int maxScrollback() const { return m_maxScrollback; }
     void setMaxScrollback(int value);
+    bool bracketedPaste() const;
+    int keyboardFlags() const;
+    bool alternateScroll() const;
+    QString cursorColor() const;
+    QVariantMap programStatus() const;
 
     Q_INVOKABLE bool start(const QString &program, const QStringList &arguments = {},
                            const QString &workingDirectory = {});
@@ -78,6 +96,10 @@ public:
     // Qt key/modifier values are translated by libvterm, which owns negotiated
     // application-cursor/keypad, bracketed-paste and mouse protocol modes.
     Q_INVOKABLE bool sendKey(int key, int modifiers = 0, const QString &text = {});
+    // The same, for hosts that also see repeats and releases: eventType is
+    // 1 press, 2 repeat, 3 release. Releases are only reported to programs
+    // that asked for them; true means the event was consumed.
+    Q_INVOKABLE bool sendKeyEvent(int key, int modifiers, const QString &text, int eventType);
     Q_INVOKABLE bool pasteText(const QString &text);
     Q_INVOKABLE bool sendMouse(int row, int column, int button, bool pressed,
                                int modifiers = 0);
@@ -91,11 +113,23 @@ public:
     Q_INVOKABLE bool resize(int rows, int columns);
     Q_INVOKABLE void stop();
     Q_INVOKABLE QString copyText(int firstRow, int lastRow) const;
+    // Cell size in pixels, for programs that ask (CSI 14 t, CSI 16 t).
+    Q_INVOKABLE void setCellSize(int width, int height);
+    Q_INVOKABLE QVariantList programStatusRecords() const;
+    // The user has seen the finished work: drops done and error records.
+    Q_INVOKABLE void acknowledgeProgramStatus();
 signals:
     void screenChanged();
     void processChanged();
     void exited(int exitCode);
     void bell();
+    void modesChanged();
+    void programStatusChanged();
+    // AGENT-CONTRACT: untrusted requests from the program in the terminal.
+    // The host decides whether to honour them; text is free of controls but
+    // must still be shown as plain text and never interpreted.
+    void clipboardWriteRequested(const QString &text, bool primarySelection);
+    void notificationRequested(const QString &title, const QString &body);
 private:
 #ifndef QINDATK_NO_LIBVTERM
     static int pushScrollback(int columns, const VTermScreenCell *cells, void *user);
@@ -118,6 +152,9 @@ private:
     QVariantMap formatRow(const QList<VTermScreenCell> &cells, bool includeCells) const;
     QString colorName(VTermColor color, bool foreground) const;
     bool queueInput(const QByteArray &bytes);
+    bool sendLegacyKey(int key, int modifiers, const QString &text);
+    struct winsize windowSize() const;
+    void applyWindowSize();
 
     VTerm *m_vterm = nullptr;
     VTermScreen *m_vscreen = nullptr;
@@ -163,6 +200,10 @@ private:
     int m_cursorColumn = 0;
     int m_maxScrollback = 2000;
     bool m_cursorVisible = true;
+    // AGENT-GUARD: hosts inline the accessors above, so members are only ever
+    // appended. Protocol state stays behind this pointer for the same reason.
+    class Protocol;
+    Protocol *m_protocol = nullptr;
 };
 
 } // namespace QindaTK

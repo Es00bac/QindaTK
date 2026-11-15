@@ -101,6 +101,11 @@ set(qindatk_app_sources
     core/script_runtime.cpp core/script_runtime.h
     core/terminal_session.cpp core/terminal_session.h
     core/terminal_session_screen.cpp core/terminal_session_input.cpp
+    core/terminal_session_protocol.cpp core/terminal_session_protocol_p.h
+    core/terminal_session_osc.cpp
+    core/terminal_stream_filter.cpp core/terminal_stream_filter_p.h
+    core/terminal_keyboard.cpp core/terminal_keyboard_p.h
+    core/terminal_program_status.cpp core/terminal_program_status_p.h
     core/render_queue_model.cpp core/render_queue_model.h core/render_queue_provider.cpp
     core/notification_model.cpp core/notification_model.h
     core/pdf_annotation_document.cpp core/pdf_annotation_document.h

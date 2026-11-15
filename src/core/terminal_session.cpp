@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "terminal_session.h"
 
+#include "terminal_session_protocol_p.h"
+
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -19,6 +22,25 @@ namespace {
 constexpr int maxRows = 512;
 constexpr int maxColumns = 1024;
 constexpr int maxPendingInput = 1024 * 1024;
+
+// Set by other terminals for the programs they start.
+constexpr const char *foreignTerminalVariables[] = {
+    "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "TERMINFO", "TERMCAP", "COLORFGBG", "LINES", "COLUMNS",
+    "WINDOWID", "KONSOLE_VERSION", "KONSOLE_DBUS_SERVICE", "KONSOLE_DBUS_SESSION",
+    "KONSOLE_DBUS_WINDOW", "VTE_VERSION", "KITTY_WINDOW_ID", "KITTY_PID", "KITTY_LISTEN_ON",
+    "KITTY_INSTALLATION_DIR", "WEZTERM_EXECUTABLE", "WEZTERM_PANE", "WEZTERM_UNIX_SOCKET",
+    "ALACRITTY_WINDOW_ID", "ALACRITTY_SOCKET", "ALACRITTY_LOG", "GHOSTTY_RESOURCES_DIR",
+    "GHOSTTY_BIN_DIR", "ITERM_SESSION_ID", "LC_TERMINAL", "LC_TERMINAL_VERSION", "WT_SESSION",
+    "WT_PROFILE_ID", "TERMINATOR_UUID", "TILIX_ID", "GNOME_TERMINAL_SCREEN",
+    "GNOME_TERMINAL_SERVICE", "TMUX", "TMUX_PANE", "STY", "ZELLIJ", "ZELLIJ_SESSION_NAME",
+};
+
+QByteArray sanitizedIdentity(const QString &text)
+{
+    QByteArray bytes = text.toLatin1();
+    bytes.removeIf([](char byte) { return byte <= 0x20 || byte > 0x7e; });
+    return bytes.left(64);
+}
 
 void signalProcessGroup(int pid, int signal)
 {
@@ -61,6 +83,7 @@ TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
         vterm_state_get_palette_color(vterm_obtain_state(m_vterm), index, &color);
         m_defaultPalette.append(color);
     }
+    m_protocol = new Protocol(this);
     rebuildScreen();
 }
 
@@ -75,6 +98,7 @@ TerminalSession::~TerminalSession()
         m_pid = -1;
     }
     closePty();
+    delete m_protocol;
     if (m_vterm)
         vterm_free(m_vterm);
 }
@@ -129,9 +153,9 @@ bool TerminalSession::start(const QString &program, const QStringList &arguments
         argv.append(part.data());
     argv.append(nullptr);
     QByteArray directory = QFile::encodeName(workingDirectory);
-    struct winsize size {};
-    size.ws_row = static_cast<unsigned short>(m_rows);
-    size.ws_col = static_cast<unsigned short>(m_columns);
+    const QByteArray programName = sanitizedIdentity(QCoreApplication::applicationName());
+    const QByteArray programVersion = sanitizedIdentity(QCoreApplication::applicationVersion());
+    struct winsize size = windowSize();
     // AGENT-GUARD: CLOEXEC prevents later sessions and exec'd applications
     // from retaining earlier sessions' masters and keeping their PTYs alive.
     int errors[2];
@@ -148,8 +172,18 @@ bool TerminalSession::start(const QString &program, const QStringList &arguments
             (void)::write(errors[1], &failure, sizeof(failure));
             _exit(126);
         }
+        // AGENT-GUARD: programs pick escape sequences by these variables. One
+        // inherited from the terminal that launched this host would make them
+        // speak that terminal's dialect to this one.
+        for (const char *name : foreignTerminalVariables)
+            ::unsetenv(name);
         ::setenv("TERM", "xterm-256color", 1);
         ::setenv("COLORTERM", "truecolor", 1);
+        if (!programName.isEmpty()) {
+            ::setenv("TERM_PROGRAM", programName.constData(), 1);
+            if (!programVersion.isEmpty())
+                ::setenv("TERM_PROGRAM_VERSION", programVersion.constData(), 1);
+        }
         ::execvp(executable.constData(), argv.data());
         const int failure = errno;
         (void)::write(errors[1], &failure, sizeof(failure));
@@ -186,6 +220,7 @@ bool TerminalSession::start(const QString &program, const QStringList &arguments
     clearHistory();
     m_pendingInput.clear();
     vterm_screen_reset(m_vscreen, 1);
+    m_protocol->processStarted();
     const int flags = ::fcntl(m_master, F_GETFL);
     ::fcntl(m_master, F_SETFL, flags | O_NONBLOCK);
     ::fcntl(m_master, F_SETFD, FD_CLOEXEC);
@@ -250,18 +285,44 @@ bool TerminalSession::resize(int rows, int columns)
         return true;
     m_rows = rows;
     m_columns = columns;
+    // A frame drawn for the old size must not be applied to the new one late.
+    m_protocol->endSynchronizedUpdate();
     vterm_set_size(m_vterm, rows, columns);
     vterm_screen_flush_damage(m_vscreen);
-    if (m_master >= 0) {
-        struct winsize size {};
-        size.ws_row = static_cast<unsigned short>(rows);
-        size.ws_col = static_cast<unsigned short>(columns);
-        ::ioctl(m_master, TIOCSWINSZ, &size);
-        if (m_pid > 0)
-            signalProcessGroup(m_pid, SIGWINCH);
-    }
+    applyWindowSize();
     rebuildScreen();
     return true;
+}
+
+struct winsize TerminalSession::windowSize() const
+{
+    struct winsize size {};
+    size.ws_row = static_cast<unsigned short>(m_rows);
+    size.ws_col = static_cast<unsigned short>(m_columns);
+    size.ws_xpixel = static_cast<unsigned short>(qMin(65535, m_columns * m_protocol->cellWidth));
+    size.ws_ypixel = static_cast<unsigned short>(qMin(65535, m_rows * m_protocol->cellHeight));
+    return size;
+}
+
+void TerminalSession::applyWindowSize()
+{
+    if (m_master < 0)
+        return;
+    const struct winsize size = windowSize();
+    ::ioctl(m_master, TIOCSWINSZ, &size);
+    if (m_pid > 0)
+        signalProcessGroup(m_pid, SIGWINCH);
+}
+
+void TerminalSession::setCellSize(int width, int height)
+{
+    width = qBound(0, width, 512);
+    height = qBound(0, height, 512);
+    if (width == m_protocol->cellWidth && height == m_protocol->cellHeight)
+        return;
+    m_protocol->cellWidth = width;
+    m_protocol->cellHeight = height;
+    applyWindowSize();
 }
 
 void TerminalSession::stop()
@@ -330,6 +391,8 @@ void TerminalSession::pollProcess()
     // Closing after one read budget silently discarded large final output.
     if (readAvailable())
         return;
+    // Hosts read the final screen from exited(); nothing may still be held.
+    m_protocol->processEnded();
     m_exitCode = m_exitedStatus < 0 ? -1 : WIFEXITED(m_exitedStatus)
         ? WEXITSTATUS(m_exitedStatus) : 128 + WTERMSIG(m_exitedStatus);
     m_pid = -1;
@@ -350,7 +413,7 @@ bool TerminalSession::readAvailable(int budget)
     while (budget > 0) {
         const ssize_t n = ::read(m_master, bytes, qMin<int>(sizeof(bytes), budget));
         if (n > 0) {
-            vterm_input_write(m_vterm, bytes, n);
+            m_protocol->input(QByteArrayView(bytes, n));
             budget -= static_cast<int>(n);
             changed = true;
             continue;
@@ -362,9 +425,11 @@ bool TerminalSession::readAvailable(int budget)
         break;
     }
     if (changed) {
-        vterm_screen_flush_damage(m_vscreen);
         flushInput();
-        rebuildScreen();
+        // AGENT-NOTE: output is presented after a short quiet gap rather than
+        // per read. A frame written in several pieces, or held as a
+        // synchronized update, is then shown whole instead of half drawn.
+        m_protocol->schedulePresent();
     }
     return budget == 0;
 }

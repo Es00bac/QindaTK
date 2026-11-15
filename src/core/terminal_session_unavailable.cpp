@@ -39,6 +39,15 @@ bool TerminalSession::start(const QString &, const QStringList &, const QString 
 }
 bool TerminalSession::sendText(const QString &) { return false; }
 bool TerminalSession::sendKey(int, int, const QString &) { return false; }
+bool TerminalSession::sendKeyEvent(int, int, const QString &, int) { return false; }
+bool TerminalSession::bracketedPaste() const { return false; }
+int TerminalSession::keyboardFlags() const { return 0; }
+bool TerminalSession::alternateScroll() const { return true; }
+QString TerminalSession::cursorColor() const { return {}; }
+QVariantMap TerminalSession::programStatus() const { return {}; }
+QVariantList TerminalSession::programStatusRecords() const { return {}; }
+void TerminalSession::acknowledgeProgramStatus() {}
+void TerminalSession::setCellSize(int, int) {}
 bool TerminalSession::pasteText(const QString &) { return false; }
 bool TerminalSession::sendMouse(int, int, int, bool, int) { return false; }
 void TerminalSession::setFocused(bool) {}

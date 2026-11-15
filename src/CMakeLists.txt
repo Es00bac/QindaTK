@@ -73,7 +73,9 @@ if(NOT QINDATK_ENABLE_LCMS2)
 endif()
 if(NOT QINDATK_ENABLE_LIBVTERM)
     list(REMOVE_ITEM qindatk_app_sources core/terminal_session.cpp
-        core/terminal_session_screen.cpp core/terminal_session_input.cpp)
+        core/terminal_session_screen.cpp core/terminal_session_input.cpp
+        core/terminal_session_protocol.cpp core/terminal_session_protocol_p.h
+        core/terminal_session_osc.cpp)
     list(APPEND qindatk_app_sources core/terminal_session_unavailable.cpp)
 endif()
 if(NOT QINDATK_ENABLE_SQLITE)

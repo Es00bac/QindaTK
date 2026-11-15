@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "terminal_session.h"
 
+#include "terminal_session_protocol_p.h"
+
 #include <QVariantMap>
 #include <algorithm>
 #include <limits>
@@ -176,6 +178,9 @@ QVariantMap TerminalSession::formatRow(const QList<VTermScreenCell> &cells, bool
             {QStringLiteral("foreground"), colorName(cell.fg, true)},
             {QStringLiteral("background"), colorName(cell.bg, false)},
             {QStringLiteral("bold"), bool(cell.attrs.bold)},
+            // Faint text (SGR 2) travels in the font attribute; see
+            // Protocol::rewriteGraphics().
+            {QStringLiteral("dim"), bool(cell.attrs.font & 1)},
             {QStringLiteral("italic"), bool(cell.attrs.italic)},
             {QStringLiteral("underline"), bool(cell.attrs.underline)},
             {QStringLiteral("reverse"), bool(cell.attrs.reverse)},
@@ -202,6 +207,19 @@ QVariantMap TerminalSession::formatRow(const QList<VTermScreenCell> &cells, bool
                        {QStringLiteral("columns"), cells.size()}};
     if (includeCells) result.insert(QStringLiteral("cells"), positioned);
     return result;
+}
+
+bool TerminalSession::bracketedPaste() const { return m_protocol && m_protocol->bracketedPaste; }
+int TerminalSession::keyboardFlags() const { return m_protocol ? m_protocol->keyboardFlags() : 0; }
+bool TerminalSession::alternateScroll() const { return !m_protocol || m_protocol->alternateScroll; }
+QString TerminalSession::cursorColor() const { return m_protocol ? m_protocol->cursorColor : QString(); }
+QVariantMap TerminalSession::programStatus() const { return m_protocol ? m_protocol->status.summary() : QVariantMap(); }
+QVariantList TerminalSession::programStatusRecords() const { return m_protocol ? m_protocol->status.records() : QVariantList(); }
+
+void TerminalSession::acknowledgeProgramStatus()
+{
+    if (m_protocol && m_protocol->status.acknowledge())
+        emit programStatusChanged();
 }
 
 int TerminalSession::historyColumns() const
