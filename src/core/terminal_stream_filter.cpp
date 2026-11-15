@@ -19,12 +19,19 @@ void StreamFilter::reset()
     m_oscNumber = -1;
 }
 
+// AGENT-GUARD: the completed sequence is moved out and the state returned to
+// Ground before the sink runs. A sink that ends up feeding this filter again
+// then starts from a clean state instead of appending to the sequence it is
+// still looking at.
 void StreamFilter::emitCsi(Sink &sink)
 {
+    const QByteArray complete = std::move(m_sequence);
+    m_sequence.clear();
+    m_state = Ground;
     Sequence sequence;
     sequence.kind = Sequence::Csi;
-    sequence.raw = m_sequence;
-    const QByteArrayView body = QByteArrayView(m_sequence).sliced(2, m_sequence.size() - 3);
+    sequence.raw = complete;
+    const QByteArrayView body = QByteArrayView(complete).sliced(2, complete.size() - 3);
     qsizetype parametersEnd = 0;
     while (parametersEnd < body.size() && body.at(parametersEnd) >= '0' && body.at(parametersEnd) <= '?')
         ++parametersEnd;
@@ -34,23 +41,24 @@ void StreamFilter::emitCsi(Sink &sink)
         sequence.leader = sequence.parameters.front();
         sequence.parameters = sequence.parameters.sliced(1);
     }
-    sequence.final = m_sequence.back();
+    sequence.final = complete.back();
     sink.sequence(sequence);
-    m_sequence.clear();
 }
 
 void StreamFilter::emitString(Sink &sink, Sequence::Kind kind, bool bell)
 {
+    const QByteArray complete = std::move(m_sequence);
+    m_sequence.clear();
+    m_state = Ground;
     Sequence sequence;
     sequence.kind = kind;
-    sequence.raw = m_sequence;
+    sequence.raw = complete;
     sequence.command = kind == Sequence::Osc ? m_oscNumber : -1;
     sequence.bell = bell;
     const qsizetype terminator = bell ? 1 : 2;
-    sequence.payload = QByteArrayView(m_sequence)
-        .sliced(m_payloadStart, m_sequence.size() - m_payloadStart - terminator);
+    sequence.payload = QByteArrayView(complete)
+        .sliced(m_payloadStart, complete.size() - m_payloadStart - terminator);
     sink.sequence(sequence);
-    m_sequence.clear();
 }
 
 void StreamFilter::feed(QByteArrayView bytes, Sink &sink)
@@ -104,14 +112,14 @@ void StreamFilter::feed(QByteArrayView bytes, Sink &sink)
                     passSequence();
                     m_sequence.assign(1, esc);
                 } else if (byte == 'c') {
-                    m_sequence += byte;
-                    Sequence sequence;
-                    sequence.kind = Sequence::Reset;
-                    sequence.raw = m_sequence;
-                    sequence.final = byte;
-                    sink.sequence(sequence);
+                    const QByteArray complete = std::move(m_sequence) + byte;
                     m_sequence.clear();
                     m_state = Ground;
+                    Sequence sequence;
+                    sequence.kind = Sequence::Reset;
+                    sequence.raw = complete;
+                    sequence.final = byte;
+                    sink.sequence(sequence);
                 } else {
                     // A two-byte escape, or a control libvterm executes itself.
                     m_sequence += byte;
@@ -127,7 +135,10 @@ void StreamFilter::feed(QByteArrayView bytes, Sink &sink)
                     m_state = Escape;
                 } else {
                     m_sequence += byte;
-                    if (byte < 0x20 || byte > 0x2f) {
+                    // AGENT-GUARD: every collecting state is bounded. A run of
+                    // intermediates without a final byte must not grow the
+                    // buffer or keep bytes from libvterm indefinitely.
+                    if (byte < 0x20 || byte > 0x2f || m_sequence.size() >= maxEscapeBytes) {
                         passSequence();
                         m_state = Ground;
                     }

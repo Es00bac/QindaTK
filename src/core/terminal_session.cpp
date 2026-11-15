@@ -63,6 +63,8 @@ TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
         if (m_pid > 0 && !m_childExited)
             signalProcessGroup(m_pid, SIGKILL);
     });
+    // Created before anything can fail: every accessor may rely on it.
+    m_protocol = new Protocol(this);
     m_vterm = vterm_new(m_rows, m_columns);
     if (!m_vterm) {
         setError(QStringLiteral("libvterm could not allocate a terminal"));
@@ -85,7 +87,6 @@ TerminalSession::TerminalSession(QObject *parent) : QObject(parent)
         vterm_state_get_palette_color(vterm_obtain_state(m_vterm), index, &color);
         m_defaultPalette.append(color);
     }
-    m_protocol = new Protocol(this);
     rebuildScreen();
 }
 
@@ -304,6 +305,7 @@ bool TerminalSession::resize(int rows, int columns)
     m_columns = columns;
     // A frame drawn for the old size must not be applied to the new one late.
     m_protocol->endSynchronizedUpdate();
+    flushInput();
     vterm_set_size(m_vterm, rows, columns);
     vterm_screen_flush_damage(m_vscreen);
     applyWindowSize();

@@ -4,6 +4,7 @@
 #include "terminal_session_protocol_p.h"
 
 #include <QColor>
+#include <algorithm>
 
 namespace QindaTK {
 namespace {
@@ -90,7 +91,7 @@ void TerminalSession::Protocol::handleOsc(const Sequence &sequence)
     case 133:
         // A new shell prompt: whatever was working or blocked has ended.
         if (sequence.payload.startsWith('A') && status.dropTransient(false))
-            emit q->programStatusChanged();
+            post([this] { emit q->programStatusChanged(); });
         break;
     case 7501: programStatus(sequence); break;
     default: break; // colour resets: the profile owns the palette
@@ -175,6 +176,12 @@ void TerminalSession::Protocol::clipboard(const Sequence &sequence)
     if (separator < 0) return;
     const QByteArrayView targets = sequence.payload.first(separator);
     const QByteArrayView data = sequence.payload.sliced(separator + 1);
+    // AGENT-GUARD: a reply is typed into the program on the user's behalf.
+    // Nothing from the request is echoed unless every byte is one the
+    // protocol defines; an echoed carriage return would run a command.
+    if (targets.size() > 8 || !std::all_of(targets.begin(), targets.end(), [](char byte) {
+            return byte == 'c' || byte == 'p' || byte == 'q' || byte == 's' || (byte >= '0' && byte <= '7'); }))
+        return;
     if (data == "?") {
         reply(QByteArrayLiteral("\x1b]52;") + targets + ';' + terminator(sequence));
         return;
@@ -185,15 +192,15 @@ void TerminalSession::Protocol::clipboard(const Sequence &sequence)
     const QString text = QString::fromUtf8(decoded.decoded);
     const bool primary = targets.contains('p');
     if (targets.isEmpty() || targets.contains('c') || targets.contains('s') || !primary)
-        emit q->clipboardWriteRequested(text, false);
+        post([this, text] { emit q->clipboardWriteRequested(text, false); });
     if (primary)
-        emit q->clipboardWriteRequested(text, true);
+        post([this, text] { emit q->clipboardWriteRequested(text, true); });
 }
 
 void TerminalSession::Protocol::notify(QString title, QString body)
 {
     if (title.isEmpty() && body.isEmpty()) return;
-    emit q->notificationRequested(title, body);
+    post([this, title, body] { emit q->notificationRequested(title, body); });
 }
 
 void TerminalSession::Protocol::growlNotification(QByteArrayView payload)
@@ -216,7 +223,7 @@ void TerminalSession::Protocol::growlNotification(QByteArrayView payload)
     report.state = progressState == 2 ? QByteArrayLiteral("error") : QByteArrayLiteral("working");
     if ((progressState == 1 || progressState == 4) && parts.size() > 2)
         report.progress = qBound(0, parts.at(2).toInt(), 100);
-    if (status.apply(report)) emit q->programStatusChanged();
+    if (status.apply(report)) post([this] { emit q->programStatusChanged(); });
 }
 
 void TerminalSession::Protocol::kittyNotification(const Sequence &sequence)
@@ -230,12 +237,17 @@ void TerminalSession::Protocol::kittyNotification(const Sequence &sequence)
         const qsizetype equals = pair.indexOf('=');
         if (equals < 1) continue;
         const QByteArray key = pair.first(equals).trimmed(), value = pair.sliced(equals + 1).trimmed();
-        if (key == "i") id = value.left(64);
+        if (key == "i") id = value;
         else if (key == "p") type = value;
         else if (key == "d") done = value != "0";
         else if (key == "e") encoded = value == "1";
         else if (key == "o") occasion = value;
     }
+    // The identifier is echoed in the reply and keys the pending table.
+    if (id.size() > 64 || !std::all_of(id.cbegin(), id.cend(), [](char byte) {
+            return (byte >= 'A' && byte <= 'Z') || (byte >= 'a' && byte <= 'z') || (byte >= '0' && byte <= '9')
+                || byte == '_' || byte == '-' || byte == '+' || byte == '.'; }))
+        return;
     if (type == "?") {
         reply(QByteArrayLiteral("\x1b]99;i=") + id + QByteArrayLiteral(":p=?;o=always,unfocused,invisible"
               ":p=title,body") + terminator(sequence));
@@ -264,13 +276,18 @@ void TerminalSession::Protocol::programStatus(const Sequence &sequence)
     }
     if (report.type == ProgramStatus::Report::Discard) return;
     m_statusReported = true;
-    if (status.apply(report)) emit q->programStatusChanged();
+    if (status.apply(report)) post([this] { emit q->programStatusChanged(); });
 }
 
 // XTGETTCAP: programs ask for single terminfo capabilities by hex name.
 void TerminalSession::Protocol::handleTermcap(const Sequence &sequence)
 {
     for (const QByteArray &hexName : sequence.payload.toByteArray().split(';')) {
+        // The name is echoed in the reply: hex digits only (see clipboard()).
+        if (hexName.isEmpty() || hexName.size() > 64 || hexName.size() % 2
+            || !std::all_of(hexName.cbegin(), hexName.cend(), [](char byte) {
+                   return (byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f') || (byte >= 'A' && byte <= 'F'); }))
+            continue;
         const QByteArray name = QByteArray::fromHex(hexName);
         QByteArray value;
         bool known = true;

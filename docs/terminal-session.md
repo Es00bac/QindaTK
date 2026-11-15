@@ -16,7 +16,9 @@ SIGHUP to the process group and escalates to SIGKILL after two seconds.
 Destroying a running session hangs up first: it sends SIGHUP to the process
 group, closes the PTY, and waits up to 500 ms for the program to exit, so the
 program can save its state and stop its own helpers. A program that ignores
-the hangup is then killed, and the child is always reaped.
+the hangup is then killed, and the child is always reaped. Other members of
+its process group receive the hangup and are left to act on it, as with any
+terminal; a helper started with `nohup` survives.
 
 `screen` is an array of rows. Each row has `text` and `spans`; each span has
 `text`, `foreground`, `background`, `bold`, `dim`, `italic`, `underline`, and
@@ -94,7 +96,16 @@ Ctrl+J and Ctrl+M.
 Every clipboard, notification and status request comes from the program in the
 terminal and is untrusted. The session bounds sizes, removes control and
 direction-override characters from text shown outside the grid, and never
-echoes a record back. The host decides whether to honour a request.
+echoes a record back. A reply repeats part of a request only where every byte
+is one the protocol defines (hex capability names, selection letters,
+notification identifiers); anything else gets no reply, because a reply is
+typed into the program on the user's behalf. The host decides whether to
+honour a request.
+
+`modesChanged`, `programStatusChanged`, `clipboardWriteRequested` and
+`notificationRequested` are emitted after the output that caused them has been
+parsed, from the event loop, so a slot may open a dialog or destroy the
+session. The properties are already current when a signal arrives.
 
 ### Program status (OSC 7501)
 

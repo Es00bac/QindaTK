@@ -4,6 +4,7 @@
 #include "terminal_keyboard_p.h"
 
 #include <QCoreApplication>
+#include <QPointer>
 
 namespace QindaTK {
 namespace {
@@ -55,9 +56,50 @@ TerminalSession::Protocol::Protocol(TerminalSession *session) : q(session)
     QObject::connect(&m_presentTimer, &QTimer::timeout, q, [this] { presentNow(); });
 }
 
+// AGENT-GUARD: bytes are parsed strictly in arrival order and never from
+// inside a parse. Output read while a feed is running (a host slot that spins
+// an event loop) is queued behind it. Host-facing signals are posted and
+// emitted after parsing, so no slot ever runs with the tokenizers mid-sequence
+// or can destroy the session underneath them.
 void TerminalSession::Protocol::input(QByteArrayView bytes)
 {
+    feed(bytes);
+}
+
+void TerminalSession::Protocol::feed(QByteArrayView bytes)
+{
+    if (m_feeding) {
+        if (m_reentrant.size() + bytes.size() <= synchronizedLimitBytes) m_reentrant.append(bytes);
+        return;
+    }
+    m_feeding = true;
     m_gateFilter.feed(bytes, m_gate);
+    while (!m_reentrant.isEmpty()) {
+        const QByteArray queued = std::move(m_reentrant);
+        m_reentrant.clear();
+        m_gateFilter.feed(queued, m_gate);
+    }
+    m_feeding = false;
+}
+
+void TerminalSession::Protocol::post(std::function<void()> emission)
+{
+    m_posted.append(std::move(emission));
+    if (m_deliveryQueued) return;
+    m_deliveryQueued = true;
+    QMetaObject::invokeMethod(q, [this] { deliverPosted(); }, Qt::QueuedConnection);
+}
+
+void TerminalSession::Protocol::deliverPosted()
+{
+    m_deliveryQueued = false;
+    const auto posted = std::move(m_posted);
+    m_posted.clear();
+    const QPointer<TerminalSession> alive(q);
+    for (const auto &emission : posted) {
+        emission();
+        if (!alive) return; // a slot destroyed the session, and this with it
+    }
 }
 
 void TerminalSession::Protocol::Gate::sequence(const Sequence &sequence)
@@ -84,18 +126,22 @@ void TerminalSession::Protocol::Gate::sequence(const Sequence &sequence)
         return;
     }
     const bool begin = sequence.final == 'h';
+    // AGENT-GUARD: the bracket is lifted out of the stream, but an escape also
+    // ends any unterminated string before it. CAN takes its place: it cancels
+    // a sequence in progress in the second tokenizer and in libvterm exactly
+    // as the escape did, and is a no-op otherwise. Without it an OSC left open
+    // before a bracket would swallow the output that follows.
     // Modes that share the sequence belong to the side of the bracket they
     // were sent on: before the frame for a begin, inside it for an end.
-    const QByteArray rest = others.isEmpty() ? QByteArray()
-        : QByteArrayLiteral("\x1b[?") + others + sequence.final;
+    const QByteArray rest = QByteArrayLiteral("\x18") + (others.isEmpty() ? QByteArray()
+        : QByteArrayLiteral("\x1b[?") + others + sequence.final);
+    p->gated(rest);
     if (begin) {
-        if (!rest.isEmpty()) p->gated(rest);
         if (!p->m_synchronized) {
             p->m_synchronized = true;
             p->m_synchronizedTimer.start();
         }
     } else {
-        if (!rest.isEmpty()) p->gated(rest);
         p->endSynchronizedUpdate();
     }
 }
@@ -138,7 +184,7 @@ void TerminalSession::Protocol::write(QByteArrayView bytes)
         // Each screen has its own keyboard mode stack; a full-screen program
         // that dies without popping leaves the shell's modes untouched.
         if (q->m_alternateScreen) m_alternateKeyboard = {};
-        emit q->modesChanged();
+        post([this] { emit q->modesChanged(); });
     }
 }
 
@@ -184,8 +230,8 @@ void TerminalSession::Protocol::resetState()
     bracketedPaste = false;
     cursorColor.clear();
     m_notifications.clear();
-    if (status.clear()) emit q->programStatusChanged();
-    if (modes) emit q->modesChanged();
+    if (status.clear()) post([this] { emit q->programStatusChanged(); });
+    if (modes) post([this] { emit q->modesChanged(); });
 }
 
 void TerminalSession::Protocol::processStarted()
@@ -248,7 +294,7 @@ bool TerminalSession::Protocol::handleCsi(const Sequence &sequence)
             if (sequence.parameters.isEmpty()) m_modifyOtherKeys = 0;
             else if (number(parameters.at(0)) == 4)
                 m_modifyOtherKeys = qBound(0, parameters.size() > 1 ? number(parameters.at(1)) : 0, 2);
-            emit q->modesChanged();
+            post([this] { emit q->modesChanged(); });
             return true;
         }
         if (sequence.leader == '?' && number(parameters.at(0)) == 4) {
@@ -297,12 +343,10 @@ bool TerminalSession::Protocol::handleCsi(const Sequence &sequence)
 bool TerminalSession::Protocol::rewriteGraphics(const Sequence &sequence)
 {
     const auto parameters = split(sequence.parameters, ';');
-    QByteArray rewritten;
+    // An empty parameter is a reset and must survive: kept parameters are
+    // joined as a list, never appended to a possibly empty string.
+    QList<QByteArrayView> kept;
     bool changed = false;
-    const auto keep = [&rewritten](QByteArrayView parameter) {
-        if (!rewritten.isEmpty()) rewritten += ';';
-        rewritten += parameter;
-    };
     for (qsizetype index = 0; index < parameters.size(); ++index) {
         const QByteArrayView parameter = parameters.at(index);
         const int code = number(parameter);
@@ -314,26 +358,32 @@ bool TerminalSession::Protocol::rewriteGraphics(const Sequence &sequence)
                                                     parameters.size() - index);
             for (qsizetype offset = 0; offset < count; ++offset) {
                 if (code == 58) changed = true;
-                else keep(parameters.at(index + offset));
+                else kept.append(parameters.at(index + offset));
             }
             index += count - 1;
         } else if (code == 58 || code == 59 || code == 53 || code == 55 || (code >= 10 && code <= 19)) {
             changed = true;
         } else if (code == 2 && !subparameters) {
-            keep("11");
+            kept.append("11");
             changed = true;
         } else if (code == 22) {
-            keep("22;10");
+            kept.append("22;10");
             changed = true;
         } else {
-            keep(parameter);
+            kept.append(parameter);
         }
     }
     if (!changed)
         return false;
-    // An emptied sequence must not become CSI m, which resets every attribute.
-    if (!rewritten.isEmpty())
-        write(QByteArrayLiteral("\x1b[") + rewritten + 'm');
+    // Nothing kept must not become CSI m, which resets every attribute.
+    if (kept.isEmpty())
+        return true;
+    QByteArray rewritten = QByteArrayLiteral("\x1b[");
+    for (qsizetype index = 0; index < kept.size(); ++index) {
+        if (index) rewritten += ';';
+        rewritten += kept.at(index);
+    }
+    write(rewritten + 'm');
     return true;
 }
 
@@ -365,7 +415,7 @@ bool TerminalSession::Protocol::privateModes(const Sequence &sequence, bool set)
         write(QByteArrayLiteral("\x1b[?") + kept + sequence.final);
     else if (!consumed)
         write(sequence.raw);
-    if (changed) emit q->modesChanged();
+    if (changed) post([this] { emit q->modesChanged(); });
     return true;
 }
 
@@ -382,8 +432,14 @@ void TerminalSession::Protocol::keyboardProtocol(const Sequence &sequence)
         stack.current = qMax(0, first) & TerminalKeyboard::AllFlags;
         break;
     case '<':
-        for (int count = qMax(1, first); count > 0; --count)
-            stack.current = stack.saved.isEmpty() ? 0 : stack.saved.takeLast();
+    {
+        // The count is the program's: stop at the bottom of the stack, where
+        // no flags remain, instead of looping on an empty one.
+        int count = qMax(1, first);
+        for (; count > 0 && !stack.saved.isEmpty(); --count)
+            stack.current = stack.saved.takeLast();
+        if (count > 0) stack.current = 0;
+    }
         break;
     case '=': {
         const int flags = qMax(0, first) & TerminalKeyboard::AllFlags;
@@ -398,7 +454,7 @@ void TerminalSession::Protocol::keyboardProtocol(const Sequence &sequence)
         break;
     default: break;
     }
-    if (before != stack.current) emit q->modesChanged();
+    if (before != stack.current) post([this] { emit q->modesChanged(); });
 }
 
 bool TerminalSession::Protocol::reportWindow(const Sequence &sequence)

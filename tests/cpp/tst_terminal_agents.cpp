@@ -5,6 +5,7 @@
 #include "terminal_session.h"
 
 #include <QFile>
+#include <QPointer>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -78,6 +79,13 @@ private slots:
         QTest::newRow("program status") << QByteArray("\033]7501;?\033\\\033[c")
             << "\033]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\033\\" + deviceAttributes;
         QTest::newRow("clipboard is never read") << QByteArray("\033]52;c;?\007") << QByteArray("\033]52;c;\007");
+        // A reply is typed into the program: a request must not be able to
+        // smuggle a command line into it. Only the trailing probe is answered.
+        QTest::newRow("no injection through a capability name") << QByteArray("\033P+q;id\r\033\\\033P+qzz\033\\\033[c")
+                                                                 << deviceAttributes;
+        QTest::newRow("no injection through selection targets") << QByteArray("\033]52;id\r;?\007\033[c") << deviceAttributes;
+        QTest::newRow("no injection through a notification id") << QByteArray("\033]99;i=i\rd:p=?;\033\\\033[c") << deviceAttributes;
+        QTest::newRow("popping an empty stack is cheap") << QByteArray("\033[<999999u\033[<999999u\033[?u") << QByteArray("\033[?0u");
         QTest::newRow("clipboard capability") << QByteArray("\033P+q4d73\033\\")
             << QByteArray("\033P1+r4d73=1b5d35323b25703125733b2570322573" "07\033\\");
         QTest::newRow("unknown capability") << QByteArray("\033P+q7a7a\033\\") << QByteArray("\033P0+r7a7a\033\\");
@@ -140,7 +148,7 @@ private slots:
         QVERIFY(session.bracketedPaste());
         QVERIFY(!session.alternateScroll());
         QCOMPARE(session.keyboardFlags(), 5);
-        QVERIFY(modes.size() >= 2);
+        QTRY_VERIFY(modes.size() >= 2);
         QVERIFY(session.sendText(QStringLiteral("\n")));
         QTRY_VERIFY(screenText(session).contains(QStringLiteral("DONE")));
         QVERIFY(!session.bracketedPaste());
@@ -179,6 +187,68 @@ private slots:
         QVERIFY(spans.at(1).toMap().value(QStringLiteral("dim")).toBool());
         session.stop();
         QTRY_VERIFY(!session.running());
+    }
+    void attributeRewriteKeepsMeaning()
+    {
+        TerminalSession session;
+        QVERIFY(session.resize(4, 40));
+        // An empty parameter is a reset; it must survive the rewrite.
+        QVERIFY(shell(session, QStringLiteral(
+            "printf '\\033[1ma\\033[;2mb\\033[1mc\\033[;53md\\033[1me\\033[;;22mf\\033[1;4mg\\033[53mh\\033[0m'; read x")));
+        QTRY_VERIFY(screenText(session).contains(QStringLiteral("abcdefgh")));
+        const auto cells = session.rowData(0).value(QStringLiteral("cells")).toList();
+        const auto flag = [&cells](int column, const char *name) {
+            return cells.at(column).toMap().value(QLatin1String(name)).toBool();
+        };
+        QVERIFY(flag(0, "bold"));
+        QVERIFY(!flag(1, "bold")); QVERIFY(flag(1, "dim"));       // ;2  = reset, faint
+        QVERIFY(flag(2, "bold")); QVERIFY(flag(2, "dim"));
+        QVERIFY(!flag(3, "bold")); QVERIFY(!flag(3, "dim"));      // ;53 = reset, (overline dropped)
+        QVERIFY(flag(4, "bold"));
+        QVERIFY(!flag(5, "bold"));                                // ;;22 = reset, reset, normal intensity
+        QVERIFY(flag(6, "bold")); QVERIFY(flag(6, "underline"));
+        QVERIFY(flag(7, "bold")); QVERIFY(flag(7, "underline"));  // 53 alone changes nothing
+        session.stop();
+        QTRY_VERIFY(!session.running());
+    }
+    void bracketEndsAnOpenString()
+    {
+        TerminalSession session;
+        QSignalSpy clipboard(&session, &TerminalSession::clipboardWriteRequested);
+        QVERIFY(session.resize(4, 60));
+        // An unterminated clipboard request and an unterminated title, each
+        // followed by a synchronized frame: neither may swallow the frame.
+        QVERIFY(shell(session, QStringLiteral(
+            "printf '\\033]52;c;QUJD\\033[?2026hone\\033[?2026l \\033]2;title\\033[?2026htwo\\033[?2026l END'; read x")));
+        QTRY_VERIFY(screenText(session).contains(QStringLiteral("one two END")));
+        QTest::qWait(50);
+        QCOMPARE(clipboard.size(), 0);
+        session.stop();
+        QTRY_VERIFY(!session.running());
+    }
+    void slotsMayReenterOrDestroy()
+    {
+        // A host that confirms a clipboard write in a dialog spins an event
+        // loop inside the slot; output must stay in order and nothing crash.
+        auto session = std::make_unique<TerminalSession>();
+        QVERIFY(session->resize(4, 60));
+        int requests = 0;
+        connect(session.get(), &TerminalSession::clipboardWriteRequested, this, [&] {
+            ++requests;
+            QTest::qWait(150);
+        });
+        QVERIFY(shell(*session, QStringLiteral(
+            "printf '\\033]52;c;QQ==\\007first '; sleep 0.05; printf 'second '; sleep 0.05; printf 'third'; read x")));
+        QTRY_VERIFY(screenText(*session).contains(QStringLiteral("first second third")));
+        QTRY_COMPARE(requests, 1);
+        TerminalSession *raw = session.release();
+        connect(raw, &TerminalSession::notificationRequested, this, [raw] { delete raw; });
+        QPointer<TerminalSession> watch(raw);
+        QVERIFY(raw->sendText(QStringLiteral("\n")));
+        QVERIFY(shell(*raw, QStringLiteral("true")) == false);
+        QTRY_VERIFY(!raw->running());
+        QVERIFY(shell(*raw, QStringLiteral("printf '\\033]9;bye\\007\\033]9;again\\007'; read x")));
+        QTRY_VERIFY(!watch);
     }
     void synchronizedFramesAppearWhole()
     {
@@ -234,7 +304,7 @@ private slots:
             "printf '\\033]52;c;aGVsbG8g4pyTCg==\\007\\033]52;p;cHJpbWFyeQ==\\033\\\\\\033]52;;ZGVmYXVsdA==\\007"
             "\\033]52;c;!!!!\\007\\033]52;c;\\007DONE'; read x")));
         QTRY_VERIFY(screenText(session).contains(QStringLiteral("DONE")));
-        QCOMPARE(clipboard.size(), 3);
+        QTRY_COMPARE(clipboard.size(), 3);
         QCOMPARE(clipboard.at(0).at(0).toString(), QStringLiteral("hello \u2713\n"));
         QCOMPARE(clipboard.at(0).at(1).toBool(), false);
         QCOMPARE(clipboard.at(1).at(0).toString(), QStringLiteral("primary"));
@@ -253,7 +323,7 @@ private slots:
             "\\033]99;i=1:d=0;Title\\033\\\\\\033]99;i=1:p=body;Body\\033\\\\"
             "\\033]99;i=2:o=unfocused;Hidden\\033\\\\\\033]99;i=3:e=1;QmFzZTY0\\033\\\\\\033]9;9;ignored\\007DONE'; read x")));
         QTRY_VERIFY(screenText(session).contains(QStringLiteral("DONE")));
-        QCOMPARE(notified.size(), 4);
+        QTRY_COMPARE(notified.size(), 4);
         QCOMPARE(notified.at(0).at(1).toString(), QStringLiteral("Turn complete"));
         QCOMPARE(notified.at(1).at(0).toString(), QStringLiteral("Codex"));
         // Text shown outside the grid carries no control characters.
@@ -288,7 +358,7 @@ private slots:
         QCOMPARE(session.programStatus().value(QStringLiteral("state")).toString(), QStringLiteral("done"));
         session.acknowledgeProgramStatus();
         QVERIFY(session.programStatus().isEmpty());
-        QVERIFY(changed.size() >= 4);
+        QTRY_VERIFY(changed.size() >= 4);
     }
     void progressReportsBecomeStatus()
     {

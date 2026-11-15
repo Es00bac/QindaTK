@@ -249,7 +249,7 @@ Encoding encodeModifyOtherKeys(int level, int key, int modifiers, const QString 
     static const QByteArray legacyControls = QByteArrayLiteral("@[\\]^_?2345678-/");
     if (letter)
         return shift ? other(code) : Encoding{};
-    return legacyControls.contains(char(key)) ? Encoding{} : other(code);
+    return key < 0x80 && legacyControls.contains(char(key)) ? Encoding{} : other(code);
 }
 
 } // namespace QindaTK::TerminalKeyboard

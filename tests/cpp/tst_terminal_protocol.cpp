@@ -93,6 +93,20 @@ private slots:
         for (const qsizetype chunk : {qsizetype(4096), qsizetype(1), qsizetype(2), qsizetype(3)})
             QCOMPARE(tokenize(input, chunk), expected);
     }
+    void filterBoundsEverySequence()
+    {
+        // A run of intermediates with no final byte is passed on, not hoarded.
+        Recorder recorder;
+        StreamFilter filter;
+        const QByteArray run = QByteArrayLiteral("\x1b") + QByteArray(100000, ' ');
+        filter.feed(run, recorder);
+        filter.feed(QByteArrayLiteral("x\x1b[0m"), recorder);
+        QByteArray text;
+        for (const auto &event : std::as_const(recorder.events))
+            if (event.startsWith("T:")) text += event.mid(2);
+        QCOMPARE(text, run + QByteArrayLiteral("x"));
+        QCOMPARE(recorder.events.last(), QByteArray("CSI |0||m"));
+    }
     void filterBoundsStrings()
     {
         Recorder recorder;

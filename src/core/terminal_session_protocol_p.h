@@ -6,6 +6,7 @@
 #include "terminal_stream_filter_p.h"
 
 #include <QElapsedTimer>
+#include <functional>
 #include <QHash>
 #include <QList>
 #include <QTimer>
@@ -81,6 +82,9 @@ private:
     };
 
     void gated(QByteArrayView bytes);
+    void feed(QByteArrayView bytes);
+    void post(std::function<void()> emission);
+    void deliverPosted();
     void write(QByteArrayView bytes);
     void reply(const QByteArray &bytes);
     void handle(const Sequence &sequence);
@@ -120,6 +124,11 @@ private:
     bool m_statusReported = false;
     bool m_lastDark = true;
     QHash<QByteArray, PendingNotification> m_notifications;
+    // Output that arrived while a feed was already running, and signals to
+    // emit once parsing has finished.
+    QByteArray m_reentrant;
+    bool m_feeding = false, m_deliveryQueued = false;
+    QList<std::function<void()>> m_posted;
 };
 
 } // namespace QindaTK

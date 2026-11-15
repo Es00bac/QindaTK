@@ -45,6 +45,7 @@ public:
     // Forget a partial sequence, e.g. when a new process starts on the session.
     void reset();
 
+    static constexpr qsizetype maxEscapeBytes = 16;
     static constexpr qsizetype maxCsiBytes = 256;
     static constexpr qsizetype maxOscBytes = 8192;
     // OSC 52 carries a whole clipboard: 1 MiB of text is 1.4 MiB of base64.
