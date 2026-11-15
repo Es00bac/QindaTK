@@ -235,15 +235,31 @@ QVariantMap TerminalSession::rowData(int row) const
     return formatRow(rowCells(row), true);
 }
 
-void TerminalSession::rebuildScreen()
+void TerminalSession::refreshRows()
 {
-    if (!m_vscreen) return;
     QVariantList rows;
     rows.reserve(m_rows);
     const int history = m_alternateScreen ? 0 : int(m_history.size());
     for (int row = 0; row < m_rows; ++row)
         rows.append(formatRow(rowCells(history + row), false));
     m_screenRows = rows;
+    if (m_protocol) m_protocol->rowsStale = false;
+}
+
+// AGENT-GUARD: screenChanged is coalesced, but a read is never stale. Output
+// that has been parsed and not yet announced is formatted here on demand, so
+// `screen` always agrees with rowData(), copyText() and `scrollback`.
+QVariantList TerminalSession::screen() const
+{
+    if (m_vscreen && m_protocol && m_protocol->rowsStale)
+        const_cast<TerminalSession *>(this)->refreshRows();
+    return m_screenRows;
+}
+
+void TerminalSession::rebuildScreen()
+{
+    if (!m_vscreen) return;
+    refreshRows();
     emit screenChanged();
 }
 

@@ -13,7 +13,10 @@ second `start` is rejected while it runs.
 queue. `resize(rows, columns)` changes both the PTY window size and parser
 screen; accepted sizes are 2–512 rows and 2–1024 columns. `stop()` sends
 SIGHUP to the process group and escalates to SIGKILL after two seconds.
-Destroying a running session kills and reaps the child.
+Destroying a running session hangs up first: it sends SIGHUP to the process
+group, closes the PTY, and waits up to 500 ms for the program to exit, so the
+program can save its state and stop its own helpers. A program that ignores
+the hangup is then killed, and the child is always reaped.
 
 `screen` is an array of rows. Each row has `text` and `spans`; each span has
 `text`, `foreground`, `background`, `bold`, `dim`, `italic`, `underline`, and
@@ -115,9 +118,11 @@ The child process starts with `TERM=xterm-256color`, `COLORTERM=truecolor` and
 that identify another terminal or multiplexer are removed, so a program does
 not address this terminal in the dialect of the one that launched the host.
 
-Output is presented after a 2 ms quiet gap, or 8 ms after the first unshown
-byte, rather than once per read. `exited` is still delivered after the final
-screen.
+`screenChanged` is emitted after a 2 ms quiet gap, or 8 ms after the first
+unannounced byte, rather than once per read. Reads are never stale: `screen`,
+`rowData()`, `copyText()` and `scrollback` always reflect everything parsed so
+far. A view that keeps its own model is current as of the last signal.
+`exited` is still delivered after the final screen.
 
 The session does not preserve terminal output across process restarts.
 Applications must treat local process execution as an explicit capability;

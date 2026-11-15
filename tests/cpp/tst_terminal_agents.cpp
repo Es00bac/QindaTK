@@ -8,6 +8,8 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <memory>
+#include <signal.h>
 
 using namespace QindaTK;
 
@@ -325,6 +327,32 @@ private slots:
                  qPrintable(screenText(session)));
         session.stop();
         QTRY_VERIFY(!session.running());
+    }
+    void destroyingHangsUpBeforeKilling()
+    {
+        QTemporaryDir directory;
+        const QString marker = directory.filePath(QStringLiteral("saved"));
+        auto session = std::make_unique<TerminalSession>();
+        // A program that saves its state when the terminal goes away.
+        QVERIFY(session->start(QStringLiteral("/usr/bin/python3"), {QStringLiteral("-c"), QStringLiteral(
+            "import os, signal, sys, time\n"
+            "def bye(*_):\n    open(sys.argv[1], 'w').write('saved')\n    os._exit(0)\n"
+            "signal.signal(signal.SIGHUP, bye)\nprint('READY', flush=True)\ntime.sleep(30)\n"), marker}));
+        QTRY_VERIFY(screenText(*session).contains(QStringLiteral("READY")));
+        session.reset();
+        QVERIFY(QFile::exists(marker));
+
+        // A program that ignores the hangup is still gone, and promptly.
+        session = std::make_unique<TerminalSession>();
+        QVERIFY(shell(*session, QStringLiteral("trap '' HUP TERM; echo PID:$$:; while :; do sleep 1; done")));
+        QTRY_VERIFY(screenText(*session).contains(QStringLiteral("PID:")));
+        const qint64 pid = screenText(*session).section(QLatin1Char(':'), 1, 1).toLongLong();
+        QVERIFY(pid > 1);
+        QElapsedTimer timer;
+        timer.start();
+        session.reset();
+        QVERIFY(timer.elapsed() < 2000);
+        QVERIFY(::kill(pid_t(pid), 0) != 0);
     }
     void cellSizeIsReported()
     {

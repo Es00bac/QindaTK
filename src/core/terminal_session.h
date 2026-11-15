@@ -70,7 +70,7 @@ public:
     int cursorRow() const { return m_cursorRow; }
     int cursorColumn() const { return m_cursorColumn; }
     bool cursorVisible() const { return m_cursorVisible; }
-    QVariantList screen() const { return m_screenRows; }
+    QVariantList screen() const;
     QStringList scrollback() const { return m_alternateScreen ? QStringList{} : m_scrollback; }
     bool alternateScreen() const { return m_alternateScreen; }
     bool reverseScreen() const { return m_reverseScreen; }
@@ -145,6 +145,7 @@ private:
     bool flushInput();
     void pollProcess();
     void rebuildScreen();
+    void refreshRows();
     void closePty();
     void setError(const QString &message);
     static QString cellText(const VTermScreenCell &cell);

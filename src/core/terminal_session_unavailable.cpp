@@ -39,6 +39,7 @@ bool TerminalSession::start(const QString &, const QStringList &, const QString 
 }
 bool TerminalSession::sendText(const QString &) { return false; }
 bool TerminalSession::sendKey(int, int, const QString &) { return false; }
+QVariantList TerminalSession::screen() const { return m_screenRows; }
 bool TerminalSession::sendKeyEvent(int, int, const QString &, int) { return false; }
 bool TerminalSession::bracketedPaste() const { return false; }
 int TerminalSession::keyboardFlags() const { return 0; }

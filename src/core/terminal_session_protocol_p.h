@@ -38,6 +38,8 @@ public:
     int keyboardFlags() const;
     int modifyOtherKeys() const { return m_modifyOtherKeys; }
 
+    // Parsed output that `screen` has not been formatted from yet.
+    bool rowsStale = false;
     bool bracketedPaste = false;
     bool alternateScroll = true;
     bool focused = false;

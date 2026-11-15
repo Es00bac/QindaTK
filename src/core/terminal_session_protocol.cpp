@@ -133,6 +133,7 @@ void TerminalSession::Protocol::write(QByteArrayView bytes)
     const bool alternate = q->m_alternateScreen;
     vterm_input_write(q->m_vterm, bytes.data(), size_t(bytes.size()));
     m_dirty = true;
+    rowsStale = true;
     if (alternate != q->m_alternateScreen) {
         // Each screen has its own keyboard mode stack; a full-screen program
         // that dies without popping leaves the shell's modes untouched.

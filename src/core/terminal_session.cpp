@@ -22,6 +22,8 @@ namespace {
 constexpr int maxRows = 512;
 constexpr int maxColumns = 1024;
 constexpr int maxPendingInput = 1024 * 1024;
+// How long a destroyed session waits for its program to act on the hangup.
+constexpr int hangupGraceMs = 500;
 
 // Set by other terminals for the programs they start.
 constexpr const char *foreignTerminalVariables[] = {
@@ -92,9 +94,24 @@ TerminalSession::~TerminalSession()
     m_pollTimer.stop();
     m_killTimer.stop();
     if (m_pid > 0 && !m_childExited) {
-        signalProcessGroup(m_pid, SIGKILL);
+        // AGENT-GUARD: hang up before killing. A program that is killed
+        // outright cannot save its session, restore the terminal modes it
+        // changed or stop the helpers it started; agent CLIs also record a
+        // death in their first seconds as a failed start. Only a program that
+        // ignores the hangup is killed, and it is always reaped here.
+        signalProcessGroup(m_pid, SIGHUP);
+        closePty();
         int status = 0;
-        while (::waitpid(m_pid, &status, 0) < 0 && errno == EINTR) {}
+        bool reaped = false;
+        for (int waited = 0; waited < hangupGraceMs && !reaped; waited += 5) {
+            const pid_t result = ::waitpid(m_pid, &status, WNOHANG);
+            reaped = result == m_pid || (result < 0 && errno != EINTR);
+            if (!reaped) ::usleep(5000);
+        }
+        if (!reaped) {
+            signalProcessGroup(m_pid, SIGKILL);
+            while (::waitpid(m_pid, &status, 0) < 0 && errno == EINTR) {}
+        }
         m_pid = -1;
     }
     closePty();
